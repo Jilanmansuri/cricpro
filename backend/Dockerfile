@@ -7,12 +7,15 @@ WORKDIR /app
 
 COPY package*.json ./
 
-RUN npm ci --only=production && npm cache clean --force
+RUN npm ci
 
 COPY . .
 
-# Build typescript code
-RUN npm install -g typescript && tsc
+# Build typescript code using local ts version
+RUN npm run build
+
+# Remove devDependencies
+RUN npm prune --production
 
 EXPOSE 5000
 
