@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  cricstats-api:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      - PORT=5000
+      - MONGO_URI=mongodb://mongodb:27017/cricstats
+      - NODE_ENV=production
+      - JWT_SECRET=supersecretprodkey
+      - JWT_REFRESH_SECRET=supersecretprodrefreshkey
+    depends_on:
+      - mongodb
+
+  mongodb:
+    image: mongo:latest
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+
+volumes:
+  mongo-data:
