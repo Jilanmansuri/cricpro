@@ -33,6 +33,7 @@ export const StatCard: React.FC<StatCardProps> = ({
 
   return (
     <Card style={[styles.card, style]}>
+      <View style={[styles.accent, { backgroundColor: colors.primary }]} />
       <Text style={[styles.title, { color: colors.textMuted }]}>{title}</Text>
       <Text style={[styles.value, { color: colors.text }]}>{value}</Text>
       {subtext && (
@@ -49,6 +50,15 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 14,
     minWidth: 100,
+    position: 'relative',
+  },
+  accent: {
+    position: 'absolute',
+    left: 0,
+    top: 14,
+    bottom: 14,
+    width: 3,
+    borderRadius: 999,
   },
   title: {
     fontSize: 12,
@@ -56,15 +66,18 @@ const styles = StyleSheet.create({
     marginBottom: 6,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+    paddingLeft: 8,
   },
   value: {
     fontSize: 20,
     fontWeight: '800',
     marginBottom: 4,
+    paddingLeft: 8,
   },
   subtext: {
     fontSize: 11,
     fontWeight: '600',
+    paddingLeft: 8,
   },
 });
 export default StatCard;
