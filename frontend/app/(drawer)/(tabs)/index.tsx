@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity, FlatList } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../../../components/Theme';
 import { useAuthStore } from '../../../store/authStore';
@@ -36,20 +36,20 @@ export default function DashboardScreen() {
 
         if (matchRes.data.success) {
           setMatches(matchRes.data.data);
-          setStats(prev => ({ ...prev, matchesCount: matchRes.data.pagination.total }));
+          setStats((prev) => ({ ...prev, matchesCount: matchRes.data.pagination.total }));
         }
 
         if (tourneyRes.data.success) {
           setTournaments(tourneyRes.data.data);
-          setStats(prev => ({ ...prev, tournamentsCount: tourneyRes.data.data.length }));
+          setStats((prev) => ({ ...prev, tournamentsCount: tourneyRes.data.data.length }));
         }
 
         if (playerRes.data.success) {
-          setStats(prev => ({ ...prev, playersCount: playerRes.data.pagination.total }));
+          setStats((prev) => ({ ...prev, playersCount: playerRes.data.pagination.total }));
         }
 
         if (teamRes.data.success) {
-          setStats(prev => ({ ...prev, teamsCount: teamRes.data.pagination.total }));
+          setStats((prev) => ({ ...prev, teamsCount: teamRes.data.pagination.total }));
         }
       } catch (err) {
         console.error('Failed to load dashboard data:', err);
@@ -63,7 +63,7 @@ export default function DashboardScreen() {
 
   if (isLoading) {
     return (
-      <View style={[styles.loaderContainer, { backgroundColor: colors.background }]}>
+      <View style={[styles.loaderContainer, { backgroundColor: colors.background }]}> 
         <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
@@ -71,28 +71,33 @@ export default function DashboardScreen() {
 
   return (
     <ScrollView style={[styles.container, { backgroundColor: colors.background }]} contentContainerStyle={styles.content}>
-      {/* Header welcome banner */}
-      <View style={styles.header}>
-        <View>
-          <Text style={[styles.greeting, { color: colors.textMuted }]}>Welcome back,</Text>
-          <Text style={[styles.username, { color: colors.text }]}>{user?.username || 'Player'}</Text>
+      <Card style={[styles.heroCard, { backgroundColor: colors.cardBg, borderColor: colors.border }]}> 
+        <View style={styles.heroContent}>
+          <View style={styles.heroTextBlock}>
+            <Text style={[styles.eyebrow, { color: colors.primary }]}>Cricket Dashboard</Text>
+            <Text style={[styles.username, { color: colors.text }]}>{user?.username || 'Player'}</Text>
+            <Text style={[styles.heroSubtext, { color: colors.textMuted }]}>Stay on top of matches, tournaments, and team momentum.</Text>
+          </View>
+          <Avatar name={user?.username || 'P'} size={52} />
         </View>
-        <Avatar name={user?.username || 'P'} size={48} />
-      </View>
+      </Card>
 
-      {/* Quick stats cards */}
       <View style={styles.statsRow}>
-        <StatCard title="Matches" value={stats.matchesCount} style={styles.statCard} />
-        <StatCard title="Tournaments" value={stats.tournamentsCount} style={styles.statCard} />
+        <StatCard title="Matches" value={stats.matchesCount} subtext="Live feed" style={styles.statCard} />
+        <StatCard title="Tournaments" value={stats.tournamentsCount} subtext="Active" style={styles.statCard} />
       </View>
       <View style={styles.statsRow}>
-        <StatCard title="Teams" value={stats.teamsCount} style={styles.statCard} />
-        <StatCard title="Players" value={stats.playersCount} style={styles.statCard} />
+        <StatCard title="Teams" value={stats.teamsCount} subtext="Tracked" style={styles.statCard} />
+        <StatCard title="Players" value={stats.playersCount} subtext="Registered" style={styles.statCard} />
       </View>
 
-      {/* Analytics chart */}
-      <Text style={[styles.sectionTitle, { color: colors.text }]}>Performance Insights</Text>
-      <Card style={styles.chartCard}>
+      <Card style={[styles.chartCard, { backgroundColor: colors.cardBg, borderColor: colors.border }]}> 
+        <View style={styles.sectionHeader}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Performance Insights</Text>
+          <View style={[styles.pill, { backgroundColor: colors.accent }]}> 
+            <Text style={[styles.pillText, { color: colors.primary }]}>Updated</Text>
+          </View>
+        </View>
         <Text style={[styles.chartHeader, { color: colors.textMuted }]}>Matches Played Over Time</Text>
         <LineChart
           data={[
@@ -101,13 +106,12 @@ export default function DashboardScreen() {
             { date: '2026-03-01', value: 2 },
             { date: '2026-04-01', value: 5 },
             { date: '2026-05-01', value: 4 },
-            { date: '2026-06-01', value: 6 }
+            { date: '2026-06-01', value: 6 },
           ]}
           title="Matches Played"
         />
       </Card>
 
-      {/* Recent Matches */}
       <View style={styles.sectionHeader}>
         <Text style={[styles.sectionTitle, { color: colors.text }]}>Recent Matches</Text>
         <TouchableOpacity onPress={() => router.push('/(drawer)/(tabs)/players')}>
@@ -115,54 +119,60 @@ export default function DashboardScreen() {
         </TouchableOpacity>
       </View>
 
-      <FlatList
-        data={matches}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        keyExtractor={(item) => item._id}
-        renderItem={({ item }) => (
-          <TouchableOpacity onPress={() => router.push({ pathname: '/match-details', params: { id: item._id } })}>
-            <Card style={styles.matchCard}>
-              <Text style={[styles.matchDate, { color: colors.textMuted }]}>
-                {new Date(item.date).toLocaleDateString(undefined, { dateStyle: 'medium' })}
-              </Text>
-              <Text style={[styles.matchVs, { color: colors.text }]}>
-                {item.teamA?.name} vs {item.teamB?.name}
-              </Text>
-              <Text style={[styles.matchResult, { color: colors.primary }]} numberOfLines={1}>
-                {item.result}
-              </Text>
-            </Card>
-          </TouchableOpacity>
-        )}
-        contentContainerStyle={styles.matchesList}
-      />
+      {matches.length > 0 ? (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.matchesList}>
+          {matches.map((item) => (
+            <TouchableOpacity
+              key={item._id}
+              onPress={() => router.push({ pathname: '/match-details', params: { id: item._id } })}
+            >
+              <Card style={styles.matchCard}>
+                <Text style={[styles.matchDate, { color: colors.textMuted }]}> 
+                  {new Date(item.date).toLocaleDateString(undefined, { dateStyle: 'medium' })}
+                </Text>
+                <Text style={[styles.matchVs, { color: colors.text }]}> 
+                  {item.teamA?.name} vs {item.teamB?.name}
+                </Text>
+                <Text style={[styles.matchResult, { color: colors.primary }]} numberOfLines={1}>
+                  {item.result}
+                </Text>
+              </Card>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      ) : (
+        <Card style={styles.emptyCard}>
+          <Text style={[styles.emptyText, { color: colors.textMuted }]}>No recent matches yet.</Text>
+        </Card>
+      )}
 
-      {/* Recent Tournaments */}
       <Text style={[styles.sectionTitle, { color: colors.text, marginTop: 20 }]}>Active Tournaments</Text>
       <View style={styles.tourneyList}>
-        {tournaments.map((t) => (
-          <TouchableOpacity
-            key={t._id}
-            onPress={() => router.push({ pathname: '/tournament-details', params: { id: t._id } })}
-          >
-            <Card style={styles.tourneyCard}>
-              <View style={styles.tourneyHeader}>
-                <Text style={[styles.tourneyName, { color: colors.text }]}>{t.name}</Text>
-                <Text style={[styles.tourneyDates, { color: colors.textMuted }]}>
-                  {new Date(t.startDate).getFullYear()}
-                </Text>
-              </View>
-            </Card>
-          </TouchableOpacity>
-        ))}
+        {tournaments.length > 0 ? (
+          tournaments.map((t) => (
+            <TouchableOpacity
+              key={t._id}
+              onPress={() => router.push({ pathname: '/tournament-details', params: { id: t._id } })}
+            >
+              <Card style={styles.tourneyCard}>
+                <View style={styles.tourneyHeader}>
+                  <Text style={[styles.tourneyName, { color: colors.text }]}>{t.name}</Text>
+                  <Text style={[styles.tourneyDates, { color: colors.textMuted }]}> 
+                    {new Date(t.startDate).getFullYear()}
+                  </Text>
+                </View>
+              </Card>
+            </TouchableOpacity>
+          ))
+        ) : (
+          <Card style={styles.emptyCard}>
+            <Text style={[styles.emptyText, { color: colors.textMuted }]}>No tournaments available right now.</Text>
+          </Card>
+        )}
       </View>
     </ScrollView>
   );
 }
-
-import { Dimensions } from 'react-native';
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const styles = StyleSheet.create({
   container: {
@@ -170,28 +180,43 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 16,
-    paddingBottom: 90,
+    paddingBottom: 100,
   },
   loaderContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  header: {
+  heroCard: {
+    marginTop: 6,
+    marginBottom: 16,
+    paddingVertical: 18,
+    paddingHorizontal: 18,
+  },
+  heroContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 24,
-    marginTop: 10,
+    gap: 12,
   },
-  greeting: {
-    fontSize: 14,
-    fontWeight: '600',
+  heroTextBlock: {
+    flex: 1,
+  },
+  eyebrow: {
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    marginBottom: 4,
   },
   username: {
     fontSize: 22,
     fontWeight: '900',
-    marginTop: 2,
+    marginBottom: 4,
+  },
+  heroSubtext: {
+    fontSize: 13,
+    lineHeight: 19,
   },
   statsRow: {
     flexDirection: 'row',
@@ -204,32 +229,44 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 16,
     fontWeight: '800',
-    marginTop: 24,
+    marginTop: 10,
     marginBottom: 12,
   },
   chartCard: {
     padding: 16,
+    marginBottom: 10,
   },
   chartHeader: {
     fontSize: 11,
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-    marginBottom: 12,
+    marginBottom: 10,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 24,
-    marginBottom: 12,
+    marginTop: 8,
+    marginBottom: 10,
+  },
+  pill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  pillText: {
+    fontSize: 11,
+    fontWeight: '700',
   },
   matchesList: {
     gap: 12,
+    paddingRight: 4,
   },
   matchCard: {
-    width: 200,
+    width: 220,
     padding: 14,
+    marginRight: 12,
   },
   matchDate: {
     fontSize: 11,
@@ -243,6 +280,14 @@ const styles = StyleSheet.create({
   matchResult: {
     fontSize: 12,
     fontWeight: '700',
+  },
+  emptyCard: {
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  emptyText: {
+    fontSize: 13,
+    fontWeight: '600',
   },
   tourneyList: {
     gap: 10,
@@ -258,8 +303,10 @@ const styles = StyleSheet.create({
   tourneyName: {
     fontSize: 14,
     fontWeight: '800',
+    flex: 1,
+    marginRight: 6,
   },
   tourneyDates: {
     fontSize: 12,
-  },
+    fontWeight: '600',
 });
