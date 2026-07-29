@@ -3,32 +3,34 @@ import { useColorScheme } from 'react-native';
 
 export const COLORS = {
   dark: {
-    background: '#0F0F11',
-    surface: '#1A1A1E',
-    surfaceLighter: '#25252B',
-    primary: '#00FF66', // Neon Sporty Green
-    secondary: '#00E5FF', // Cyan Accent
-    text: '#FFFFFF',
-    textMuted: '#9CA3AF',
-    border: '#2E2E35',
+    background: '#0B0F14',
+    surface: '#111827',
+    surfaceLighter: '#1F2937',
+    primary: '#22C55E',
+    secondary: '#38BDF8',
+    text: '#F9FAFB',
+    textMuted: '#94A3B8',
+    border: '#273449',
     error: '#EF4444',
     warning: '#F59E0B',
     success: '#10B981',
-    cardBg: 'rgba(26, 26, 30, 0.8)',
+    cardBg: 'rgba(17, 24, 39, 0.92)',
+    accent: 'rgba(34, 197, 94, 0.16)',
   },
   light: {
-    background: '#F9FAFB',
+    background: '#F4F7FB',
     surface: '#FFFFFF',
-    surfaceLighter: '#F3F4F6',
-    primary: '#00C853', // Deep Sporty Green
-    secondary: '#00B8D4', // Cyan Accent
-    text: '#111827',
-    textMuted: '#6B7280',
-    border: '#E5E7EB',
+    surfaceLighter: '#EEF2FF',
+    primary: '#16A34A',
+    secondary: '#0EA5E9',
+    text: '#0F172A',
+    textMuted: '#64748B',
+    border: '#E2E8F0',
     error: '#DC2626',
     warning: '#D97706',
     success: '#059669',
-    cardBg: 'rgba(255, 255, 255, 0.9)',
+    cardBg: 'rgba(255, 255, 255, 0.95)',
+    accent: 'rgba(22, 163, 74, 0.12)',
   }
 };
 
