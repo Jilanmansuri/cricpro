@@ -106,10 +106,29 @@ export const getUserProfile = async (req: AuthRequest, res: Response): Promise<v
         username: req.user.username,
         email: req.user.email,
         profilePic: req.user.profilePic,
+        phone: req.user.phone,
         role: req.user.role
       }
     });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const updateUserProfile = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ success: false, message: 'Unauthorized' });
+      return;
+    }
+
+    const updatedUser = await authService.updateProfile(req.user._id.toString(), req.body);
+    res.json({
+      success: true,
+      message: 'Profile updated successfully',
+      data: updatedUser
+    });
+  } catch (error: any) {
+    res.status(400).json({ success: false, message: error.message });
   }
 };

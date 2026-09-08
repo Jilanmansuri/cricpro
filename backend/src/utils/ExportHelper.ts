@@ -7,19 +7,22 @@ export class ExportHelper {
     csv += `Overs,${match.overs}\n`;
     csv += `Result,${match.result}\n\n`;
 
+    const teamAId = (match.teamA?._id || match.teamA)?.toString();
+    const teamBId = (match.teamB?._id || match.teamB)?.toString();
+
     // Team A Batting
     csv += `${match.teamA?.name} Batting Scorecard\n`;
     csv += 'Batsman,Runs,Balls,4s,6s,Status\n';
-    const teamABat = playerStats.filter(s => s.teamId?.toString() === match.teamA?._id?.toString() && !s.batting?.didNotBat);
+    const teamABat = playerStats.filter(s => s.teamId?.toString() === teamAId && !s.batting?.didNotBat);
     for (const row of teamABat) {
       csv += `"${row.playerId?.name}",${row.batting?.runs},${row.batting?.balls},${row.batting?.fours},${row.batting?.sixes},${row.batting?.outStatus}\n`;
     }
     csv += '\n';
 
-    // Team B Bowling
+    // Team B Bowling (Bowling against Team A)
     csv += `${match.teamB?.name} Bowling Scorecard\n`;
     csv += 'Bowler,Overs,Maidens,Runs Conceded,Wickets\n';
-    const teamBBowl = playerStats.filter(s => s.teamId?.toString() === match.teamA?.toString() && !s.bowling?.didNotBowl);
+    const teamBBowl = playerStats.filter(s => s.teamId?.toString() === teamBId && !s.bowling?.didNotBowl);
     for (const row of teamBBowl) {
       csv += `"${row.playerId?.name}",${row.bowling?.overs},${row.bowling?.maidens},${row.bowling?.runsConceded},${row.bowling?.wickets}\n`;
     }
@@ -28,16 +31,16 @@ export class ExportHelper {
     // Team B Batting
     csv += `${match.teamB?.name} Batting Scorecard\n`;
     csv += 'Batsman,Runs,Balls,4s,6s,Status\n';
-    const teamBBat = playerStats.filter(s => s.teamId?.toString() === match.teamB?._id?.toString() && !s.batting?.didNotBat);
+    const teamBBat = playerStats.filter(s => s.teamId?.toString() === teamBId && !s.batting?.didNotBat);
     for (const row of teamBBat) {
       csv += `"${row.playerId?.name}",${row.batting?.runs},${row.batting?.balls},${row.batting?.fours},${row.batting?.sixes},${row.batting?.outStatus}\n`;
     }
     csv += '\n';
 
-    // Team A Bowling
+    // Team A Bowling (Bowling against Team B)
     csv += `${match.teamA?.name} Bowling Scorecard\n`;
     csv += 'Bowler,Overs,Maidens,Runs Conceded,Wickets\n';
-    const teamABowl = playerStats.filter(s => s.teamId?.toString() === match.teamB?.toString() && !s.bowling?.didNotBowl);
+    const teamABowl = playerStats.filter(s => s.teamId?.toString() === teamAId && !s.bowling?.didNotBowl);
     for (const row of teamABowl) {
       csv += `"${row.playerId?.name}",${row.bowling?.overs},${row.bowling?.maidens},${row.bowling?.runsConceded},${row.bowling?.wickets}\n`;
     }
@@ -46,10 +49,13 @@ export class ExportHelper {
   }
 
   public static exportMatchToHtml(match: any, playerStats: any[]): string {
-    const teamABat = playerStats.filter(s => s.teamId?.toString() === match.teamA?._id?.toString() && !s.batting?.didNotBat);
-    const teamBBowl = playerStats.filter(s => s.teamId?.toString() === match.teamA?.toString() && !s.bowling?.didNotBowl);
-    const teamBBat = playerStats.filter(s => s.teamId?.toString() === match.teamB?._id?.toString() && !s.batting?.didNotBat);
-    const teamABowl = playerStats.filter(s => s.teamId?.toString() === match.teamB?.toString() && !s.bowling?.didNotBowl);
+    const teamAId = (match.teamA?._id || match.teamA)?.toString();
+    const teamBId = (match.teamB?._id || match.teamB)?.toString();
+
+    const teamABat = playerStats.filter(s => s.teamId?.toString() === teamAId && !s.batting?.didNotBat);
+    const teamBBowl = playerStats.filter(s => s.teamId?.toString() === teamBId && !s.bowling?.didNotBowl);
+    const teamBBat = playerStats.filter(s => s.teamId?.toString() === teamBId && !s.batting?.didNotBat);
+    const teamABowl = playerStats.filter(s => s.teamId?.toString() === teamAId && !s.bowling?.didNotBowl);
 
     return `
       <!DOCTYPE html>

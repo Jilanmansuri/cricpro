@@ -119,4 +119,25 @@ export class AuthService {
     user.password = newPassword;
     await user.save();
   }
+
+  public async updateProfile(userId: string, data: { profilePic?: string; phone?: string; username?: string }): Promise<any> {
+    const user = await this.userRepository.findById(userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    if (data.profilePic !== undefined) user.profilePic = data.profilePic;
+    if (data.phone !== undefined) user.phone = data.phone;
+    if (data.username !== undefined && data.username.trim() !== '') user.username = data.username.trim();
+
+    await user.save();
+    return {
+      _id: user._id,
+      username: user.username,
+      email: user.email,
+      profilePic: user.profilePic,
+      phone: user.phone,
+      role: user.role,
+    };
+  }
 }

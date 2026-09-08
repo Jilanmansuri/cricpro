@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import api from './api';
+import api, { API_BASE_URL } from './api';
 
 const OFFLINE_QUEUE_KEY = 'cricstats_pending_sync_matches';
 
@@ -43,10 +43,10 @@ export class SyncManager {
   public static async isServerOnline(): Promise<boolean> {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 sec timeout
+      const timeoutId = setTimeout(() => controller.abort(), 6000);
 
-      // Call base route check
-      const res = await fetch('http://localhost:5000/', {
+      const serverRoot = API_BASE_URL.replace(/\/api\/?$/, '');
+      const res = await fetch(`${serverRoot}/`, {
         signal: controller.signal,
       });
       clearTimeout(timeoutId);
@@ -80,7 +80,7 @@ export class SyncManager {
 
       for (const item of queue) {
         try {
-          const res = await api.post('/ocr/save', item.payload);
+          const res = await api.post('/matches/save', item.payload);
           if (res.data.success) {
             syncedCount++;
           } else {

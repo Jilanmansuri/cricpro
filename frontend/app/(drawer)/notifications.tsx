@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
 import { useTheme } from '../../components/Theme';
 import Card from '../../components/Card';
+import api from '../../services/api';
 import Svg, { Path } from 'react-native-svg';
 
 interface NotificationItem {
@@ -22,38 +23,65 @@ const BellIcon = ({ color }: { color: string }) => (
 export default function NotificationsScreen() {
   const { colors } = useTheme();
 
-  // Seed sample interactive notifications
+  // Seed default interactive notifications
   const [notifications, setNotifications] = useState<NotificationItem[]>([
     {
       id: '1',
-      title: 'Match Upload Successful',
-      body: 'Scorecard screenshot from "RCB vs MI" has been successfully analyzed and saved.',
+      title: 'Match Upload Ready',
+      body: 'Scorecard scanning pipeline via Tesseract OCR engine is active.',
       type: 'match',
-      timestamp: '10 mins ago',
+      timestamp: 'Just now',
       read: false,
     },
     {
       id: '2',
-      title: 'Orange Cap Standings Updated',
-      body: 'Kohli takes the lead with 450 runs after today’s match standings recalc.',
+      title: 'Leaderboards Active',
+      body: 'Orange & Purple Caps live updates recalculated after match submissions.',
       type: 'tournament',
-      timestamp: '2 hours ago',
+      timestamp: '1 hour ago',
       read: false,
     },
     {
       id: '3',
-      title: 'System Server Update',
-      body: 'CricStats Pro version 2.0.0 is live with clean repository-service architecture.',
+      title: 'System Online',
+      body: 'CricStats Pro is connected with full offline sync queues.',
       type: 'system',
-      timestamp: '1 day ago',
+      timestamp: 'Today',
       read: true,
     },
   ]);
 
-  const handleMarkAsRead = (id: string) => {
+  useEffect(() => {
+    const loadNotifications = async () => {
+      try {
+        const res = await api.get('/notifications');
+        if (res.data.success && res.data.data.length > 0) {
+          const fetched: NotificationItem[] = res.data.data.map((n: any) => ({
+            id: n._id,
+            title: n.title,
+            body: n.message,
+            type: 'system',
+            timestamp: new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            read: n.isRead,
+          }));
+          setNotifications(fetched);
+        }
+      } catch (err) {
+        // Fallback gracefully to default items
+      }
+    };
+    loadNotifications();
+  }, []);
+
+  const handleMarkAsRead = async (id: string) => {
     setNotifications((prev) =>
       prev.map((n) => (n.id === id ? { ...n, read: true } : n))
     );
+    try {
+      await api.put(`/notifications/${id}/read`);
+    } catch {
+      // ignore
+    }
   };
 
   const renderItem = ({ item }: { item: NotificationItem }) => (

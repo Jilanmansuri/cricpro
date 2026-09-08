@@ -43,3 +43,8 @@ export const getMatchById = async (id: string): Promise<any> => {
   const res = await api.get(`/matches/${id}`);
   return res.data;
 };
+
+export const exportScorecard = async (id: string, format: 'csv' | 'html' = 'csv'): Promise<string> => {
+  const res = await api.get(`/matches/${id}/export?format=${format}`);
+  return res.data;
+};

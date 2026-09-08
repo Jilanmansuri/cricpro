@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity, Alert, Platform } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTheme } from '../components/Theme';
 import Card from '../components/Card';
 import Avatar from '../components/Avatar';
 import api from '../services/api';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
 
 interface ScorecardRow {
   name: string;
@@ -85,11 +87,56 @@ export default function MatchDetailsScreen() {
     );
   }
 
-  const teamABatting = playerStats.filter(s => s.teamId === matchData.teamA._id && !s.batting.didNotBat);
-  const teamABowling = playerStats.filter(s => s.teamId === matchData.teamB._id && !s.bowling.didNotBowl);
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExport = async (format: 'csv' | 'html') => {
+    setIsExporting(true);
+    try {
+      const res = await api.get(`/matches/${id}/export?format=${format}`);
+      const fileExt = format === 'html' ? 'html' : 'csv';
+      const filename = `scorecard_${matchData.teamA.name}_vs_${matchData.teamB.name}.${fileExt}`.replace(/\s+/g, '_');
+
+      if (Platform.OS === 'web') {
+        const blob = new Blob([res.data], { type: format === 'html' ? 'text/html' : 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(url);
+        Alert.alert('Exported', `Scorecard downloaded as ${filename}`);
+      } else {
+        const fileUri = `${FileSystem.documentDirectory}${filename}`;
+        await FileSystem.writeAsStringAsync(fileUri, res.data, {
+          encoding: FileSystem.EncodingType.UTF8,
+        });
+
+        if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(fileUri, {
+            mimeType: format === 'html' ? 'text/html' : 'text/csv',
+            dialogTitle: `Export ${format.toUpperCase()} Scorecard`,
+          });
+        } else {
+          Alert.alert('Export Complete', `Scorecard saved to file.`);
+        }
+      }
+    } catch (err: any) {
+      console.error('Export error:', err);
+      Alert.alert('Export Failed', err.response?.data?.message || err.message || 'Unable to export scorecard');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const getTeamId = (team: any) => (team?._id || team)?.toString();
+  const teamAId = getTeamId(matchData.teamA);
+  const teamBId = getTeamId(matchData.teamB);
+
+  const teamABatting = playerStats.filter(s => (s.teamId?._id?.toString() || s.teamId?.toString()) === teamAId && !s.batting?.didNotBat);
+  const teamABowling = playerStats.filter(s => (s.teamId?._id?.toString() || s.teamId?.toString()) === teamBId && !s.bowling?.didNotBowl);
   
-  const teamBBatting = playerStats.filter(s => s.teamId === matchData.teamB._id && !s.batting.didNotBat);
-  const teamBBowling = playerStats.filter(s => s.teamId === matchData.teamA._id && !s.bowling.didNotBowl);
+  const teamBBatting = playerStats.filter(s => (s.teamId?._id?.toString() || s.teamId?.toString()) === teamBId && !s.batting?.didNotBat);
+  const teamBBowling = playerStats.filter(s => (s.teamId?._id?.toString() || s.teamId?.toString()) === teamAId && !s.bowling?.didNotBowl);
 
   const battingList = activeTeamTab === 'teamA' ? teamABatting : teamBBatting;
   const bowlingList = activeTeamTab === 'teamA' ? teamABowling : teamBBowling;
@@ -124,9 +171,7 @@ export default function MatchDetailsScreen() {
           </View>
         </View>
         
-        <Text style={[styles.resultText, { color: colors.primary, backgroundColor: colors.primary + '12' }]}>
-          {matchData.result}
-        </Text>
+        <Text style={[styles.resultText, { color: colors.primary }]}>{matchData.result}</Text>
       </Card>
 
       {/* Tabs list */}
@@ -179,6 +224,30 @@ export default function MatchDetailsScreen() {
                   </Text>
                 </View>
               )}
+            </Card>
+
+            {/* Export scorecard actions */}
+            <Card style={[styles.exportCard, { borderColor: colors.border }]}>
+              <Text style={[styles.exportTitle, { color: colors.text }]}>Export & Share Scorecard</Text>
+              <Text style={{ color: colors.textMuted, fontSize: 13, marginBottom: 14 }}>
+                Download this match scorecard as a spreadsheet or printable HTML document.
+              </Text>
+              <View style={styles.exportButtonsRow}>
+                <TouchableOpacity
+                  style={[styles.exportBtn, { backgroundColor: colors.surfaceLighter, borderColor: colors.border }]}
+                  onPress={() => handleExport('csv')}
+                  disabled={isExporting}
+                >
+                  <Text style={{ color: colors.primary, fontWeight: '700' }}>📊 Export CSV</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.exportBtn, { backgroundColor: colors.surfaceLighter, borderColor: colors.border }]}
+                  onPress={() => handleExport('html')}
+                  disabled={isExporting}
+                >
+                  <Text style={{ color: colors.secondary || '#38bdf8', fontWeight: '700' }}>🌐 Export HTML</Text>
+                </TouchableOpacity>
+              </View>
             </Card>
           </View>
         )}
@@ -427,5 +496,27 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '800',
     marginBottom: 8,
+  },
+  exportCard: {
+    marginTop: 16,
+    padding: 16,
+    borderRadius: 12,
+  },
+  exportTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    marginBottom: 6,
+  },
+  exportButtonsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 4,
+  },
+  exportBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderRadius: 8,
+    borderWidth: 1,
   },
 });

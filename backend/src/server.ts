@@ -18,6 +18,7 @@ import matchRoutes from './routes/matchRoutes';
 import playerRoutes from './routes/playerRoutes';
 import teamRoutes from './routes/teamRoutes';
 import tournamentRoutes from './routes/tournamentRoutes';
+import notificationRoutes from './routes/notificationRoutes';
 
 // Load Env
 dotenv.config();
@@ -60,6 +61,7 @@ app.use('/api/matches', matchRoutes);
 app.use('/api/players', playerRoutes);
 app.use('/api/teams', teamRoutes);
 app.use('/api/tournaments', tournamentRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Base route for sanity check
 app.get('/', (_req, res) => {

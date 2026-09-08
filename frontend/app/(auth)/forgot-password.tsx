@@ -73,6 +73,21 @@ export default function ForgotPasswordScreen() {
             isLoading={isLoading}
             style={styles.button}
           />
+
+          <TouchableOpacity 
+            onPress={() => {
+              if (!email) {
+                Alert.alert('Email Required', 'Please enter your email address first.');
+                return;
+              }
+              router.push({ pathname: '/(auth)/otp-verify', params: { email } });
+            }}
+            style={{ alignItems: 'center', marginTop: 16 }}
+          >
+            <Text style={{ color: colors.secondary || '#38bdf8', fontSize: 13, fontWeight: '700' }}>
+              Have an OTP code? Verify via OTP ➔
+            </Text>
+          </TouchableOpacity>
         </View>
 
         <TouchableOpacity onPress={() => router.back()} style={styles.backContainer}>

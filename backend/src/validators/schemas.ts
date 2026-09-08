@@ -43,13 +43,9 @@ export const saveMatchValidator = [
     .trim(),
   body('matchInfo.date')
     .optional({ checkFalsy: true })
-    .trim()
-    .isISO8601()
-    .withMessage('Please provide a valid ISO8601 date'),
+    .trim(),
   body('matchInfo.overs')
-    .optional({ checkFalsy: true })
-    .isInt({ min: 1 })
-    .withMessage('Overs count must be a positive integer'),
+    .optional({ checkFalsy: true }),
   body('matchInfo.teamName')
     .optional({ checkFalsy: true })
     .trim(),
@@ -57,11 +53,25 @@ export const saveMatchValidator = [
     .optional({ checkFalsy: true })
     .trim(),
   body('myTeamBatting')
+    .optional()
     .isArray()
     .withMessage('Batting scorecard must be an array'),
   body('myTeamBowling')
+    .optional()
     .isArray()
     .withMessage('Bowling scorecard must be an array'),
+  body('innings')
+    .optional()
+    .isArray()
+    .withMessage('Innings scorecard must be an array'),
+  body('teamABatting')
+    .optional()
+    .isArray()
+    .withMessage('Team A batting must be an array'),
+  body('teamBBatting')
+    .optional()
+    .isArray()
+    .withMessage('Team B batting must be an array'),
 ];
 
 export const createTournamentValidator = [

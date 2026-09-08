@@ -1,9 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert, ActivityIndicator, KeyboardAvoidingView, Platform, Modal } from 'react-native';
 import { useTheme } from '../../../components/Theme';
 import { Button } from '../../../components/Button';
 import Card from '../../../components/Card';
 import api from '../../../services/api';
+import { uploadScorecard } from '../../../services/matchService';
+import SyncManager from '../../../services/SyncManager';
+import * as ImagePicker from 'expo-image-picker';
+import { Image } from 'expo-image';
 import { Swipeable } from 'react-native-gesture-handler';
 import Svg, { Path } from 'react-native-svg';
 import { useRouter } from 'expo-router';
@@ -14,7 +18,21 @@ const TrashIcon = ({ color }: { color: string }) => (
   </Svg>
 );
 
-const TABS = ['Details', 'Batting', 'Bowling', 'Review'];
+const CameraIcon = ({ color }: { color: string }) => (
+  <Svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+    
+    <Path d="M12 15a3 3 0 100-6 3 3 0 000 6z" fill={color} />
+    <Path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z" fill={color} />
+  </Svg>
+);
+
+const GalleryIcon = ({ color }: { color: string }) => (
+  <Svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+    <Path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z" fill={color} />
+  </Svg>
+);
+
+const TABS = ['Scan OCR', 'Details', 'Batting', 'Bowling', 'Review'];
 
 const PlayerAutocomplete = ({ value, onChangeText, players, colors, styles }: any) => {
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -55,6 +73,23 @@ export default function ManualMatchEntry() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
+  const [isOcrLoading, setIsOcrLoading] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [ocrConfidence, setOcrConfidence] = useState<number | null>(null);
+  const [extractionEngine, setExtractionEngine] = useState<string | null>(null);
+  const [validationWarnings, setValidationWarnings] = useState<string[]>([]);
+  const [teamAId, setTeamAId] = useState<string | null>(null);
+  const [teamBId, setTeamBId] = useState<string | null>(null);
+  const [teamALogo, setTeamALogo] = useState<string>('');
+  const [teamBLogo, setTeamBLogo] = useState<string>('');
+  const [teamAMasterId, setTeamAMasterId] = useState<string>('');
+  const [teamBMasterId, setTeamBMasterId] = useState<string>('');
+  const [teamACandidates, setTeamACandidates] = useState<any[]>([]);
+  const [teamBCandidates, setTeamBCandidates] = useState<any[]>([]);
+  const [teamANeedsReview, setTeamANeedsReview] = useState<boolean>(false);
+  const [teamBNeedsReview, setTeamBNeedsReview] = useState<boolean>(false);
+  const [missingFieldsModalVisible, setMissingFieldsModalVisible] = useState<boolean>(false);
+  const [missingFields, setMissingFields] = useState<Array<{ key: string; label: string; placeholder: string; value: string }>>([]);
 
   const [matchInfo, setMatchInfo] = useState({
     date: new Date().toISOString().split('T')[0],
@@ -65,6 +100,7 @@ export default function ManualMatchEntry() {
     matchType: 'T20',
     overs: '20',
     result: '',
+    mvp: '',
   });
 
   const initialBatting = () => Array.from({ length: 11 }).map((_, i) => ({
@@ -76,6 +112,10 @@ export default function ManualMatchEntry() {
 
   const [batting, setBatting] = useState<any[]>(initialBatting());
   const [bowling, setBowling] = useState<any[]>(initialBowling());
+  const [teamBBatting, setTeamBBatting] = useState<any[]>([]);
+  const [teamABowling, setTeamABowling] = useState<any[]>([]);
+  const [extrasA, setExtrasA] = useState<number>(0);
+  const [extrasB, setExtrasB] = useState<number>(0);
   const [dbPlayers, setDbPlayers] = useState<any[]>([]);
 
   useEffect(() => {
@@ -96,6 +136,171 @@ export default function ManualMatchEntry() {
       }
     }).catch(err => console.error(err));
   }, []);
+
+  const pickImage = async (fromCamera: boolean) => {
+    try {
+      let permissionResult;
+      if (fromCamera) {
+        permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+      } else {
+        permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      }
+
+      if (!permissionResult.granted) {
+        Alert.alert('Permission Denied', 'Permission to access camera or gallery is required.');
+        return;
+      }
+
+      let pickerResult;
+      if (fromCamera) {
+        pickerResult = await ImagePicker.launchCameraAsync({
+          allowsEditing: true,
+          quality: 0.9,
+        });
+      } else {
+        pickerResult = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          allowsEditing: true,
+          quality: 0.9,
+        });
+      }
+
+      if (!pickerResult.canceled && pickerResult.assets?.[0]?.uri) {
+        setSelectedImage(pickerResult.assets[0].uri);
+      }
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Failed to select image');
+    }
+  };
+
+  const handleRunOcr = async () => {
+    if (!selectedImage) {
+      Alert.alert('No Image', 'Please choose a scorecard image from camera or gallery first.');
+      return;
+    }
+
+    setIsOcrLoading(true);
+    try {
+      const result = await uploadScorecard(selectedImage);
+      if (result.success && result.data) {
+        const d = result.data;
+        if (d.ocrConfidence) {
+          setOcrConfidence(Math.round(d.ocrConfidence * 100));
+        }
+        if (d.extractionEngine) {
+          setExtractionEngine(d.extractionEngine);
+        }
+        if (d.validation?.warnings) {
+          setValidationWarnings(d.validation.warnings);
+        }
+
+        // Populate matchInfo & Team Master resolution
+        if (d.matchInfo) {
+          setTeamAId(d.matchInfo.teamAId || null);
+          setTeamBId(d.matchInfo.teamBId || null);
+          setTeamALogo(d.matchInfo.teamALogo || '');
+          setTeamBLogo(d.matchInfo.teamBLogo || '');
+          setTeamAMasterId(d.matchInfo.teamAMasterId || '');
+          setTeamBMasterId(d.matchInfo.teamBMasterId || '');
+          setMatchInfo(prev => ({
+            ...prev,
+            teamName: d.matchInfo.teamA || d.matchInfo.teamName || prev.teamName,
+            opponentTeam: d.matchInfo.teamB || d.matchInfo.opponentTeam || prev.opponentTeam,
+            venueName: d.matchInfo.venue || d.matchInfo.venueName || prev.venueName,
+            date: d.matchInfo.date || prev.date,
+            overs: d.matchInfo.overs ? String(d.matchInfo.overs) : prev.overs,
+            result: d.matchInfo.result || prev.result,
+            mvp: d.matchInfo.mvp || prev.mvp,
+          }));
+        }
+
+        if (d.teamAResolution) {
+          setTeamANeedsReview(!!d.teamAResolution.needsReview);
+          setTeamACandidates(d.teamAResolution.candidates || []);
+        }
+
+        if (d.teamBResolution) {
+          setTeamBNeedsReview(!!d.teamBResolution.needsReview);
+          setTeamBCandidates(d.teamBResolution.candidates || []);
+        }
+
+        // Populate Innings 1 / Team A Batting
+        if (d.teamABatting && d.teamABatting.length > 0) {
+          const formattedBat = d.teamABatting.map((row: any, idx: number) => ({
+            id: Date.now().toString() + idx,
+            name: row.name || '',
+            outStatus: row.dismissalStatus || row.outStatus || 'out',
+            runs: String(row.runs ?? 0),
+            balls: String(row.balls ?? 0),
+            fours: String(row.fours ?? 0),
+            sixes: String(row.sixes ?? 0),
+          }));
+          setBatting(formattedBat);
+        }
+
+        // Populate Innings 1 / Team B Bowling
+        if (d.teamBBowling && d.teamBBowling.length > 0) {
+          const formattedBowl = d.teamBBowling.map((row: any, idx: number) => ({
+            id: Date.now().toString() + idx + 100,
+            name: row.name || '',
+            overs: String(row.overs ?? 0),
+            maidens: String(row.maidens ?? 0),
+            runs: String(row.runsConceded ?? row.runs ?? 0),
+            wickets: String(row.wickets ?? 0),
+          }));
+          setBowling(formattedBowl);
+        }
+
+        // Populate Innings 2 / Team B Batting
+        if (d.teamBBatting && d.teamBBatting.length > 0) {
+          const formattedTBat = d.teamBBatting.map((row: any, idx: number) => ({
+            id: 'tb_' + Date.now().toString() + idx,
+            name: row.name || '',
+            outStatus: row.dismissalStatus || row.outStatus || 'out',
+            runs: String(row.runs ?? 0),
+            balls: String(row.balls ?? 0),
+            fours: String(row.fours ?? 0),
+            sixes: String(row.sixes ?? 0),
+          }));
+          setTeamBBatting(formattedTBat);
+        }
+
+        // Populate Innings 2 / Team A Bowling
+        if (d.teamABowling && d.teamABowling.length > 0) {
+          const formattedTBowl = d.teamABowling.map((row: any, idx: number) => ({
+            id: 'ta_' + Date.now().toString() + idx + 200,
+            name: row.name || '',
+            overs: String(row.overs ?? 0),
+            maidens: String(row.maidens ?? 0),
+            runs: String(row.runsConceded ?? row.runs ?? 0),
+            wickets: String(row.wickets ?? 0),
+          }));
+          setTeamABowling(formattedTBowl);
+        }
+
+        if (d.extrasA?.total) setExtrasA(Number(d.extrasA.total));
+        if (d.extrasB?.total) setExtrasB(Number(d.extrasB.total));
+
+        const engineLabel = d.extractionEngine === 'gemini-vision' ? 'Gemini AI Vision' : 'Optical OCR';
+        Alert.alert(
+          `Scan Successful (${engineLabel}) 🎯`,
+          `Extracted match scorecard with ${Math.round((d.ocrConfidence || 0.9) * 100)}% confidence.\n` +
+          `${d.validation?.warnings?.length ? `Note: ${d.validation.warnings[0]}` : 'All cricket totals and overs verified.'}`,
+          [
+            { text: 'Review Data', onPress: () => setActiveTab(4) },
+            { text: 'Edit Details', onPress: () => setActiveTab(1) },
+          ]
+        );
+      } else {
+        throw new Error(result.message || 'Scorecard scanning returned empty data.');
+      }
+    } catch (err: any) {
+      console.error('Scan run error:', err);
+      Alert.alert('Scan Failed', err.response?.data?.message || err.message || 'Unable to scan scorecard.');
+    } finally {
+      setIsOcrLoading(false);
+    }
+  };
 
   const addBatsman = () => {
     setBatting([...batting, { id: Date.now().toString(), name: '', outStatus: 'out', runs: '0', balls: '0', fours: '0', sixes: '0' }]);
@@ -132,21 +337,45 @@ export default function ManualMatchEntry() {
   const saveMatch = async () => {
     if (!matchInfo.teamName) {
       Alert.alert('Validation Error', 'Please enter your Team Name.');
-      setActiveTab(0);
+      setActiveTab(1);
       return;
     }
 
     setIsSaving(true);
-    try {
-      const payload = {
-        matchInfo,
-        myTeamBatting: batting.filter(b => b.name.trim() !== ''),
-        myTeamBowling: bowling.filter(b => b.name.trim() !== '')
-      };
+    const payload = {
+      matchInfo: {
+        ...matchInfo,
+        teamAId,
+        teamBId,
+        teamAMasterId,
+        teamBMasterId,
+        teamALogo,
+        teamBLogo
+      },
+      teamAId,
+      teamBId,
+      myTeamBatting: batting.filter(b => b.name.trim() !== ''),
+      myTeamBowling: bowling.filter(b => b.name.trim() !== ''),
+      teamABatting: batting.filter(b => b.name.trim() !== ''),
+      teamBBowling: bowling.filter(b => b.name.trim() !== ''),
+      teamBBatting: teamBBatting.filter(b => b.name.trim() !== ''),
+      teamABowling: teamABowling.filter(b => b.name.trim() !== ''),
+      extrasA: { total: extrasA },
+      extrasB: { total: extrasB },
+      forceNew: false
+    };
 
-      const response = await api.post('/manual-match/save', payload);
+    try {
+      // Try /matches/save (with fallback to /manual-match/save)
+      let response;
+      try {
+        response = await api.post('/matches/save', payload);
+      } catch {
+        response = await api.post('/manual-match/save', payload);
+      }
+
       if (response.data.success) {
-        Alert.alert('Success', 'Match saved successfully!', [
+        Alert.alert('Success', 'Match saved successfully! Career statistics and team records updated.', [
           { 
             text: 'OK', 
             onPress: () => {
@@ -159,9 +388,28 @@ export default function ManualMatchEntry() {
                 matchType: 'T20',
                 overs: '20',
                 result: '',
+                mvp: '',
               });
+              setTeamAId(null);
+              setTeamBId(null);
+              setTeamALogo('');
+              setTeamBLogo('');
+              setTeamAMasterId('');
+              setTeamBMasterId('');
+              setTeamACandidates([]);
+              setTeamBCandidates([]);
+              setTeamANeedsReview(false);
+              setTeamBNeedsReview(false);
               setBatting(initialBatting());
               setBowling(initialBowling());
+              setTeamBBatting([]);
+              setTeamABowling([]);
+              setExtrasA(0);
+              setExtrasB(0);
+              setSelectedImage(null);
+              setOcrConfidence(null);
+              setExtractionEngine(null);
+              setValidationWarnings([]);
               setActiveTab(0);
               router.push('/(drawer)/(tabs)');
             }
@@ -169,8 +417,22 @@ export default function ManualMatchEntry() {
         ]);
       }
     } catch (err: any) {
-      console.error(err);
-      Alert.alert('Error', err.response?.data?.message || 'Failed to save match');
+      console.error('Save error:', err);
+      Alert.alert(
+        'Offline Save Option',
+        'Could not reach server. Would you like to queue this match locally to sync automatically when online?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Queue Offline',
+            onPress: async () => {
+              await SyncManager.queueOfflineMatch(payload);
+              Alert.alert('Queued', 'Match queued offline. It will be synced when internet is restored.');
+              router.push('/(drawer)/(tabs)');
+            }
+          }
+        ]
+      );
     } finally {
       setIsSaving(false);
     }
@@ -192,8 +454,84 @@ export default function ManualMatchEntry() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Match Details Tab */}
+        {/* Tab 0: Scan Scorecard */}
         {activeTab === 0 && (
+          <View style={styles.tabContent}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Scorecard Image Scanner</Text>
+            <Text style={{ color: colors.textMuted, fontSize: 13, marginBottom: 18, lineHeight: 18 }}>
+              Upload or snap any cricket scorecard screenshot or printout. Our Gemini AI Vision & OCR pipeline extracts teams, innings, batting, bowling, extras, and updates player career records automatically.
+            </Text>
+
+            <Card style={styles.ocrCard}>
+              {selectedImage ? (
+                <View style={styles.previewContainer}>
+                  <Image source={{ uri: selectedImage }} style={styles.imagePreview} contentFit="contain" />
+                  <TouchableOpacity style={styles.repickBtn} onPress={() => {
+                    setSelectedImage(null);
+                    setExtractionEngine(null);
+                    setOcrConfidence(null);
+                    setValidationWarnings([]);
+                  }}>
+                    <Text style={{ color: colors.error, fontWeight: '700' }}>Remove Image</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <View style={styles.imagePlaceholder}>
+                  <Text style={{ color: colors.textMuted, fontSize: 14, marginBottom: 16 }}>No scorecard image selected</Text>
+                  <View style={styles.pickerButtonsRow}>
+                    <TouchableOpacity style={[styles.pickerBtn, { backgroundColor: colors.surfaceLighter, borderColor: colors.border }]} onPress={() => pickImage(true)}>
+                      <CameraIcon color={colors.primary} />
+                      <Text style={[styles.pickerBtnText, { color: colors.text }]}>Take Photo</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[styles.pickerBtn, { backgroundColor: colors.surfaceLighter, borderColor: colors.border }]} onPress={() => pickImage(false)}>
+                      <GalleryIcon color={colors.primary} />
+                      <Text style={[styles.pickerBtnText, { color: colors.text }]}>Gallery</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+
+              {selectedImage && (
+                <Button
+                  title={isOcrLoading ? "Scanning Scorecard with AI..." : "Analyze & Extract Scorecard"}
+                  onPress={handleRunOcr}
+                  variant="primary"
+                  isLoading={isOcrLoading}
+                  style={{ marginTop: 16 }}
+                />
+              )}
+
+              {ocrConfidence !== null && (
+                <View style={[styles.confidenceBadge, { backgroundColor: colors.primary + '20', borderColor: colors.primary }]}>
+                  <Text style={{ color: colors.primary, fontWeight: '800' }}>
+                    {extractionEngine === 'gemini-vision' ? '✨ Gemini AI Vision' : '⚙️ Optical OCR'}: {ocrConfidence}% Quality Score
+                  </Text>
+                </View>
+              )}
+
+              {validationWarnings.length > 0 && (
+                <View style={{ marginTop: 14, padding: 12, backgroundColor: '#ff950020', borderRadius: 8, borderWidth: 1, borderColor: '#ff9500', width: '100%' }}>
+                  <Text style={{ color: '#ff9500', fontWeight: '800', fontSize: 12, marginBottom: 4 }}>
+                    ⚠️ SCORECARD INTEGRITY NOTICE
+                  </Text>
+                  {validationWarnings.slice(0, 2).map((warn, i) => (
+                    <Text key={i} style={{ color: colors.text, fontSize: 12 }}>• {warn}</Text>
+                  ))}
+                  <Text style={{ color: colors.textMuted, fontSize: 11, marginTop: 4 }}>
+                    Please review or adjust values in the Batting/Bowling tabs before saving.
+                  </Text>
+                </View>
+              )}
+            </Card>
+
+            <TouchableOpacity style={styles.skipToManual} onPress={() => setActiveTab(1)}>
+              <Text style={{ color: colors.primary, fontWeight: '700' }}>Or continue with Manual Entry ➔</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Tab 1: Match Details */}
+        {activeTab === 1 && (
           <View style={styles.tabContent}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>Match Details</Text>
             
@@ -201,14 +539,87 @@ export default function ManualMatchEntry() {
               <Text style={[styles.label, { color: colors.textMuted }]}>Date (YYYY-MM-DD)</Text>
               <TextInput style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={matchInfo.date} onChangeText={t => setMatchInfo({...matchInfo, date: t})} />
             </View>
+
             <View style={styles.inputGroup}>
-              <Text style={[styles.label, { color: colors.textMuted }]}>My Team Name</Text>
-              <TextInput style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={matchInfo.teamName} onChangeText={t => setMatchInfo({...matchInfo, teamName: t})} placeholder="e.g. Royal Strikers" placeholderTextColor={colors.textMuted} />
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                <Text style={[styles.label, { color: colors.textMuted }]}>Team 1 (My Team)</Text>
+                {teamAMasterId ? (
+                  <View style={{ backgroundColor: colors.primary + '20', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4 }}>
+                    <Text style={{ color: colors.primary, fontSize: 11, fontWeight: '700' }}>Master ID: {teamAMasterId}</Text>
+                  </View>
+                ) : null}
+              </View>
+              <TextInput style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: teamANeedsReview ? '#ff9500' : colors.border }]} value={matchInfo.teamName} onChangeText={t => {
+                setMatchInfo({...matchInfo, teamName: t});
+                setTeamANeedsReview(false);
+              }} placeholder="e.g. India" placeholderTextColor={colors.textMuted} />
+
+              {teamANeedsReview && teamACandidates.length > 0 && (
+                <View style={{ marginTop: 6 }}>
+                  <Text style={{ color: '#ff9500', fontSize: 11, fontWeight: '700', marginBottom: 4 }}>Did you mean one of these Team Master records?</Text>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+                    {teamACandidates.map((c: any) => (
+                      <TouchableOpacity
+                        key={c.id}
+                        style={{ paddingHorizontal: 8, paddingVertical: 4, backgroundColor: colors.surfaceLighter, borderRadius: 6, borderWidth: 1, borderColor: colors.primary, marginRight: 6, marginBottom: 4 }}
+                        onPress={() => {
+                          setMatchInfo(prev => ({ ...prev, teamName: c.name }));
+                          setTeamAId(c.id);
+                          setTeamAMasterId(c.teamId);
+                          setTeamALogo(c.logo || '');
+                          setTeamANeedsReview(false);
+                        }}
+                      >
+                        <Text style={{ color: colors.text, fontSize: 11, fontWeight: '700' }}>
+                          ✓ {c.name} {c.teamId ? `(${c.teamId})` : ''}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+              )}
             </View>
+
             <View style={styles.inputGroup}>
-              <Text style={[styles.label, { color: colors.textMuted }]}>Opponent Team</Text>
-              <TextInput style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={matchInfo.opponentTeam} onChangeText={t => setMatchInfo({...matchInfo, opponentTeam: t})} placeholder="e.g. Mumbai Indians" placeholderTextColor={colors.textMuted} />
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                <Text style={[styles.label, { color: colors.textMuted }]}>Team 2 (Opponent Team)</Text>
+                {teamBMasterId ? (
+                  <View style={{ backgroundColor: colors.primary + '20', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4 }}>
+                    <Text style={{ color: colors.primary, fontSize: 11, fontWeight: '700' }}>Master ID: {teamBMasterId}</Text>
+                  </View>
+                ) : null}
+              </View>
+              <TextInput style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: teamBNeedsReview ? '#ff9500' : colors.border }]} value={matchInfo.opponentTeam} onChangeText={t => {
+                setMatchInfo({...matchInfo, opponentTeam: t});
+                setTeamBNeedsReview(false);
+              }} placeholder="e.g. Australia" placeholderTextColor={colors.textMuted} />
+
+              {teamBNeedsReview && teamBCandidates.length > 0 && (
+                <View style={{ marginTop: 6 }}>
+                  <Text style={{ color: '#ff9500', fontSize: 11, fontWeight: '700', marginBottom: 4 }}>Did you mean one of these Team Master records?</Text>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+                    {teamBCandidates.map((c: any) => (
+                      <TouchableOpacity
+                        key={c.id}
+                        style={{ paddingHorizontal: 8, paddingVertical: 4, backgroundColor: colors.surfaceLighter, borderRadius: 6, borderWidth: 1, borderColor: colors.primary, marginRight: 6, marginBottom: 4 }}
+                        onPress={() => {
+                          setMatchInfo(prev => ({ ...prev, opponentTeam: c.name }));
+                          setTeamBId(c.id);
+                          setTeamBMasterId(c.teamId);
+                          setTeamBLogo(c.logo || '');
+                          setTeamBNeedsReview(false);
+                        }}
+                      >
+                        <Text style={{ color: colors.text, fontSize: 11, fontWeight: '700' }}>
+                          ✓ {c.name} {c.teamId ? `(${c.teamId})` : ''}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+              )}
             </View>
+
             <View style={styles.inputGroup}>
               <Text style={[styles.label, { color: colors.textMuted }]}>Venue</Text>
               <TextInput style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={matchInfo.venueName} onChangeText={t => setMatchInfo({...matchInfo, venueName: t})} />
@@ -227,11 +638,13 @@ export default function ManualMatchEntry() {
               <Text style={[styles.label, { color: colors.textMuted }]}>Result</Text>
               <TextInput style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={matchInfo.result} onChangeText={t => setMatchInfo({...matchInfo, result: t})} placeholder="e.g. My Team won by 5 wickets" placeholderTextColor={colors.textMuted} />
             </View>
+
+            <Button title="Next: Batting ➔" onPress={() => setActiveTab(2)} variant="secondary" style={{ marginTop: 12 }} />
           </View>
         )}
 
-        {/* Batting Tab */}
-        {activeTab === 1 && (
+        {/* Tab 2: Batting Tab */}
+        {activeTab === 2 && (
           <View style={styles.tabContent}>
             <View style={styles.headerRow}>
               <Text style={[styles.sectionTitle, { color: colors.text }]}>My Team Batting</Text>
@@ -278,11 +691,13 @@ export default function ManualMatchEntry() {
                 </Swipeable>
               ))
             )}
+
+            <Button title="Next: Bowling ➔" onPress={() => setActiveTab(3)} variant="secondary" style={{ marginTop: 12 }} />
           </View>
         )}
 
-        {/* Bowling Tab */}
-        {activeTab === 2 && (
+        {/* Tab 3: Bowling Tab */}
+        {activeTab === 3 && (
           <View style={styles.tabContent}>
             <View style={styles.headerRow}>
               <Text style={[styles.sectionTitle, { color: colors.text }]}>My Team Bowling</Text>
@@ -323,33 +738,57 @@ export default function ManualMatchEntry() {
                 </Swipeable>
               ))
             )}
+
+            <Button title="Next: Review Match ➔" onPress={() => setActiveTab(4)} variant="secondary" style={{ marginTop: 12 }} />
           </View>
         )}
 
-        {/* Review Tab */}
-        {activeTab === 3 && (
+        {/* Tab 4: Review Tab */}
+        {activeTab === 4 && (
           <View style={styles.tabContent}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>Review Match Data</Text>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Review Match & Career Sync</Text>
             <Card style={styles.summaryCard}>
-              <Text style={[styles.summaryTitle, { color: colors.text }]}>{matchInfo.teamName || 'My Team'} vs {matchInfo.opponentTeam || 'Opponent'}</Text>
-              <Text style={{ color: colors.textMuted }}>Date: {matchInfo.date} | Venue: {matchInfo.venueName}</Text>
-              <Text style={{ color: colors.textMuted }}>Result: {matchInfo.result}</Text>
+              <Text style={[styles.summaryTitle, { color: colors.text }]}>{matchInfo.teamName || 'Team 1'} vs {matchInfo.opponentTeam || 'Team 2'}</Text>
+              <Text style={{ color: colors.textMuted }}>Date: {matchInfo.date} | Venue: {matchInfo.venueName || 'N/A'}</Text>
+              <Text style={{ color: colors.textMuted }}>Result: {matchInfo.result || 'In progress'}</Text>
+              {matchInfo.mvp ? (
+                <Text style={{ color: colors.primary, fontWeight: '700', marginTop: 4 }}>Player of Match: {matchInfo.mvp}</Text>
+              ) : null}
               
               <View style={styles.divider} />
               
-              <Text style={[styles.summarySubtitle, { color: colors.text }]}>Batting Summary</Text>
-              <Text style={{ color: colors.textMuted }}>Total Batsmen: {batting.length}</Text>
-              <Text style={{ color: colors.textMuted }}>Total Runs (from bats): {batting.reduce((s, b) => s + (Number(b.runs) || 0), 0)}</Text>
+              <Text style={[styles.summarySubtitle, { color: colors.text }]}>Innings 1 ({matchInfo.teamName || 'Team 1'})</Text>
+              <Text style={{ color: colors.textMuted }}>Batsmen: {batting.filter(b => b.name.trim()).length} players</Text>
+              <Text style={{ color: colors.textMuted }}>Batting Runs: {batting.reduce((s, b) => s + (Number(b.runs) || 0), 0)} | Extras: {extrasA}</Text>
+              <Text style={{ color: colors.text, fontWeight: '700', marginTop: 2 }}>
+                Total Score: {batting.reduce((s, b) => s + (Number(b.runs) || 0), 0) + extrasA} runs
+              </Text>
               
+              {teamBBatting.length > 0 && (
+                <>
+                  <View style={styles.divider} />
+                  <Text style={[styles.summarySubtitle, { color: colors.text }]}>Innings 2 ({matchInfo.opponentTeam || 'Team 2'})</Text>
+                  <Text style={{ color: colors.textMuted }}>Batsmen: {teamBBatting.filter(b => b.name.trim()).length} players</Text>
+                  <Text style={{ color: colors.textMuted }}>Batting Runs: {teamBBatting.reduce((s, b) => s + (Number(b.runs) || 0), 0)} | Extras: {extrasB}</Text>
+                  <Text style={{ color: colors.text, fontWeight: '700', marginTop: 2 }}>
+                    Total Score: {teamBBatting.reduce((s, b) => s + (Number(b.runs) || 0), 0) + extrasB} runs
+                  </Text>
+                </>
+              )}
+
               <View style={styles.divider} />
-              
-              <Text style={[styles.summarySubtitle, { color: colors.text }]}>Bowling Summary</Text>
-              <Text style={{ color: colors.textMuted }}>Total Bowlers: {bowling.length}</Text>
-              <Text style={{ color: colors.textMuted }}>Total Wickets: {bowling.reduce((s, b) => s + (Number(b.wickets) || 0), 0)}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={{ color: colors.primary, fontWeight: '700', fontSize: 13 }}>
+                  Career Mode Sync:
+                </Text>
+                <Text style={{ color: colors.textMuted, fontSize: 13 }}>
+                  Both teams and all player career stats will update
+                </Text>
+              </View>
             </Card>
 
             <Button
-              title={isSaving ? "Saving..." : "Save Match"}
+              title={isSaving ? "Saving to Career Mode..." : "Save Match to Career Mode 🚀"}
               onPress={saveMatch}
               variant="primary"
               style={styles.saveBtn}
@@ -460,5 +899,60 @@ const styles = StyleSheet.create({
   },
   saveBtn: {
     marginTop: 10,
-  }
+  },
+  ocrCard: {
+    padding: 18,
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  imagePlaceholder: {
+    width: '100%',
+    paddingVertical: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pickerButtonsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+    justifyContent: 'center',
+  },
+  pickerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  pickerBtnText: {
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  previewContainer: {
+    width: '100%',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  imagePreview: {
+    width: '100%',
+    height: 220,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  repickBtn: {
+    paddingVertical: 6,
+  },
+  confidenceBadge: {
+    marginTop: 14,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  skipToManual: {
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
 });

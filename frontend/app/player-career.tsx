@@ -50,7 +50,7 @@ export default function PlayerCareerScreen() {
     );
   }
 
-  const { player, career } = playerData;
+  const { player, career, insights } = playerData;
   const batting = career.batting || {};
   const bowling = career.bowling || {};
   const fielding = career.fielding || {};
@@ -105,6 +105,54 @@ export default function PlayerCareerScreen() {
           </View>
         </View>
       </Card>
+
+      {/* AI Career Insights Section */}
+      {insights && (
+        <View style={styles.insightsSection}>
+          <Text style={[styles.sectionHeading, { color: colors.primary }]}>⚡ AI Career Intelligence</Text>
+          <Card style={[styles.insightsCard, { borderColor: colors.primary + '40', backgroundColor: colors.surface }]}>
+            {insights.summary ? (
+              <Text style={[styles.insightsSummary, { color: colors.text }]}>{insights.summary}</Text>
+            ) : null}
+
+            {insights.strengths && insights.strengths.length > 0 && (
+              <View style={styles.insightGroup}>
+                <Text style={[styles.insightGroupLabel, { color: '#00ff88' }]}>Key Strengths</Text>
+                {insights.strengths.map((s: string, idx: number) => (
+                  <View key={idx} style={styles.bulletRow}>
+                    <Text style={{ color: '#00ff88', marginRight: 6 }}>✓</Text>
+                    <Text style={[styles.bulletText, { color: colors.text }]}>{s}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {insights.weaknesses && insights.weaknesses.length > 0 && (
+              <View style={styles.insightGroup}>
+                <Text style={[styles.insightGroupLabel, { color: '#ffaa00' }]}>Areas to Watch</Text>
+                {insights.weaknesses.map((w: string, idx: number) => (
+                  <View key={idx} style={styles.bulletRow}>
+                    <Text style={{ color: '#ffaa00', marginRight: 6 }}>!</Text>
+                    <Text style={[styles.bulletText, { color: colors.text }]}>{w}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {insights.suggestions && insights.suggestions.length > 0 && (
+              <View style={styles.insightGroup}>
+                <Text style={[styles.insightGroupLabel, { color: colors.secondary || '#38bdf8' }]}>Coaching Recommendations</Text>
+                {insights.suggestions.map((sg: string, idx: number) => (
+                  <View key={idx} style={styles.bulletRow}>
+                    <Text style={{ color: colors.secondary || '#38bdf8', marginRight: 6 }}>➔</Text>
+                    <Text style={[styles.bulletText, { color: colors.textMuted }]}>{sg}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+          </Card>
+        </View>
+      )}
 
       <Text style={[styles.sectionHeading, { color: colors.text }]}>Batting Statistics</Text>
       <Card style={styles.statsGridCard}>
@@ -306,5 +354,39 @@ const styles = StyleSheet.create({
   gridLabel: {
     fontSize: 12,
     fontWeight: '600',
+  },
+  insightsSection: {
+    marginBottom: 20,
+  },
+  insightsCard: {
+    padding: 18,
+    borderWidth: 1,
+    borderRadius: 12,
+  },
+  insightsSummary: {
+    fontSize: 14,
+    fontWeight: '700',
+    lineHeight: 20,
+    marginBottom: 14,
+  },
+  insightGroup: {
+    marginTop: 10,
+  },
+  insightGroupLabel: {
+    fontSize: 12,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 6,
+  },
+  bulletRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 4,
+  },
+  bulletText: {
+    fontSize: 13,
+    lineHeight: 18,
+    flex: 1,
   },
 });

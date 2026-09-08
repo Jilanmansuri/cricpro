@@ -31,6 +31,10 @@ const UserSchema = new Schema<IUser>(
       type: String,
       default: '',
     },
+    phone: {
+      type: String,
+      default: '',
+    },
     role: {
       type: String,
       enum: ['admin', 'manager', 'player'],

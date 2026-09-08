@@ -309,4 +309,5 @@ const styles = StyleSheet.create({
   tourneyDates: {
     fontSize: 12,
     fontWeight: '600',
+  },
 });

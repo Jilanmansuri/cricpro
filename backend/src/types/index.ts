@@ -5,6 +5,7 @@ export interface IUser extends Document {
   email: string;
   password?: string;
   profilePic?: string;
+  phone?: string;
   role: 'admin' | 'manager' | 'player';
   status: 'active' | 'inactive';
   refreshToken?: string;
@@ -58,8 +59,19 @@ export interface IPlayer extends Document {
 }
 
 export interface ITeam extends Document {
-  name: string;
+  teamId?: string;
+  officialName?: string;
+  displayName?: string;
+  shortName?: string;
+  abbreviation?: string;
+  aliases?: string[];
+  teamType?: 'international' | 'franchise' | 'domestic' | 'club' | 'other';
+  country?: string;
+  league?: string;
   logo?: string;
+  logoUrl?: string;
+  isActive?: boolean;
+  name: string;
   players: Types.ObjectId[];
   stats: {
     matches: number;

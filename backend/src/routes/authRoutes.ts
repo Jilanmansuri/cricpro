@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { registerUser, loginUser, refreshToken, logoutUser, forgotPassword, getUserProfile } from '../controllers/authController';
+import { registerUser, loginUser, refreshToken, logoutUser, forgotPassword, getUserProfile, updateUserProfile } from '../controllers/authController';
 import { protect } from '../middlewares/authMiddleware';
 import { registerValidator, loginValidator, forgotPasswordValidator } from '../validators/schemas';
 import { validateFields } from '../middlewares/validationMiddleware';
@@ -12,5 +12,6 @@ router.post('/refresh', refreshToken);
 router.post('/logout', logoutUser);
 router.post('/forgot-password', forgotPasswordValidator, validateFields, forgotPassword);
 router.get('/profile', protect, getUserProfile);
+router.put('/profile', protect, updateUserProfile);
 
 export default router;
