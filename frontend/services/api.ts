@@ -4,7 +4,44 @@ import { Platform } from 'react-native';
 
 import Constants from 'expo-constants';
 
-export const API_BASE_URL = 'https://cricpro-t7la.onrender.com/api';
+/**
+ * Dynamic Backend URL Resolution:
+ * 1. EXPO_PUBLIC_API_URL: If defined in frontend/.env, use it directly.
+ * 2. In Native Mobile (Expo Go / physical phone):
+ *    Extract development machine IP dynamically from Constants.expoConfig?.hostUri
+ *    (e.g., "192.168.1.78:8081" -> "http://192.168.1.78:5000/api")
+ * 3. Fallback to current local development IP: "http://192.168.1.78:5000/api"
+ * 4. Web browser fallback: "http://localhost:5000/api"
+ */
+const resolveApiBaseUrl = (): string => {
+  // 1. Check for environment variable in .env
+  if (process.env.EXPO_PUBLIC_API_URL && process.env.EXPO_PUBLIC_API_URL.trim() !== '') {
+    return process.env.EXPO_PUBLIC_API_URL.trim();
+  }
+
+  // 2. Web browser
+  if (Platform.OS === 'web') {
+    return 'http://localhost:5000/api';
+  }
+
+  // 3. Dynamic mobile IP detection from Expo host
+  const hostUri = Constants.expoConfig?.hostUri || 
+    (Constants as any).manifest?.debuggerHost || 
+    (Constants as any).manifest2?.extra?.expoGo?.debuggerHost;
+  
+  if (hostUri) {
+    const ip = hostUri.split(':')[0];
+    if (ip && ip !== 'localhost' && ip !== '127.0.0.1') {
+      return `http://${ip}:5000/api`;
+    }
+  }
+
+  // 4. Default fallback to current development PC IP
+  return 'http://192.168.1.78:5000/api';
+};
+
+export const API_BASE_URL = resolveApiBaseUrl();
+console.log(`[CricPro API] Connecting to backend at: ${API_BASE_URL}`);
 export const getToken = async (): Promise<string | null> => {
   try {
     if (Platform.OS === 'web') {

@@ -76,6 +76,8 @@ app.get('/', (_req, res) => {
 app.use(errorHandler);
 
 // Start Server
-app.listen(PORT, () => {
-  console.log(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
+app.listen(Number(PORT), '0.0.0.0', () => {
+  console.log(`🚀 CricPro API running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
+  console.log(`📱 Mobile / LAN Endpoint: http://192.168.1.78:${PORT}/api`);
+  console.log(`💻 Localhost Endpoint:    http://localhost:${PORT}/api`);
 });

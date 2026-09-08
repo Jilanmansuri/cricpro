@@ -282,15 +282,49 @@ export default function ManualMatchEntry() {
         if (d.extrasB?.total) setExtrasB(Number(d.extrasB.total));
 
         const engineLabel = d.extractionEngine === 'gemini-vision' ? 'Gemini AI Vision' : 'Optical OCR';
-        Alert.alert(
-          `Scan Successful (${engineLabel}) 🎯`,
-          `Extracted match scorecard with ${Math.round((d.ocrConfidence || 0.9) * 100)}% confidence.\n` +
-          `${d.validation?.warnings?.length ? `Note: ${d.validation.warnings[0]}` : 'All cricket totals and overs verified.'}`,
-          [
-            { text: 'Review Data', onPress: () => setActiveTab(4) },
-            { text: 'Edit Details', onPress: () => setActiveTab(1) },
-          ]
-        );
+
+        // Check for essential fields that were NOT found in the scorecard image
+        const missing: Array<{ key: string; label: string; placeholder: string; value: string }> = [];
+
+        const curTeamA = d.matchInfo?.teamA || d.matchInfo?.teamName || '';
+        const curTeamB = d.matchInfo?.teamB || d.matchInfo?.opponentTeam || '';
+        const curVenue = d.matchInfo?.venue || d.matchInfo?.venueName || '';
+        const curDate = d.matchInfo?.date || '';
+        const curOvers = d.matchInfo?.overs ? String(d.matchInfo.overs) : '';
+        const curResult = d.matchInfo?.result || '';
+
+        if (!curTeamA.trim()) {
+          missing.push({ key: 'teamName', label: 'Team 1 (Your Team)', placeholder: 'e.g. India', value: '' });
+        }
+        if (!curTeamB.trim()) {
+          missing.push({ key: 'opponentTeam', label: 'Team 2 (Opponent)', placeholder: 'e.g. Australia', value: '' });
+        }
+        if (!curVenue.trim()) {
+          missing.push({ key: 'venueName', label: 'Venue / Stadium', placeholder: 'e.g. Wankhede Stadium', value: '' });
+        }
+        if (!curDate.trim()) {
+          missing.push({ key: 'date', label: 'Match Date (YYYY-MM-DD)', placeholder: new Date().toISOString().split('T')[0], value: new Date().toISOString().split('T')[0] });
+        }
+        if (!curOvers.trim()) {
+          missing.push({ key: 'overs', label: 'Match Overs Limit', placeholder: '20', value: '20' });
+        }
+        if (!curResult.trim()) {
+          missing.push({ key: 'result', label: 'Match Result', placeholder: 'e.g. India won by 6 runs', value: '' });
+        }
+
+        if (missing.length > 0) {
+          setMissingFields(missing);
+          setMissingFieldsModalVisible(true);
+        } else {
+          Alert.alert(
+            `Scan Complete (${engineLabel}) 🎯`,
+            `All match details, innings, and player stats were extracted successfully!\nQuality: ${Math.round((d.ocrConfidence || 0.9) * 100)}% Confidence.`,
+            [
+              { text: 'Review Data ➔', onPress: () => setActiveTab(4) },
+              { text: 'Edit Details', onPress: () => setActiveTab(1) },
+            ]
+          );
+        }
       } else {
         throw new Error(result.message || 'Scorecard scanning returned empty data.');
       }
@@ -300,6 +334,52 @@ export default function ManualMatchEntry() {
     } finally {
       setIsOcrLoading(false);
     }
+  };
+
+  const handleUpdateMissingField = (key: string, val: string) => {
+    setMissingFields(prev => prev.map(f => f.key === key ? { ...f, value: val } : f));
+  };
+
+  const handleConfirmMissingFields = async () => {
+    const updatedInfo: any = { ...matchInfo };
+    let newTeamA = matchInfo.teamName;
+    let newTeamB = matchInfo.opponentTeam;
+
+    for (const field of missingFields) {
+      if (field.value.trim()) {
+        updatedInfo[field.key] = field.value.trim();
+        if (field.key === 'teamName') newTeamA = field.value.trim();
+        if (field.key === 'opponentTeam') newTeamB = field.value.trim();
+      }
+    }
+
+    setMatchInfo(updatedInfo);
+    setMissingFieldsModalVisible(false);
+
+    // If team names were manually filled, resolve against Team Master
+    if (newTeamA && !teamAMasterId) {
+      try {
+        const resA = await api.post('/teams/resolve', { name: newTeamA });
+        if (resA.data.success && resA.data.data?.matched) {
+          setTeamAId(resA.data.data.team._id || null);
+          setTeamAMasterId(resA.data.data.team.teamId || '');
+          setTeamALogo(resA.data.data.team.logoUrl || resA.data.data.team.logo || '');
+        }
+      } catch (e) {}
+    }
+    if (newTeamB && !teamBMasterId) {
+      try {
+        const resB = await api.post('/teams/resolve', { name: newTeamB });
+        if (resB.data.success && resB.data.data?.matched) {
+          setTeamBId(resB.data.data.team._id || null);
+          setTeamBMasterId(resB.data.data.team.teamId || '');
+          setTeamBLogo(resB.data.data.team.logoUrl || resB.data.data.team.logo || '');
+        }
+      } catch (e) {}
+    }
+
+    // Switch to Review tab to see complete scorecard with user filled missing items
+    setActiveTab(4);
   };
 
   const addBatsman = () => {
@@ -797,6 +877,80 @@ export default function ManualMatchEntry() {
           </View>
         )}
       </ScrollView>
+
+      {/* Missing Fields Modal - prompts ONLY for fields not found in the scorecard */}
+      <Modal
+        visible={missingFieldsModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setMissingFieldsModalVisible(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalOverlay}
+        >
+          <View style={[styles.modalCard, { backgroundColor: colors.surface || '#1e1e1e', borderColor: colors.border }]}>
+            <View style={styles.modalHeader}>
+              <View style={{ flex: 1, paddingRight: 10 }}>
+                <Text style={[styles.modalTitle, { color: colors.text }]}>
+                  📝 Enter Missing Details
+                </Text>
+                <Text style={[styles.modalSubtitle, { color: colors.textMuted }]}>
+                  Scorecard scanned! Only {missingFields.length} field{missingFields.length > 1 ? 's were' : ' was'} not found on the image:
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setMissingFieldsModalVisible(false)}
+                style={styles.closeBtn}
+              >
+                <Text style={{ color: colors.textMuted, fontSize: 18, fontWeight: '700' }}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={{ maxHeight: 380, marginVertical: 12 }}>
+              {missingFields.map((field, idx) => (
+                <View key={field.key} style={styles.missingFieldRow}>
+                  <View style={styles.missingBadgeRow}>
+                    <Text style={[styles.missingFieldBadge, { backgroundColor: colors.primary + '25', color: colors.primary }]}>
+                      MISSING #{idx + 1}
+                    </Text>
+                    <Text style={[styles.missingFieldLabel, { color: colors.text }]}>
+                      {field.label}
+                    </Text>
+                  </View>
+                  <TextInput
+                    style={[styles.missingInput, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
+                    placeholder={field.placeholder}
+                    placeholderTextColor={colors.textMuted}
+                    value={field.value}
+                    onChangeText={(val) => handleUpdateMissingField(field.key, val)}
+                    autoCapitalize={field.key === 'teamName' || field.key === 'opponentTeam' || field.key === 'venueName' ? 'words' : 'none'}
+                    keyboardType={field.key === 'overs' ? 'numeric' : 'default'}
+                  />
+                </View>
+              ))}
+            </ScrollView>
+
+            <View style={styles.modalActionsRow}>
+              <TouchableOpacity
+                style={[styles.skipBtn, { borderColor: colors.border }]}
+                onPress={() => {
+                  setMissingFieldsModalVisible(false);
+                  setActiveTab(1);
+                }}
+              >
+                <Text style={[styles.skipBtnText, { color: colors.textMuted }]}>Edit in Tabs</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.confirmBtn, { backgroundColor: colors.primary }]}
+                onPress={handleConfirmMissingFields}
+              >
+                <Text style={styles.confirmBtnText}>Save & Proceed to Review ➔</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -954,5 +1108,99 @@ const styles = StyleSheet.create({
   skipToManual: {
     alignItems: 'center',
     paddingVertical: 12,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 500,
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 10,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    marginBottom: 4,
+  },
+  modalSubtitle: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  closeBtn: {
+    padding: 6,
+  },
+  missingFieldRow: {
+    marginBottom: 14,
+  },
+  missingBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 6,
+  },
+  missingFieldBadge: {
+    fontSize: 10,
+    fontWeight: '800',
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  missingFieldLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  missingInput: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+  },
+  modalActionsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 8,
+  },
+  skipBtn: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  skipBtnText: {
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  confirmBtn: {
+    flex: 2,
+    borderRadius: 8,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  confirmBtnText: {
+    color: '#fff',
+    fontWeight: '800',
+    fontSize: 14,
   },
 });
