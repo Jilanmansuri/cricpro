@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert, ActivityIndicator, KeyboardAvoidingView, Platform, Modal } from 'react-native';
 import { useTheme } from '../../../components/Theme';
 import { Button } from '../../../components/Button';
@@ -90,6 +90,13 @@ export default function ManualMatchEntry() {
   const [teamBNeedsReview, setTeamBNeedsReview] = useState<boolean>(false);
   const [missingFieldsModalVisible, setMissingFieldsModalVisible] = useState<boolean>(false);
   const [missingFields, setMissingFields] = useState<Array<{ key: string; label: string; placeholder: string; value: string }>>([]);
+  const [matchMilestones, setMatchMilestones] = useState<{
+    centuries?: any[];
+    fifties?: any[];
+    topBowlers?: any[];
+    bestBatter?: string | null;
+    bestBowler?: string | null;
+  } | null>(null);
 
   const [matchInfo, setMatchInfo] = useState({
     date: new Date().toISOString().split('T')[0],
@@ -117,6 +124,56 @@ export default function ManualMatchEntry() {
   const [extrasA, setExtrasA] = useState<number>(0);
   const [extrasB, setExtrasB] = useState<number>(0);
   const [dbPlayers, setDbPlayers] = useState<any[]>([]);
+
+  const computedMilestones = useMemo(() => {
+    const allBatters = [
+      ...batting.map(b => ({ ...b, team: matchInfo.teamName || 'Team 1' })),
+      ...teamBBatting.map(b => ({ ...b, team: matchInfo.opponentTeam || 'Team 2' }))
+    ].filter(b => b.name && b.name.trim() !== '');
+
+    const allBowlers = [
+      ...bowling.map(b => ({ ...b, team: matchInfo.opponentTeam || 'Team 2' })),
+      ...teamABowling.map(b => ({ ...b, team: matchInfo.teamName || 'Team 1' }))
+    ].filter(b => b.name && b.name.trim() !== '');
+
+    const liveCenturies = allBatters.filter(b => (Number(b.runs) || 0) >= 100);
+    const liveFifties = allBatters.filter(b => (Number(b.runs) || 0) >= 50 && (Number(b.runs) || 0) < 100);
+    const liveTopBowlers = allBowlers.filter(b => (Number(b.wickets) || 0) >= 3);
+
+    let topBatter: any = null;
+    let maxRuns = 0;
+    for (const b of allBatters) {
+      const r = Number(b.runs) || 0;
+      if (r > maxRuns) {
+        maxRuns = r;
+        topBatter = b;
+      }
+    }
+
+    let topBowler: any = null;
+    let maxWickets = 0;
+    for (const b of allBowlers) {
+      const w = Number(b.wickets) || 0;
+      if (w > maxWickets) {
+        maxWickets = w;
+        topBowler = b;
+      }
+    }
+
+    return {
+      centuries: (matchMilestones?.centuries && matchMilestones.centuries.length > 0)
+        ? matchMilestones.centuries
+        : liveCenturies,
+      fifties: (matchMilestones?.fifties && matchMilestones.fifties.length > 0)
+        ? matchMilestones.fifties
+        : liveFifties,
+      topBowlers: (matchMilestones?.topBowlers && matchMilestones.topBowlers.length > 0)
+        ? matchMilestones.topBowlers
+        : liveTopBowlers,
+      bestBatter: matchMilestones?.bestBatter || (topBatter ? `${topBatter.name} (${topBatter.runs} runs)` : null),
+      bestBowler: matchMilestones?.bestBowler || (topBowler ? `${topBowler.name} (${topBowler.wickets} wkts)` : null),
+    };
+  }, [batting, teamBBatting, bowling, teamABowling, matchInfo.teamName, matchInfo.opponentTeam, matchMilestones]);
 
   useEffect(() => {
     api.get('/players?limit=100').then(res => {
@@ -211,6 +268,9 @@ export default function ManualMatchEntry() {
         }
         if (d.validation?.warnings) {
           setValidationWarnings(d.validation.warnings);
+        }
+        if (d.milestones) {
+          setMatchMilestones(d.milestones);
         }
 
         // Populate matchInfo & Team Master resolution
@@ -706,6 +766,38 @@ export default function ManualMatchEntry() {
                   </Text>
                 </View>
               )}
+
+              {matchInfo.result ? (
+                <View style={[styles.resultBanner, { backgroundColor: colors.primary + '15', borderColor: colors.primary }]}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Text style={{ fontSize: 18 }}>🏆</Text>
+                    <Text style={{ color: colors.primary, fontWeight: '800', fontSize: 14, flex: 1 }}>
+                      {matchInfo.result}
+                    </Text>
+                  </View>
+                  {matchInfo.mvp ? (
+                    <Text style={{ color: colors.text, fontSize: 12, marginTop: 4 }}>
+                      ⭐ Player of the Match: <Text style={{ color: colors.primary, fontWeight: '700' }}>{matchInfo.mvp}</Text>
+                    </Text>
+                  ) : null}
+                  {(computedMilestones.centuries.length > 0 || computedMilestones.fifties.length > 0 || computedMilestones.topBowlers.length > 0) ? (
+                    <View style={{ marginTop: 6, paddingTop: 6, borderTopWidth: 1, borderTopColor: colors.primary + '30' }}>
+                      <Text style={{ color: colors.textMuted, fontSize: 11, fontWeight: '700' }}>
+                        Records Detected: {[
+                          computedMilestones.centuries.length > 0 ? `💯 ${computedMilestones.centuries.length}x 100s` : '',
+                          computedMilestones.fifties.length > 0 ? `🏏 ${computedMilestones.fifties.length}x 50s` : '',
+                          computedMilestones.topBowlers.length > 0 ? `🎯 ${computedMilestones.topBowlers.length}x 3W+ Hauls` : ''
+                        ].filter(Boolean).join(' • ')}
+                      </Text>
+                    </View>
+                  ) : null}
+                  <TouchableOpacity onPress={() => setActiveTab(4)} style={{ marginTop: 8 }}>
+                    <Text style={{ color: colors.primary, fontSize: 12, fontWeight: '700' }}>
+                      Review Complete Scorecard & Milestones ➔
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              ) : null}
             </Card>
 
             <TouchableOpacity style={styles.skipToManual} onPress={() => setActiveTab(1)}>
@@ -820,7 +912,11 @@ export default function ManualMatchEntry() {
             </View>
             <View style={styles.inputGroup}>
               <Text style={[styles.label, { color: colors.textMuted }]}>Result</Text>
-              <TextInput style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={matchInfo.result} onChangeText={t => setMatchInfo({...matchInfo, result: t})} placeholder="e.g. My Team won by 5 wickets" placeholderTextColor={colors.textMuted} />
+              <TextInput style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={matchInfo.result} onChangeText={t => setMatchInfo({...matchInfo, result: t})} placeholder="e.g. India won by 15 runs" placeholderTextColor={colors.textMuted} />
+            </View>
+            <View style={styles.inputGroup}>
+              <Text style={[styles.label, { color: colors.textMuted }]}>Player of the Match (MVP)</Text>
+              <TextInput style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={matchInfo.mvp} onChangeText={t => setMatchInfo({...matchInfo, mvp: t})} placeholder="e.g. Virat Kohli" placeholderTextColor={colors.textMuted} />
             </View>
 
             <Button title="Next: Batting ➔" onPress={() => setActiveTab(2)} variant="secondary" style={{ marginTop: 12 }} />
@@ -958,6 +1054,145 @@ export default function ManualMatchEntry() {
                     Total Score: {teamBBatting.reduce((s, b) => s + (Number(b.runs) || 0), 0) + extrasB} runs
                   </Text>
                 </>
+              )}
+
+              <View style={styles.divider} />
+              
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                <Text style={[styles.summarySubtitle, { color: colors.text, marginBottom: 0 }]}>
+                  🌟 Match Records & Milestones
+                </Text>
+                <View style={{ backgroundColor: colors.primary + '20', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 }}>
+                  <Text style={{ color: colors.primary, fontSize: 11, fontWeight: '800' }}>AI ANALYZED</Text>
+                </View>
+              </View>
+
+              {/* Match Result & Margin Box */}
+              <View style={[styles.milestoneCard, { backgroundColor: colors.surfaceLighter || '#252525', borderColor: colors.border }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Text style={{ fontSize: 20 }}>🏆</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: colors.textMuted, fontSize: 10, fontWeight: '800', letterSpacing: 0.5 }}>MATCH OUTCOME</Text>
+                    <Text style={{ color: colors.primary, fontSize: 15, fontWeight: '900', marginTop: 1 }}>
+                      {matchInfo.result || 'Result pending'}
+                    </Text>
+                  </View>
+                </View>
+
+                {matchInfo.mvp ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: colors.border }}>
+                    <Text style={{ fontSize: 18 }}>⭐</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: colors.textMuted, fontSize: 10, fontWeight: '800', letterSpacing: 0.5 }}>PLAYER OF THE MATCH</Text>
+                      <Text style={{ color: colors.text, fontSize: 14, fontWeight: '800', marginTop: 1 }}>{matchInfo.mvp}</Text>
+                    </View>
+                  </View>
+                ) : null}
+              </View>
+
+              {/* Batting Milestones: 100s & 50s */}
+              <View style={{ marginTop: 12 }}>
+                <Text style={{ color: colors.textMuted, fontSize: 11, fontWeight: '800', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                  Batting Highlights (100s & 50s)
+                </Text>
+
+                {computedMilestones.centuries.length > 0 && (
+                  <View style={{ marginBottom: 6 }}>
+                    {computedMilestones.centuries.map((c: any, i: number) => (
+                      <View key={'cen_' + i} style={[styles.milestoneBadgeRow, { backgroundColor: '#ffd70018', borderColor: '#ffd70060' }]}>
+                        <Text style={{ fontSize: 16 }}>💯</Text>
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ color: '#ffd700', fontWeight: '800', fontSize: 13 }}>
+                            {c.name} - {c.runs} Runs {c.balls ? `(${c.balls}b)` : ''}
+                          </Text>
+                          <Text style={{ color: colors.textMuted, fontSize: 11 }}>
+                            {c.team ? `${c.team} • ` : ''}{c.fours || 0} Fours, {c.sixes || 0} Sixes
+                          </Text>
+                        </View>
+                        <View style={[styles.pillBadge, { backgroundColor: '#ffd700' }]}>
+                          <Text style={{ color: '#000', fontSize: 10, fontWeight: '900' }}>CENTURY</Text>
+                        </View>
+                      </View>
+                    ))}
+                  </View>
+                )}
+
+                {computedMilestones.fifties.length > 0 && (
+                  <View style={{ marginBottom: 6 }}>
+                    {computedMilestones.fifties.map((f: any, i: number) => (
+                      <View key={'fif_' + i} style={[styles.milestoneBadgeRow, { backgroundColor: colors.primary + '18', borderColor: colors.primary + '50' }]}>
+                        <Text style={{ fontSize: 16 }}>🏏</Text>
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ color: colors.primary, fontWeight: '800', fontSize: 13 }}>
+                            {f.name} - {f.runs} Runs {f.balls ? `(${f.balls}b)` : ''}
+                          </Text>
+                          <Text style={{ color: colors.textMuted, fontSize: 11 }}>
+                            {f.team ? `${f.team} • ` : ''}{f.fours || 0} Fours, {f.sixes || 0} Sixes
+                          </Text>
+                        </View>
+                        <View style={[styles.pillBadge, { backgroundColor: colors.primary }]}>
+                          <Text style={{ color: '#fff', fontSize: 10, fontWeight: '900' }}>FIFTY (50)</Text>
+                        </View>
+                      </View>
+                    ))}
+                  </View>
+                )}
+
+                {computedMilestones.centuries.length === 0 && computedMilestones.fifties.length === 0 && (
+                  <Text style={{ color: colors.textMuted, fontSize: 12, fontStyle: 'italic', marginBottom: 4 }}>
+                    No 50s or 100s scored in this match.
+                  </Text>
+                )}
+              </View>
+
+              {/* Bowling Milestones: 3W+ Hauls */}
+              <View style={{ marginTop: 10 }}>
+                <Text style={{ color: colors.textMuted, fontSize: 11, fontWeight: '800', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                  Bowling Highlights (3+ Wickets)
+                </Text>
+
+                {computedMilestones.topBowlers.length > 0 ? (
+                  <View style={{ marginBottom: 6 }}>
+                    {computedMilestones.topBowlers.map((bw: any, i: number) => (
+                      <View key={'bw_' + i} style={[styles.milestoneBadgeRow, { backgroundColor: '#34c75918', borderColor: '#34c75950' }]}>
+                        <Text style={{ fontSize: 16 }}>🎯</Text>
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ color: '#34c759', fontWeight: '800', fontSize: 13 }}>
+                            {bw.name} - {bw.wickets} Wickets
+                          </Text>
+                          <Text style={{ color: colors.textMuted, fontSize: 11 }}>
+                            {bw.team ? `${bw.team} • ` : ''}{bw.runsConceded ?? bw.runs ?? 0} runs ({bw.overs} ov)
+                          </Text>
+                        </View>
+                        <View style={[styles.pillBadge, { backgroundColor: '#34c759' }]}>
+                          <Text style={{ color: '#fff', fontSize: 10, fontWeight: '900' }}>{bw.wickets}W HAUL</Text>
+                        </View>
+                      </View>
+                    ))}
+                  </View>
+                ) : (
+                  <Text style={{ color: colors.textMuted, fontSize: 12, fontStyle: 'italic', marginBottom: 4 }}>
+                    No 3+ wicket hauls recorded in this match.
+                  </Text>
+                )}
+              </View>
+
+              {/* Top Performers */}
+              {(computedMilestones.bestBatter || computedMilestones.bestBowler) && (
+                <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
+                  {computedMilestones.bestBatter ? (
+                    <View style={[styles.topPerformerBox, { backgroundColor: colors.surfaceLighter || '#252525', borderColor: colors.border }]}>
+                      <Text style={{ color: colors.textMuted, fontSize: 10, fontWeight: '800' }}>⚡ TOP BATTER</Text>
+                      <Text style={{ color: colors.text, fontSize: 12, fontWeight: '700', marginTop: 2 }} numberOfLines={1}>{computedMilestones.bestBatter}</Text>
+                    </View>
+                  ) : null}
+                  {computedMilestones.bestBowler ? (
+                    <View style={[styles.topPerformerBox, { backgroundColor: colors.surfaceLighter || '#252525', borderColor: colors.border }]}>
+                      <Text style={{ color: colors.textMuted, fontSize: 10, fontWeight: '800' }}>⚡ TOP BOWLER</Text>
+                      <Text style={{ color: colors.text, fontSize: 12, fontWeight: '700', marginTop: 2 }} numberOfLines={1}>{computedMilestones.bestBowler}</Text>
+                    </View>
+                  ) : null}
+                </View>
               )}
 
               <View style={styles.divider} />
@@ -1306,5 +1541,38 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '800',
     fontSize: 14,
+  },
+  resultBanner: {
+    marginTop: 14,
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    width: '100%',
+  },
+  milestoneCard: {
+    padding: 14,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginTop: 6,
+  },
+  milestoneBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: 10,
+    marginBottom: 6,
+  },
+  pillBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  topPerformerBox: {
+    flex: 1,
+    padding: 10,
+    borderRadius: 8,
+    borderWidth: 1,
   },
 });

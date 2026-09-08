@@ -205,6 +205,95 @@ export const uploadScorecard = async (req: Request, res: Response): Promise<void
       ? (teamBResolution.team.displayName || teamBResolution.team.officialName || teamBResolution.team.name)
       : extractedScorecard.match.teamB;
 
+    // SMART CRICKET LOGIC ENGINE: DEDUCE WINNER, MARGIN & MILESTONES
+    const allBatters = [...(inn1.batters || []), ...(inn2.batters || [])];
+    const allBowlers = [...(inn1.bowlers || []), ...(inn2.bowlers || [])];
+
+    // 1. Deduce Result and Margin automatically from scores if not already clear
+    let matchResultText = (extractedScorecard.match.result?.text || '').trim();
+    const runsA = Number(inn1.total?.runs || 0);
+    const runsB = Number(inn2.total?.runs || 0);
+    const wktsB = Number(inn2.total?.wickets || 0);
+
+    if (!matchResultText || matchResultText.toLowerCase() === 'null' || matchResultText.length < 3) {
+      if (runsA > 0 && runsB > 0) {
+        if (runsA > runsB) {
+          const marginRuns = runsA - runsB;
+          matchResultText = `${resolvedTeamAName} won by ${marginRuns} run${marginRuns > 1 ? 's' : ''}`;
+        } else if (runsB > runsA) {
+          const wktsRemaining = Math.max(1, 10 - wktsB);
+          matchResultText = `${resolvedTeamBName} won by ${wktsRemaining} wicket${wktsRemaining > 1 ? 's' : ''}`;
+        } else if (runsA === runsB) {
+          matchResultText = 'Match tied';
+        }
+      }
+    }
+
+    // 2. Identify Centuries (100s)
+    const centuries = allBatters
+      .filter(b => Number(b.runs) >= 100)
+      .map(b => {
+        const notOut = (b.dismissalStatus || '').toLowerCase().includes('not');
+        return {
+          name: b.name,
+          runs: Number(b.runs),
+          balls: Number(b.balls || 0),
+          fours: Number(b.fours || 0),
+          sixes: Number(b.sixes || 0),
+          label: `${b.name} ${b.runs}${notOut ? '*' : ''} (${b.balls || 0}b, ${b.fours || 0}x4, ${b.sixes || 0}x6)`
+        };
+      });
+
+    // 3. Identify Half-Centuries (50s)
+    const fifties = allBatters
+      .filter(b => Number(b.runs) >= 50 && Number(b.runs) < 100)
+      .map(b => {
+        const notOut = (b.dismissalStatus || '').toLowerCase().includes('not');
+        return {
+          name: b.name,
+          runs: Number(b.runs),
+          balls: Number(b.balls || 0),
+          fours: Number(b.fours || 0),
+          sixes: Number(b.sixes || 0),
+          label: `${b.name} ${b.runs}${notOut ? '*' : ''} (${b.balls || 0}b, ${b.fours || 0}x4, ${b.sixes || 0}x6)`
+        };
+      });
+
+    // 4. Identify 3+ Wicket Hauls
+    const topBowlers = allBowlers
+      .filter(b => Number(b.wickets) >= 3)
+      .map(b => ({
+        name: b.name,
+        overs: b.overs,
+        maidens: Number(b.maidens || 0),
+        runs: Number(b.runsConceded ?? b.runs ?? 0),
+        wickets: Number(b.wickets),
+        label: `${b.name} ${b.wickets}/${b.runsConceded ?? b.runs ?? 0} (${b.overs} ov)`
+      }));
+
+    // 5. Best Individual Performer & Suggested MVP
+    const bestBatter = allBatters.reduce((top: any, cur: any) => Number(cur.runs || 0) > Number(top?.runs || 0) ? cur : top, allBatters[0] || null);
+    const bestBowler = allBowlers.reduce((top: any, cur: any) => {
+      const wCur = Number(cur.wickets || 0);
+      const wTop = Number(top?.wickets || 0);
+      if (wCur > wTop) return cur;
+      if (wCur === wTop && Number(cur.runsConceded ?? cur.runs ?? 99) < Number(top?.runsConceded ?? top?.runs ?? 99)) return cur;
+      return top;
+    }, allBowlers[0] || null);
+
+    let suggestedMvp = (extractedScorecard.match.playerOfMatch || '').trim();
+    if (!suggestedMvp) {
+      if (bestBatter && Number(bestBatter.runs) >= 50) {
+        suggestedMvp = bestBatter.name;
+      } else if (bestBowler && Number(bestBowler.wickets) >= 3) {
+        suggestedMvp = bestBowler.name;
+      } else if (bestBatter && Number(bestBatter.runs) > 0) {
+        suggestedMvp = bestBatter.name;
+      } else if (bestBowler) {
+        suggestedMvp = bestBowler.name;
+      }
+    }
+
     const responsePayload = {
       extractionEngine,
       ocrConfidence: extractionEngine === 'gemini-vision' ? validationResult.scorecardConfidence : ocrConfidence,
@@ -256,10 +345,17 @@ export const uploadScorecard = async (req: Request, res: Response): Promise<void
         venue: extractedScorecard.match.venue,
         venueName: extractedScorecard.match.venue,
         overs: extractedScorecard.match.overs || 20,
-        result: extractedScorecard.match.result?.text || '',
-        mvp: extractedScorecard.match.playerOfMatch || '',
+        result: matchResultText,
+        mvp: suggestedMvp,
         teamAScore: inn1.total || { runs: 0, wickets: 0, overs: 0 },
         teamBScore: inn2.total || { runs: 0, wickets: 0, overs: 0 }
+      },
+      milestones: {
+        centuries,
+        fifties,
+        topBowlers,
+        bestBatter: bestBatter ? `${bestBatter.name} (${bestBatter.runs} runs)` : null,
+        bestBowler: bestBowler ? `${bestBowler.name} (${bestBowler.wickets}/${bestBowler.runsConceded ?? bestBowler.runs ?? 0})` : null
       },
       innings: extractedScorecard.innings,
       teamABatting: inn1.batters || [],
