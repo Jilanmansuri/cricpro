@@ -1,16 +1,20 @@
 import api from './api';
 
-export const uploadScorecard = async (uri: string): Promise<any> => {
+export const uploadScorecard = async (uris: string | string[]): Promise<any> => {
+  const uriList = Array.isArray(uris) ? uris : [uris];
   const formData = new FormData();
-  const filename = uri.split('/').pop() || 'scorecard.jpg';
-  const match = /\.(\w+)$/.exec(filename);
-  const type = match ? `image/${match[1]}` : `image/jpeg`;
 
-  formData.append('scorecard', {
-    uri,
-    name: filename,
-    type,
-  } as any);
+  uriList.forEach((uri, idx) => {
+    const filename = uri.split('/').pop() || `scorecard_${idx}.jpg`;
+    const match = /\.(\w+)$/.exec(filename);
+    const type = match ? `image/${match[1]}` : `image/jpeg`;
+
+    formData.append('scorecard', {
+      uri,
+      name: filename,
+      type,
+    } as any);
+  });
 
   const res = await api.post('/matches/upload', formData, {
     headers: {

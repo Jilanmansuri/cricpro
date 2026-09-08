@@ -74,7 +74,7 @@ export default function ManualMatchEntry() {
   const [activeTab, setActiveTab] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [isOcrLoading, setIsOcrLoading] = useState(false);
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [selectedImages, setSelectedImages] = useState<string[]>([]);
   const [ocrConfidence, setOcrConfidence] = useState<number | null>(null);
   const [extractionEngine, setExtractionEngine] = useState<string | null>(null);
   const [validationWarnings, setValidationWarnings] = useState<string[]>([]);
@@ -151,37 +151,56 @@ export default function ManualMatchEntry() {
         return;
       }
 
-      let pickerResult;
-      if (fromCamera) {
-        pickerResult = await ImagePicker.launchCameraAsync({
-          allowsEditing: true,
-          quality: 0.9,
-        });
-      } else {
-        pickerResult = await ImagePicker.launchImageLibraryAsync({
-          mediaTypes: ImagePicker.MediaTypeOptions.Images,
-          allowsEditing: true,
-          quality: 0.9,
-        });
+      const remainingSlots = Math.max(1, 5 - selectedImages.length);
+      if (selectedImages.length >= 5) {
+        Alert.alert('Maximum Limit Reached', 'You can upload up to 5 scorecard photos at a time.');
+        return;
       }
 
-      if (!pickerResult.canceled && pickerResult.assets?.[0]?.uri) {
-        setSelectedImage(pickerResult.assets[0].uri);
+      if (fromCamera) {
+        const pickerResult = await ImagePicker.launchCameraAsync({
+          quality: 0.85,
+        });
+        if (!pickerResult.canceled && pickerResult.assets?.[0]?.uri) {
+          setSelectedImages(prev => [...prev, pickerResult.assets[0].uri].slice(0, 5));
+        }
+      } else {
+        const pickerResult = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          allowsMultipleSelection: true,
+          selectionLimit: remainingSlots,
+          quality: 0.85,
+        });
+        if (!pickerResult.canceled && pickerResult.assets && pickerResult.assets.length > 0) {
+          const uris = pickerResult.assets.map(a => a.uri);
+          setSelectedImages(prev => [...prev, ...uris].slice(0, 5));
+        }
       }
     } catch (err: any) {
       Alert.alert('Error', err.message || 'Failed to select image');
     }
   };
 
+  const removeSelectedImage = (index: number) => {
+    setSelectedImages(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const clearAllImages = () => {
+    setSelectedImages([]);
+    setExtractionEngine(null);
+    setOcrConfidence(null);
+    setValidationWarnings([]);
+  };
+
   const handleRunOcr = async () => {
-    if (!selectedImage) {
-      Alert.alert('No Image', 'Please choose a scorecard image from camera or gallery first.');
+    if (selectedImages.length === 0) {
+      Alert.alert('No Image', 'Please choose between 1 to 5 scorecard images from camera or gallery first.');
       return;
     }
 
     setIsOcrLoading(true);
     try {
-      const result = await uploadScorecard(selectedImage);
+      const result = await uploadScorecard(selectedImages);
       if (result.success && result.data) {
         const d = result.data;
         if (d.ocrConfidence) {
@@ -422,15 +441,37 @@ export default function ManualMatchEntry() {
     }
 
     setIsSaving(true);
+    const calcTeamAWickets = batting.filter(b => {
+      const s = (b.outStatus || '').toLowerCase();
+      return s && !['not out', 'not_out', 'dnb', 'did not bat'].includes(s);
+    }).length;
+    const calcTeamBWickets = teamBBatting.filter(b => {
+      const s = (b.outStatus || '').toLowerCase();
+      return s && !['not out', 'not_out', 'dnb', 'did not bat'].includes(s);
+    }).length;
+
+    const finalResult = matchInfo.result?.trim() || `${matchInfo.teamName || 'Team 1'} vs ${matchInfo.opponentTeam || 'Team 2'}`;
+
     const payload = {
       matchInfo: {
         ...matchInfo,
+        result: finalResult,
         teamAId,
         teamBId,
         teamAMasterId,
         teamBMasterId,
         teamALogo,
-        teamBLogo
+        teamBLogo,
+        teamAScore: {
+          runs: batting.reduce((acc, b) => acc + (Number(b.runs) || 0), 0) + Number(extrasA || 0),
+          wickets: calcTeamAWickets,
+          overs: bowling.reduce((acc, b) => acc + (Number(b.overs) || 0), 0)
+        },
+        teamBScore: {
+          runs: teamBBatting.reduce((acc, b) => acc + (Number(b.runs) || 0), 0) + Number(extrasB || 0),
+          wickets: calcTeamBWickets,
+          overs: teamABowling.reduce((acc, b) => acc + (Number(b.overs) || 0), 0)
+        }
       },
       teamAId,
       teamBId,
@@ -450,7 +491,10 @@ export default function ManualMatchEntry() {
       let response;
       try {
         response = await api.post('/matches/save', payload);
-      } catch {
+      } catch (firstErr: any) {
+        if (firstErr.response && firstErr.response.status >= 400 && firstErr.response.status < 500 && firstErr.response.status !== 404) {
+          throw firstErr;
+        }
         response = await api.post('/manual-match/save', payload);
       }
 
@@ -486,7 +530,7 @@ export default function ManualMatchEntry() {
               setTeamABowling([]);
               setExtrasA(0);
               setExtrasB(0);
-              setSelectedImage(null);
+              setSelectedImages([]);
               setOcrConfidence(null);
               setExtractionEngine(null);
               setValidationWarnings([]);
@@ -498,9 +542,17 @@ export default function ManualMatchEntry() {
       }
     } catch (err: any) {
       console.error('Save error:', err);
+      // If the server responded with an error, the phone is ONLINE!
+      if (err.response) {
+        const errorMsg = err.response.data?.message || err.response.data?.error || `Server error (${err.response.status})`;
+        Alert.alert('Save Failed', errorMsg);
+        return;
+      }
+
+      // Only if there is genuinely no server response (network down/timeout) prompt offline queue:
       Alert.alert(
-        'Offline Save Option',
-        'Could not reach server. Would you like to queue this match locally to sync automatically when online?',
+        'Device Offline',
+        'Could not reach server. Would you like to queue this match locally to sync automatically when internet is restored?',
         [
           { text: 'Cancel', style: 'cancel' },
           {
@@ -543,21 +595,73 @@ export default function ManualMatchEntry() {
             </Text>
 
             <Card style={styles.ocrCard}>
-              {selectedImage ? (
+              {selectedImages.length > 0 ? (
                 <View style={styles.previewContainer}>
-                  <Image source={{ uri: selectedImage }} style={styles.imagePreview} contentFit="contain" />
-                  <TouchableOpacity style={styles.repickBtn} onPress={() => {
-                    setSelectedImage(null);
-                    setExtractionEngine(null);
-                    setOcrConfidence(null);
-                    setValidationWarnings([]);
-                  }}>
-                    <Text style={{ color: colors.error, fontWeight: '700' }}>Remove Image</Text>
-                  </TouchableOpacity>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%', marginBottom: 10 }}>
+                    <Text style={{ color: colors.text, fontWeight: '800', fontSize: 14 }}>
+                      Selected Photos ({selectedImages.length}/5)
+                    </Text>
+                    <TouchableOpacity onPress={clearAllImages}>
+                      <Text style={{ color: colors.error, fontWeight: '700', fontSize: 12 }}>Clear All</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingVertical: 4, gap: 10 }}>
+                    {selectedImages.map((uri, idx) => (
+                      <View key={uri + idx} style={{ position: 'relative', width: 130, height: 170, borderRadius: 10, overflow: 'hidden', borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surfaceLighter }}>
+                        <Image source={{ uri }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
+                        <View style={{ position: 'absolute', top: 6, left: 6, backgroundColor: 'rgba(0,0,0,0.7)', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 2 }}>
+                          <Text style={{ color: '#fff', fontSize: 11, fontWeight: '800' }}>#{idx + 1}</Text>
+                        </View>
+                        <TouchableOpacity
+                          style={{ position: 'absolute', top: 6, right: 6, backgroundColor: 'rgba(255,59,48,0.9)', borderRadius: 12, width: 24, height: 24, justifyContent: 'center', alignItems: 'center' }}
+                          onPress={() => removeSelectedImage(idx)}
+                        >
+                          <Text style={{ color: '#fff', fontSize: 12, fontWeight: '900' }}>✕</Text>
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+
+                    {selectedImages.length < 5 && (
+                      <View style={{ flexDirection: 'row', gap: 8 }}>
+                        <TouchableOpacity
+                          style={{ width: 105, height: 170, borderRadius: 10, borderWidth: 1, borderStyle: 'dashed', borderColor: colors.primary, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.primary + '10', padding: 8 }}
+                          onPress={() => pickImage(false)}
+                        >
+                          <GalleryIcon color={colors.primary} />
+                          <Text style={{ color: colors.primary, fontWeight: '800', fontSize: 12, textAlign: 'center', marginTop: 8 }}>
+                            + Gallery
+                          </Text>
+                          <Text style={{ color: colors.textMuted, fontSize: 10, textAlign: 'center', marginTop: 2 }}>
+                            ({5 - selectedImages.length} more)
+                          </Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          style={{ width: 105, height: 170, borderRadius: 10, borderWidth: 1, borderStyle: 'dashed', borderColor: colors.primary, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.primary + '10', padding: 8 }}
+                          onPress={() => pickImage(true)}
+                        >
+                          <CameraIcon color={colors.primary} />
+                          <Text style={{ color: colors.primary, fontWeight: '800', fontSize: 12, textAlign: 'center', marginTop: 8 }}>
+                            + Camera
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                  </ScrollView>
+
+                  <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 10, textAlign: 'center' }}>
+                    💡 Tip: Select 2 to 5 photos (e.g. Innings 1, Innings 2, Bowling, Summary) for a complete match scan.
+                  </Text>
                 </View>
               ) : (
                 <View style={styles.imagePlaceholder}>
-                  <Text style={{ color: colors.textMuted, fontSize: 14, marginBottom: 16 }}>No scorecard image selected</Text>
+                  <Text style={{ color: colors.text, fontWeight: '800', fontSize: 15, marginBottom: 4 }}>
+                    Select 2 to 5 Scorecard Photos
+                  </Text>
+                  <Text style={{ color: colors.textMuted, fontSize: 13, marginBottom: 16, textAlign: 'center', maxWidth: 320 }}>
+                    Snap or choose 2 to 5 screenshots of the scorecard (Innings 1, Innings 2, bowling figures, or summary)
+                  </Text>
                   <View style={styles.pickerButtonsRow}>
                     <TouchableOpacity style={[styles.pickerBtn, { backgroundColor: colors.surfaceLighter, borderColor: colors.border }]} onPress={() => pickImage(true)}>
                       <CameraIcon color={colors.primary} />
@@ -565,19 +669,19 @@ export default function ManualMatchEntry() {
                     </TouchableOpacity>
                     <TouchableOpacity style={[styles.pickerBtn, { backgroundColor: colors.surfaceLighter, borderColor: colors.border }]} onPress={() => pickImage(false)}>
                       <GalleryIcon color={colors.primary} />
-                      <Text style={[styles.pickerBtnText, { color: colors.text }]}>Gallery</Text>
+                      <Text style={[styles.pickerBtnText, { color: colors.text }]}>Gallery (Up to 5)</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
               )}
 
-              {selectedImage && (
+              {selectedImages.length > 0 && (
                 <Button
-                  title={isOcrLoading ? "Scanning Scorecard with AI..." : "Analyze & Extract Scorecard"}
+                  title={isOcrLoading ? "Scanning Scorecard with AI..." : `Analyze & Extract ${selectedImages.length} Image${selectedImages.length > 1 ? 's' : ''} 🚀`}
                   onPress={handleRunOcr}
                   variant="primary"
                   isLoading={isOcrLoading}
-                  style={{ marginTop: 16 }}
+                  style={{ marginTop: 16, width: '100%' }}
                 />
               )}
 

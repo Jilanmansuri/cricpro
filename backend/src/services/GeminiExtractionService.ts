@@ -95,32 +95,45 @@ export class GeminiExtractionService {
     return !!(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY);
   }
 
-  public async extractScorecardFromImage(filePath: string): Promise<StructuredScorecardData> {
-    const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-    if (!apiKey) {
-      throw new Error('GEMINI_API_KEY is not configured in environment');
-    }
-
+  public async extractScorecardFromImage(filePathOrPaths: string | string[]): Promise<StructuredScorecardData> {
     if (!this.ai) {
+      const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+      if (!apiKey) {
+        throw new Error('GEMINI_API_KEY is not configured in backend environment.');
+      }
       this.ai = new GoogleGenAI({ apiKey });
     }
 
-    if (!fs.existsSync(filePath)) {
-      throw new Error(`Scorecard image file not found at: ${filePath}`);
+    const filePaths = Array.isArray(filePathOrPaths) ? filePathOrPaths : [filePathOrPaths];
+    const imageParts: any[] = [];
+
+    for (const filePath of filePaths) {
+      if (!fs.existsSync(filePath)) {
+        continue;
+      }
+      const ext = path.extname(filePath).toLowerCase();
+      let mimeType = 'image/jpeg';
+      if (ext === '.png') mimeType = 'image/png';
+      else if (ext === '.webp') mimeType = 'image/webp';
+      else if (ext === '.gif') mimeType = 'image/gif';
+
+      const imageBytes = fs.readFileSync(filePath);
+      const base64Data = imageBytes.toString('base64');
+      imageParts.push({
+        inlineData: {
+          mimeType,
+          data: base64Data
+        }
+      });
     }
 
-    // Determine mime type
-    const ext = path.extname(filePath).toLowerCase();
-    let mimeType = 'image/jpeg';
-    if (ext === '.png') mimeType = 'image/png';
-    else if (ext === '.webp') mimeType = 'image/webp';
-    else if (ext === '.gif') mimeType = 'image/gif';
-
-    const imageBytes = fs.readFileSync(filePath);
-    const base64Data = imageBytes.toString('base64');
+    if (imageParts.length === 0) {
+      throw new Error(`None of the provided scorecard image files were found.`);
+    }
 
     const prompt = `You are an expert cricket statistician and computer vision analyst for the CricPro application.
-Analyze this cricket scorecard image carefully and extract all match, innings, batting, bowling, extras, fall of wickets, and result details.
+You are provided with ${imageParts.length} cricket scorecard image(s) from the same match (for example, Innings 1 scorecard, Innings 2 scorecard, bowling figures, extras, or match summary).
+Analyze all provided scorecard images carefully and merge/synthesize them into ONE unified, complete, high-precision match JSON structure.
 
 CRITICAL INSTRUCTIONS:
 1. Return ONLY a valid JSON object without any markdown code fence, without \`\`\`json, and without any explanatory text.
@@ -206,16 +219,37 @@ CRITICAL INSTRUCTIONS:
   ]
 }
 
-SPECIFIC CRICKET RULES:
-- Never confuse overs with decimal numbers. In cricket, 4.2 overs means 4 overs and 2 legal balls.
-- Extract EVERY batter and bowler visible in the tables.
-- If both innings (both teams) are visible in the image, extract both as separate items in the "innings" array.
-- In Innings 1, batting team is Team A and bowling team is Team B. In Innings 2, batting team is Team B and bowling team is Team A.
-- If a batter did not bat, mark dismissalStatus as "dnb", runs as 0, balls as 0.
-- If a batter is not out, mark dismissalStatus as "not_out".
-- DO NOT invent or hallucinate missing information; use null when a field is not readable or not present.`;
+SPECIFIC CRICKET EXTRACTION & COLUMN ACCURACY RULES:
+- BATTERS TABLE COLUMNS:
+  * Batter / Batsman: Player's exact name. Remove any captain '(c)' or keeper '(wk)' suffixes into the player name or leave them clean.
+  * Dismissal: Look at the text below or beside the name (e.g. 'c Rohit b Bumrah', 'lbw b Shami', 'not out', 'run out').
+  * R or Runs: MUST be the exact runs scored.
+  * B or Balls: MUST be the exact balls faced. DO NOT swap runs and balls!
+  * 4s: Exact count of boundaries (fours).
+  * 6s: Exact count of maximums (sixes).
+  * SR / Strike Rate: DO NOT confuse Strike Rate (e.g. 150.00) with Runs or Balls!
+  * Status: If batter has '*' or 'not out', dismissalStatus MUST be 'not_out'. If marked 'dnb' or did not bat, dismissalStatus MUST be 'dnb'.
+
+- BOWLERS TABLE COLUMNS:
+  * Bowler: Player's exact name.
+  * O or Overs: Overs bowled (e.g. 4.0, 3.2). In cricket, 3.2 means 3 overs and 2 balls.
+  * M or Maidens: Maiden overs (e.g. 0, 1). DO NOT swap Maidens with Wickets!
+  * R or Runs: Runs conceded by this bowler.
+  * W or Wkts: Wickets taken by this bowler. DO NOT confuse with Maidens or Overs!
+  * Econ: Economy rate.
+
+- INNINGS TOTAL & EXTRAS:
+  * Sum of all batter runs + Extras total MUST equal the innings total runs.
+  * Sum of bowler wickets MUST match batter dismissals (excluding run outs).
+  * If both teams/innings are in the images, create inningsNumber 1 for the first batting team, and inningsNumber 2 for the chasing team.
+  * DO NOT hallucinate or guess numbers; extract the exact figures displayed on the scorecard.`;
 
     let responseText = '';
+    const generationConfig = {
+      responseMimeType: 'application/json',
+      temperature: 0.1
+    };
+
     try {
       const response = await this.ai.models.generateContent({
         model: 'gemini-2.5-flash',
@@ -223,42 +257,54 @@ SPECIFIC CRICKET RULES:
           {
             role: 'user',
             parts: [
-              {
-                inlineData: {
-                  mimeType,
-                  data: base64Data
-                }
-              },
+              ...imageParts,
               {
                 text: prompt
               }
             ]
           }
-        ]
+        ],
+        config: generationConfig
       });
       responseText = response.text || '';
     } catch (primaryError: any) {
-      console.warn('[GeminiExtraction] gemini-2.5-flash failed, attempting fallback to gemini-1.5-flash:', primaryError.message);
-      const fallbackResponse = await this.ai.models.generateContent({
-        model: 'gemini-1.5-flash',
-        contents: [
-          {
-            role: 'user',
-            parts: [
-              {
-                inlineData: {
-                  mimeType,
-                  data: base64Data
+      console.warn('[GeminiExtraction] gemini-2.5-flash failed, attempting fallback to gemini-flash-latest:', primaryError.message);
+      try {
+        const fallbackResponse = await this.ai.models.generateContent({
+          model: 'gemini-flash-latest',
+          contents: [
+            {
+              role: 'user',
+              parts: [
+                ...imageParts,
+                {
+                  text: prompt
                 }
-              },
-              {
-                text: prompt
-              }
-            ]
-          }
-        ]
-      });
-      responseText = fallbackResponse.text || '';
+              ]
+            }
+          ],
+          config: generationConfig
+        });
+        responseText = fallbackResponse.text || '';
+      } catch (secError: any) {
+        console.warn('[GeminiExtraction] gemini-flash-latest failed, attempting fallback to gemini-3.5-flash:', secError.message);
+        const tertResponse = await this.ai.models.generateContent({
+          model: 'gemini-3.5-flash',
+          contents: [
+            {
+              role: 'user',
+              parts: [
+                ...imageParts,
+                {
+                  text: prompt
+                }
+              ]
+            }
+          ],
+          config: generationConfig
+        });
+        responseText = tertResponse.text || '';
+      }
     }
 
     if (!responseText.trim()) {

@@ -75,11 +75,12 @@ export const checkDuplicateMatch = async (req: Request, res: Response): Promise<
 
 export const uploadScorecard = async (req: Request, res: Response): Promise<void> => {
   const fs = await import('fs');
-  const imagePath = req.file?.path;
+  const files: Express.Multer.File[] = (req.files as Express.Multer.File[]) || (req.file ? [req.file] : []);
+  const imagePaths = files.map(f => f.path);
 
   try {
-    if (!req.file || !imagePath) {
-      res.status(400).json({ success: false, message: 'Please upload a scorecard image' });
+    if (imagePaths.length === 0) {
+      res.status(400).json({ success: false, message: 'Please upload at least one scorecard image (up to 5 images)' });
       return;
     }
 
@@ -98,21 +99,21 @@ export const uploadScorecard = async (req: Request, res: Response): Promise<void
 
     if (geminiService.isAvailable()) {
       try {
-        console.log('[ScorecardScan] Attempting Gemini Vision extraction...');
-        extractedScorecard = await geminiService.extractScorecardFromImage(imagePath);
+        console.log(`[ScorecardScan] Attempting Gemini Vision extraction on ${imagePaths.length} image(s)...`);
+        extractedScorecard = await geminiService.extractScorecardFromImage(imagePaths);
       } catch (geminiError: any) {
         console.warn('[ScorecardScan] Gemini extraction failed, falling back to local OCR:', geminiError.message);
       }
     }
 
-    // Fallback to local OCR if Gemini is unavailable or failed
+    // Fallback to local OCR if Gemini is unavailable or failed (using first image)
     if (!extractedScorecard) {
       extractionEngine = 'tesseract-ocr';
       console.log('[ScorecardScan] Running local Sharp + Tesseract OCR...');
       const ocrService = new OcrService();
       const parserService = new ParserService();
 
-      const ocrResult = await ocrService.processAndExtractText(imagePath);
+      const ocrResult = await ocrService.processAndExtractText(imagePaths[0]);
       rawText = ocrResult.text;
       ocrConfidence = ocrResult.confidence;
       const parsedData = parserService.parseScorecardText(ocrResult.text);
@@ -165,12 +166,14 @@ export const uploadScorecard = async (req: Request, res: Response): Promise<void
       };
     }
 
-    // Clean up temporary uploaded file
-    if (imagePath && fs.existsSync(imagePath)) {
-      try {
-        fs.unlinkSync(imagePath);
-      } catch (err) {
-        console.error('Failed to cleanup temp upload file:', err);
+    // Clean up temporary uploaded files
+    for (const imgPath of imagePaths) {
+      if (imgPath && fs.existsSync(imgPath)) {
+        try {
+          fs.unlinkSync(imgPath);
+        } catch (err) {
+          console.error('Failed to cleanup temp upload file:', err);
+        }
       }
     }
 
@@ -273,10 +276,12 @@ export const uploadScorecard = async (req: Request, res: Response): Promise<void
       data: responsePayload
     });
   } catch (error: any) {
-    if (imagePath && fs.existsSync(imagePath)) {
-      try {
-        fs.unlinkSync(imagePath);
-      } catch (_) {}
+    for (const imgPath of imagePaths) {
+      if (imgPath && fs.existsSync(imgPath)) {
+        try {
+          fs.unlinkSync(imgPath);
+        } catch (_) {}
+      }
     }
     console.error('Scorecard upload error:', error);
     res.status(500).json({ success: false, message: error.message || 'Failed to process scorecard image' });

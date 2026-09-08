@@ -106,10 +106,19 @@ async function testTeamMatching() {
   console.log('✓ Team initials generation passed (CSK, RCB, MI)');
 }
 
+async function testMultiImageExtractionSignature() {
+  console.log('Running test: GeminiExtractionService multi-image signature...');
+  const { GeminiExtractionService } = await import('../services/GeminiExtractionService');
+  const gemini = new GeminiExtractionService();
+  assert(typeof gemini.extractScorecardFromImage === 'function');
+  console.log('✓ GeminiExtractionService multi-image method verified');
+}
+
 async function run() {
   try {
     await testScorecardValidation();
     await testTeamMatching();
+    await testMultiImageExtractionSignature();
     console.log('========================================================');
     console.log('ALL SCORECARD SCANNING & VALIDATION UNIT TESTS PASSED! 🎉');
     console.log('========================================================');

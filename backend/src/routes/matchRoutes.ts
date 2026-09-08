@@ -10,7 +10,7 @@ const router = Router();
 
 router.get('/', protect, getMatches);
 router.post('/check-duplicate', protect, checkDuplicateMatch);
-router.post('/upload', protect, upload.single('scorecard'), uploadScorecard);
+router.post('/upload', protect, upload.array('scorecard', 5), uploadScorecard);
 router.post('/save', protect, saveMatchValidator, validateFields, saveManualMatch);
 router.get('/:id/export', protect, exportScorecard);
 router.get('/:id', protect, getMatchById);

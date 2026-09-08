@@ -201,8 +201,8 @@ export class StatsService {
     for (const match of matches) {
       played++;
       const isTeamA = match.teamA.toString() === teamId.toString();
-      const resultText = match.result.toLowerCase();
-      const teamNameLower = team.name.toLowerCase();
+      const resultText = (match.result || '').toLowerCase();
+      const teamNameLower = (team.name || '').toLowerCase();
 
       if (resultText.includes('tie') || resultText.includes('draw')) {
         points += 1;
@@ -290,8 +290,8 @@ export class StatsService {
       for (const match of teamMatches) {
         played++;
         const isTeamA = match.teamA.toString() === idStr;
-        const resultText = match.result.toLowerCase();
-        const teamNameLower = team.name.toLowerCase();
+        const resultText = (match.result || '').toLowerCase();
+        const teamNameLower = (team.name || '').toLowerCase();
 
         if (resultText.includes('tie') || resultText.includes('draw')) {
           tied++;
