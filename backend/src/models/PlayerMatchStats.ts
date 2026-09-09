@@ -15,6 +15,10 @@ const PlayerMatchStatsSchema = new Schema<IPlayerMatchStats>(
       required: true,
       index: true,
     },
+    playerName: {
+      type: String,
+      index: true,
+    },
     teamId: {
       type: Schema.Types.ObjectId,
       ref: 'Team',

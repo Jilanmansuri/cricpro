@@ -10,6 +10,10 @@ const CareerStatsSchema = new Schema<ICareerStats>(
       unique: true,
       index: true,
     },
+    playerName: {
+      type: String,
+      index: true,
+    },
     batting: {
       matches: { type: Number, default: 0 },
       runs: { type: Number, default: 0 },

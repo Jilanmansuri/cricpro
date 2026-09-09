@@ -354,6 +354,9 @@ export const uploadScorecard = async (req: Request, res: Response): Promise<void
         centuries,
         fifties,
         topBowlers,
+        highestIndividualScore: bestBatter
+          ? `${bestBatter.name} ${bestBatter.runs}${((bestBatter.dismissalStatus || '').toLowerCase().includes('not') ? '*' : '')} (${bestBatter.balls || 0} balls)`
+          : null,
         bestBatter: bestBatter ? `${bestBatter.name} (${bestBatter.runs} runs)` : null,
         bestBowler: bestBowler ? `${bestBowler.name} (${bestBowler.wickets}/${bestBowler.runsConceded ?? bestBowler.runs ?? 0})` : null
       },

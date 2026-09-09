@@ -73,7 +73,7 @@ export const getPlayerCareer = async (req: Request, res: Response): Promise<void
 
     let career = await careerStatsRepository.findOne({ playerId });
     if (!career) {
-      career = await careerStatsRepository.create({ playerId });
+      career = await careerStatsRepository.create({ playerId, playerName: player.name });
     }
 
     const insights = AiInsightsService.generatePlayerInsights(career);
@@ -159,21 +159,172 @@ export const deletePlayer = async (req: Request, res: Response): Promise<void> =
   }
 };
 
-export const getLeaderboard = async (_req: Request, res: Response): Promise<void> => {
+export const getLeaderboard = async (req: Request, res: Response): Promise<void> => {
   try {
-    const topBatsmen = await careerStatsRepository.find(
-      { 'batting.runs': { $gt: 0 } },
-      { sort: { 'batting.runs': -1 }, limit: 200, populate: 'playerId' }
-    );
-    
-    const topBowlers = await careerStatsRepository.find(
-      { 'bowling.wickets': { $gt: 0 } },
-      { sort: { 'bowling.wickets': -1 }, limit: 200, populate: 'playerId' }
-    );
+    const division = ((req.query.division as string) || 'all').toLowerCase();
+
+    if (division === 'all') {
+      const topBatsmen = await careerStatsRepository.find(
+        { 'batting.runs': { $gt: 0 } },
+        { sort: { 'batting.runs': -1 }, limit: 200, populate: 'playerId' }
+      );
+      
+      const topBowlers = await careerStatsRepository.find(
+        { 'bowling.wickets': { $gt: 0 } },
+        { sort: { 'bowling.wickets': -1 }, limit: 200, populate: 'playerId' }
+      );
+
+      res.json({
+        success: true,
+        data: {
+          division: 'all',
+          topBatsmen,
+          topBowlers
+        }
+      });
+      return;
+    }
+
+    // Filter by division (International or IPL)
+    let teamFilter: any = {};
+    if (division === 'international') {
+      teamFilter = {
+        $or: [
+          { teamType: 'international' },
+          { teamId: { $regex: /^INT_/i } }
+        ]
+      };
+    } else if (division === 'ipl') {
+      teamFilter = {
+        $or: [
+          { league: { $regex: /^IPL$/i } },
+          { teamType: 'franchise' },
+          { teamId: { $regex: /^IPL_/i } }
+        ]
+      };
+    }
+
+    const { Team } = await import('../models/Team');
+    const { PlayerMatchStats } = await import('../models/PlayerMatchStats');
+    const { Player } = await import('../models/Player');
+
+    const matchingTeams = await Team.find(teamFilter).select('_id');
+    const matchingTeamIds = matchingTeams.map(t => t._id);
+
+    // Aggregate Batting Stats for this division
+    const battingAgg = await PlayerMatchStats.aggregate([
+      { $match: { teamId: { $in: matchingTeamIds } } },
+      {
+        $group: {
+          _id: '$playerId',
+          playerName: { $first: '$playerName' },
+          matches: { $sum: 1 },
+          runs: { $sum: '$batting.runs' },
+          balls: { $sum: '$batting.balls' },
+          fours: { $sum: '$batting.fours' },
+          sixes: { $sum: '$batting.sixes' },
+          highestScore: { $max: '$batting.runs' },
+          notOuts: {
+            $sum: {
+              $cond: [
+                { $in: [{ $toLower: { $ifNull: ['$batting.outStatus', ''] } }, ['not_out', 'not out']] },
+                1,
+                0
+              ]
+            }
+          },
+          fifties: {
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    { $gte: ['$batting.runs', 50] },
+                    { $lt: ['$batting.runs', 100] }
+                  ]
+                },
+                1,
+                0
+              ]
+            }
+          },
+          hundreds: {
+            $sum: {
+              $cond: [
+                { $gte: ['$batting.runs', 100] },
+                1,
+                0
+              ]
+            }
+          }
+        }
+      },
+      { $match: { runs: { $gt: 0 } } },
+      { $sort: { runs: -1 } },
+      { $limit: 200 }
+    ]);
+
+    // Aggregate Bowling Stats for this division
+    const bowlingAgg = await PlayerMatchStats.aggregate([
+      { $match: { teamId: { $in: matchingTeamIds } } },
+      {
+        $group: {
+          _id: '$playerId',
+          playerName: { $first: '$playerName' },
+          overs: { $sum: '$bowling.overs' },
+          maidens: { $sum: '$bowling.maidens' },
+          runsConceded: { $sum: '$bowling.runsConceded' },
+          wickets: { $sum: '$bowling.wickets' }
+        }
+      },
+      { $match: { wickets: { $gt: 0 } } },
+      { $sort: { wickets: -1 } },
+      { $limit: 200 }
+    ]);
+
+    // Populate player info so it matches CareerStats structure
+    const playerIds = Array.from(new Set([...battingAgg.map(b => b._id), ...bowlingAgg.map(b => b._id)]));
+    const playersList = await Player.find({ _id: { $in: playerIds } }).select('_id name');
+    const playerMap = new Map(playersList.map(p => [p._id.toString(), p]));
+
+    const topBatsmen = battingAgg.map(b => {
+      const pDoc = playerMap.get(b._id?.toString());
+      return {
+        _id: b._id,
+        playerId: pDoc ? { _id: pDoc._id, name: pDoc.name } : { _id: b._id, name: b.playerName || 'Player' },
+        playerName: pDoc?.name || b.playerName,
+        batting: {
+          matches: b.matches,
+          runs: b.runs,
+          balls: b.balls,
+          fours: b.fours,
+          sixes: b.sixes,
+          fifties: b.fifties,
+          hundreds: b.hundreds,
+          highestScore: b.highestScore,
+          notOuts: b.notOuts
+        }
+      };
+    });
+
+    const topBowlers = bowlingAgg.map(bw => {
+      const pDoc = playerMap.get(bw._id?.toString());
+      return {
+        _id: bw._id,
+        playerId: pDoc ? { _id: pDoc._id, name: pDoc.name } : { _id: bw._id, name: bw.playerName || 'Player' },
+        playerName: pDoc?.name || bw.playerName,
+        bowling: {
+          overs: bw.overs,
+          maidens: bw.maidens,
+          runsConceded: bw.runsConceded,
+          wickets: bw.wickets
+        }
+      };
+    });
 
     res.json({
       success: true,
       data: {
+        division,
         topBatsmen,
         topBowlers
       }
