@@ -18,8 +18,18 @@ export default function SignupScreen() {
   const router = useRouter();
 
   const handleSignup = async () => {
-    if (!username || !email || !password || !confirmPassword) {
+    if (!username.trim() || !email.trim() || !password || !confirmPassword) {
       Alert.alert('Error', 'Please fill in all fields');
+      return;
+    }
+
+    if (username.trim().length < 3) {
+      Alert.alert('Invalid Username', 'Username must be at least 3 characters long');
+      return;
+    }
+
+    if (password.length < 6) {
+      Alert.alert('Weak Password', 'Password must be at least 6 characters long');
       return;
     }
 
@@ -30,7 +40,7 @@ export default function SignupScreen() {
 
     setIsLoading(true);
     try {
-      await signup(username, email, password);
+      await signup(username.trim(), email.trim(), password);
       router.replace('/(drawer)/(tabs)');
     } catch (err: any) {
       Alert.alert('Signup Failed', err.message || 'Something went wrong');
@@ -53,7 +63,7 @@ export default function SignupScreen() {
         <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <Input
             label="Username"
-            placeholder="Choose a username"
+            placeholder="Choose a username (min 3 chars)"
             value={username}
             onChangeText={setUsername}
             autoCapitalize="none"
@@ -70,7 +80,7 @@ export default function SignupScreen() {
 
           <Input
             label="Password"
-            placeholder="Create a password"
+            placeholder="Min 6 characters"
             value={password}
             onChangeText={setPassword}
             secureTextEntry

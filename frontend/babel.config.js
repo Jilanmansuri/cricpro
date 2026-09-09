@@ -3,5 +3,18 @@ module.exports = function (api) {
 
   return {
     presets: ["babel-preset-expo"],
+    plugins: [
+      function () {
+        return {
+          visitor: {
+            MetaProperty(path) {
+              path.replaceWithSourceString(
+                '({ env: { MODE: process.env.NODE_ENV || "development" } })'
+              );
+            },
+          },
+        };
+      },
+    ],
   };
 };

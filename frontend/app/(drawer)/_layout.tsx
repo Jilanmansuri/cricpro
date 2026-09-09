@@ -20,7 +20,7 @@ import Avatar from '../../components/Avatar';
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export default function DrawerLayout() {
-  const { colors } = useTheme();
+  const { colors, isDarkMode, toggleTheme } = useTheme();
   const { isOpen, closeDrawer } = useDrawerStore();
   const { user, logout } = useAuthStore();
   const router = useRouter();
@@ -104,51 +104,64 @@ export default function DrawerLayout() {
           <Avatar name={user?.username || 'Player'} size={50} style={styles.avatar} />
           <Text style={[styles.profileName, { color: colors.text }]}>{user?.username}</Text>
           <Text style={[styles.profileEmail, { color: colors.textMuted }]}>{user?.email}</Text>
-          <View style={[styles.roleTag, { backgroundColor: colors.primary + '15' }]}>
-            <Text style={[styles.roleText, { color: colors.primary }]}>{user?.role?.toUpperCase()}</Text>
+          <View style={[styles.roleTag, { backgroundColor: colors.accent }]}>
+            <Text style={[styles.roleText, { color: colors.primary }]}>{user?.role?.toUpperCase() || 'PLAYER'}</Text>
           </View>
         </View>
 
         {/* Menu items */}
         <View style={styles.menuList}>
           <TouchableOpacity
-            style={[styles.menuItem, pathname === '/' && { backgroundColor: colors.surfaceLighter }]}
+            style={[styles.menuItem, (pathname === '/' || pathname === '/(drawer)/(tabs)') && { backgroundColor: colors.surfaceLighter }]}
             onPress={() => handleNavigate('/')}
           >
-            <Text style={[styles.menuText, { color: colors.text }]}>Dashboard</Text>
+            <Text style={[styles.menuText, { color: (pathname === '/' || pathname === '/(drawer)/(tabs)') ? colors.primary : colors.text }]}>Dashboard</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.menuItem, pathname === '/notifications' && { backgroundColor: colors.surfaceLighter }]}
+            style={[styles.menuItem, pathname.includes('notifications') && { backgroundColor: colors.surfaceLighter }]}
             onPress={() => handleNavigate('/(drawer)/notifications')}
           >
-            <Text style={[styles.menuText, { color: colors.text }]}>Notifications</Text>
+            <Text style={[styles.menuText, { color: pathname.includes('notifications') ? colors.primary : colors.text }]}>Notifications</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.menuItem, pathname === '/settings' && { backgroundColor: colors.surfaceLighter }]}
+            style={[styles.menuItem, pathname.includes('settings') && { backgroundColor: colors.surfaceLighter }]}
             onPress={() => handleNavigate('/(drawer)/settings')}
           >
-            <Text style={[styles.menuText, { color: colors.text }]}>Settings</Text>
+            <Text style={[styles.menuText, { color: pathname.includes('settings') ? colors.primary : colors.text }]}>Settings</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.menuItem, pathname === '/privacy' && { backgroundColor: colors.surfaceLighter }]}
+            style={[styles.menuItem, pathname.includes('privacy') && { backgroundColor: colors.surfaceLighter }]}
             onPress={() => handleNavigate('/(drawer)/privacy')}
           >
-            <Text style={[styles.menuText, { color: colors.text }]}>Privacy Policy</Text>
+            <Text style={[styles.menuText, { color: pathname.includes('privacy') ? colors.primary : colors.text }]}>Privacy Policy</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.menuItem, pathname === '/about' && { backgroundColor: colors.surfaceLighter }]}
+            style={[styles.menuItem, pathname.includes('about') && { backgroundColor: colors.surfaceLighter }]}
             onPress={() => handleNavigate('/(drawer)/about')}
           >
-            <Text style={[styles.menuText, { color: colors.text }]}>About App</Text>
+            <Text style={[styles.menuText, { color: pathname.includes('about') ? colors.primary : colors.text }]}>About App</Text>
           </TouchableOpacity>
         </View>
 
         {/* Footer */}
         <View style={[styles.footer, { borderTopColor: colors.border }]}>
+          <TouchableOpacity
+            style={[styles.themeToggleBtn, { backgroundColor: colors.surfaceLighter, borderColor: colors.border }]}
+            onPress={toggleTheme}
+          >
+            <Text style={{ fontSize: 16 }}>{isDarkMode ? '🌙' : '☀️'}</Text>
+            <Text style={[styles.themeToggleText, { color: colors.text }]}>
+              {isDarkMode ? 'Dark Mode' : 'Light Mode'}
+            </Text>
+            <View style={[styles.themeTogglePill, { backgroundColor: colors.accent }]}>
+              <Text style={{ color: colors.primary, fontSize: 10, fontWeight: '800' }}>SWITCH</Text>
+            </View>
+          </TouchableOpacity>
+
           <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
             <Text style={[styles.logoutText, { color: colors.error }]}>Sign Out</Text>
           </TouchableOpacity>
@@ -223,16 +236,37 @@ const styles = StyleSheet.create({
   },
   footer: {
     borderTopWidth: 1,
-    padding: 20,
-    paddingBottom: 40,
+    padding: 16,
+    paddingBottom: 36,
+    gap: 8,
+  },
+  themeToggleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginBottom: 4,
+    gap: 8,
+  },
+  themeToggleText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  themeTogglePill: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
   },
   logoutBtn: {
-    paddingVertical: 12,
+    paddingVertical: 10,
     alignItems: 'center',
     borderRadius: 8,
   },
   logoutText: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '800',
   },
 });
