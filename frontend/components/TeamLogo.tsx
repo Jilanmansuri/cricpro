@@ -41,6 +41,20 @@ const INT_FLAGS: Record<string, any> = {
   OMA: require('../assets/international/om.svg'),
   NAM: require('../assets/international/na.svg'),
   PNG: require('../assets/international/pg.svg'),
+  UGA: require('../assets/international/ug.svg'),
+  KEN: require('../assets/international/ke.svg'),
+  ITA: require('../assets/international/it.svg'),
+  GER: require('../assets/international/de.svg'),
+  HK: require('../assets/international/hk.svg'),
+  HKG: require('../assets/international/hk.svg'),
+  SGP: require('../assets/international/sg.svg'),
+  MAS: require('../assets/international/my.svg'),
+  KUW: require('../assets/international/kw.svg'),
+  BHR: require('../assets/international/bh.svg'),
+  QAT: require('../assets/international/qa.svg'),
+  KSA: require('../assets/international/sa.svg'),
+  JER: require('../assets/international/je.svg'),
+  BER: require('../assets/international/bm.svg'),
 };
 
 // Fuzzy/Alias Resolver to canonical key
@@ -94,6 +108,19 @@ export const getTeamAsset = (teamIdentifier?: string | null): any => {
   if (clean.includes('EMIRATES')) return INT_FLAGS.UAE;
   if (clean.includes('OMAN')) return INT_FLAGS.OMA;
   if (clean.includes('NAMIBIA')) return INT_FLAGS.NAM;
+  if (clean.includes('UGANDA')) return INT_FLAGS.UGA;
+  if (clean.includes('KENYA')) return INT_FLAGS.KEN;
+  if (clean.includes('ITALY')) return INT_FLAGS.ITA;
+  if (clean.includes('GERMANY')) return INT_FLAGS.GER;
+  if (clean.includes('HONG KONG')) return INT_FLAGS.HK;
+  if (clean.includes('SINGAPORE')) return INT_FLAGS.SGP;
+  if (clean.includes('MALAYSIA')) return INT_FLAGS.MAS;
+  if (clean.includes('KUWAIT')) return INT_FLAGS.KUW;
+  if (clean.includes('BAHRAIN')) return INT_FLAGS.BHR;
+  if (clean.includes('QATAR')) return INT_FLAGS.QAT;
+  if (clean.includes('SAUDI')) return INT_FLAGS.KSA;
+  if (clean.includes('JERSEY')) return INT_FLAGS.JER;
+  if (clean.includes('BERMUDA')) return INT_FLAGS.BER;
 
   return null;
 };
