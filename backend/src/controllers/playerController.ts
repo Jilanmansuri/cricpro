@@ -159,20 +159,92 @@ export const deletePlayer = async (req: Request, res: Response): Promise<void> =
   }
 };
 
+const TEAM_META_MAP: Record<string, { flag: string; shortName: string; color: string }> = {
+  'INT_IND': { flag: '🇮🇳', shortName: 'IND', color: '#138808' },
+  'INT_AUS': { flag: '🇦🇺', shortName: 'AUS', color: '#FFCD00' },
+  'INT_ENG': { flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', shortName: 'ENG', color: '#002B7F' },
+  'INT_RSA': { flag: '🇿🇦', shortName: 'SA', color: '#007A3D' },
+  'INT_NZL': { flag: '🇳🇿', shortName: 'NZ', color: '#000000' },
+  'INT_PAK': { flag: '🇵🇰', shortName: 'PAK', color: '#115740' },
+  'INT_SRI': { flag: '🇱🇰', shortName: 'SL', color: '#8D153A' },
+  'INT_WI': { flag: '🌴', shortName: 'WI', color: '#7B002C' },
+  'INT_AFG': { flag: '🇦🇫', shortName: 'AFG', color: '#007A3D' },
+  'INT_BAN': { flag: '🇧🇩', shortName: 'BAN', color: '#006A4E' },
+  'INT_ZIM': { flag: '🇿🇼', shortName: 'ZIM', color: '#DE2010' },
+  'INT_IRE': { flag: '🇮🇪', shortName: 'IRE', color: '#169B62' },
+  'IPL_CSK': { flag: '🦁', shortName: 'CSK', color: '#FDB913' },
+  'IPL_MI': { flag: '🌀', shortName: 'MI', color: '#004BA0' },
+  'IPL_RCB': { flag: '🔴', shortName: 'RCB', color: '#EC1C24' },
+  'IPL_KKR': { flag: '⚔️', shortName: 'KKR', color: '#3A225D' },
+  'IPL_DC': { flag: '🐯', shortName: 'DC', color: '#0078FF' },
+  'IPL_GT': { flag: '⚡', shortName: 'GT', color: '#1B2133' },
+  'IPL_RR': { flag: '👑', shortName: 'RR', color: '#EA1A85' },
+  'IPL_SRH': { flag: '🦅', shortName: 'SRH', color: '#F26522' },
+  'IPL_LSG': { flag: '🏏', shortName: 'LSG', color: '#0057E7' },
+  'IPL_PBKS': { flag: '🦁', shortName: 'PBKS', color: '#ED1B24' },
+};
+
+function formatTeamInfo(teamDoc: any) {
+  if (!teamDoc) return null;
+  const teamId = teamDoc.teamId || '';
+  const meta = TEAM_META_MAP[teamId] || {};
+  const name = teamDoc.displayName || teamDoc.officialName || teamDoc.name || 'Team';
+  return {
+    name,
+    shortName: meta.shortName || teamDoc.shortName || teamDoc.abbreviation || name.slice(0, 3).toUpperCase(),
+    flag: meta.flag || (teamDoc.teamType === 'international' ? '🇮🇳' : '🏏'),
+    logo: teamDoc.logoUrl || teamDoc.logo || null,
+    color: meta.color || '#007AFF'
+  };
+}
+
 export const getLeaderboard = async (req: Request, res: Response): Promise<void> => {
   try {
     const division = ((req.query.division as string) || 'all').toLowerCase();
+    const { Team } = await import('../models/Team');
+    const { PlayerMatchStats } = await import('../models/PlayerMatchStats');
+    const { Player } = await import('../models/Player');
+
+    const allTeams = await Team.find({}).lean();
+    const teamMap = new Map(allTeams.map(t => [t._id.toString(), t]));
+    const playerToTeamMap = new Map<string, any>();
+
+    for (const t of allTeams) {
+      if (t.players && Array.isArray(t.players)) {
+        for (const p of t.players) {
+          if (!playerToTeamMap.has(p.toString())) {
+            playerToTeamMap.set(p.toString(), formatTeamInfo(t));
+          }
+        }
+      }
+    }
 
     if (division === 'all') {
-      const topBatsmen = await careerStatsRepository.find(
+      const topBatsmenDocs = await careerStatsRepository.find(
         { 'batting.runs': { $gt: 0 } },
         { sort: { 'batting.runs': -1 }, limit: 200, populate: 'playerId' }
       );
       
-      const topBowlers = await careerStatsRepository.find(
+      const topBowlersDocs = await careerStatsRepository.find(
         { 'bowling.wickets': { $gt: 0 } },
         { sort: { 'bowling.wickets': -1 }, limit: 200, populate: 'playerId' }
       );
+
+      const topBatsmen = topBatsmenDocs.map((item: any) => {
+        const pIdStr = item.playerId?._id?.toString() || item.playerId?.toString();
+        return {
+          ...item.toObject ? item.toObject() : item,
+          team: playerToTeamMap.get(pIdStr) || null
+        };
+      });
+
+      const topBowlers = topBowlersDocs.map((item: any) => {
+        const pIdStr = item.playerId?._id?.toString() || item.playerId?.toString();
+        return {
+          ...item.toObject ? item.toObject() : item,
+          team: playerToTeamMap.get(pIdStr) || null
+        };
+      });
 
       res.json({
         success: true,
@@ -204,10 +276,6 @@ export const getLeaderboard = async (req: Request, res: Response): Promise<void>
       };
     }
 
-    const { Team } = await import('../models/Team');
-    const { PlayerMatchStats } = await import('../models/PlayerMatchStats');
-    const { Player } = await import('../models/Player');
-
     const matchingTeams = await Team.find(teamFilter).select('_id');
     const matchingTeamIds = matchingTeams.map(t => t._id);
 
@@ -218,6 +286,7 @@ export const getLeaderboard = async (req: Request, res: Response): Promise<void>
         $group: {
           _id: '$playerId',
           playerName: { $first: '$playerName' },
+          lastTeamId: { $last: '$teamId' },
           matches: { $sum: 1 },
           runs: { $sum: '$batting.runs' },
           balls: { $sum: '$batting.balls' },
@@ -270,6 +339,7 @@ export const getLeaderboard = async (req: Request, res: Response): Promise<void>
         $group: {
           _id: '$playerId',
           playerName: { $first: '$playerName' },
+          lastTeamId: { $last: '$teamId' },
           overs: { $sum: '$bowling.overs' },
           maidens: { $sum: '$bowling.maidens' },
           runsConceded: { $sum: '$bowling.runsConceded' },
@@ -288,10 +358,14 @@ export const getLeaderboard = async (req: Request, res: Response): Promise<void>
 
     const topBatsmen = battingAgg.map(b => {
       const pDoc = playerMap.get(b._id?.toString());
+      const pIdStr = b._id?.toString();
+      const teamInfo = playerToTeamMap.get(pIdStr) || formatTeamInfo(teamMap.get(b.lastTeamId?.toString())) || null;
+
       return {
         _id: b._id,
         playerId: pDoc ? { _id: pDoc._id, name: pDoc.name } : { _id: b._id, name: b.playerName || 'Player' },
         playerName: pDoc?.name || b.playerName,
+        team: teamInfo,
         batting: {
           matches: b.matches,
           runs: b.runs,
@@ -308,10 +382,14 @@ export const getLeaderboard = async (req: Request, res: Response): Promise<void>
 
     const topBowlers = bowlingAgg.map(bw => {
       const pDoc = playerMap.get(bw._id?.toString());
+      const pIdStr = bw._id?.toString();
+      const teamInfo = playerToTeamMap.get(pIdStr) || formatTeamInfo(teamMap.get(bw.lastTeamId?.toString())) || null;
+
       return {
         _id: bw._id,
         playerId: pDoc ? { _id: pDoc._id, name: pDoc.name } : { _id: bw._id, name: bw.playerName || 'Player' },
         playerName: pDoc?.name || bw.playerName,
+        team: teamInfo,
         bowling: {
           overs: bw.overs,
           maidens: bw.maidens,
