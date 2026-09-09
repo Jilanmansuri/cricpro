@@ -6,6 +6,7 @@ import { Input } from '../../../components/Input';
 import { Button } from '../../../components/Button';
 import Card from '../../../components/Card';
 import Avatar from '../../../components/Avatar';
+import TeamLogo from '../../../components/TeamLogo';
 import api from '../../../services/api';
 
 export default function TeamsTab() {
@@ -96,7 +97,14 @@ export default function TeamsTab() {
             <TouchableOpacity onPress={() => router.push({ pathname: '/team-profile', params: { id: item._id } })}>
               <Card style={styles.card}>
                 <View style={styles.row}>
-                  <Avatar name={item.name} size={42} style={styles.avatar} />
+                  <TeamLogo
+                    teamName={item.name}
+                    shortName={item.shortName}
+                    teamId={item.teamId}
+                    logoUrl={item.logo || item.logoUrl}
+                    size={42}
+                    containerStyle={styles.avatar}
+                  />
                   <View style={styles.info}>
                     <Text style={[styles.name, { color: colors.text }]}>{item.name}</Text>
                     <Text style={[styles.stats, { color: colors.textMuted }]}>

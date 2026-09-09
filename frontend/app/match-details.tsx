@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTheme } from '../components/Theme';
 import Card from '../components/Card';
 import Avatar from '../components/Avatar';
+import TeamLogo from '../components/TeamLogo';
 import api from '../services/api';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
@@ -32,8 +33,8 @@ interface MatchDetails {
   result: string;
   scorecardUrl?: string;
   ocrConfidence?: number;
-  teamA: { _id: string; name: string; logo?: string };
-  teamB: { _id: string; name: string; logo?: string };
+  teamA: { _id: string; name: string; logo?: string; shortName?: string; teamId?: string };
+  teamB: { _id: string; name: string; logo?: string; shortName?: string; teamId?: string };
   teamAScore: { runs: number; wickets: number; overs: number };
   teamBScore: { runs: number; wickets: number; overs: number };
   mvp?: { _id: string; name: string };
@@ -147,7 +148,13 @@ export default function MatchDetailsScreen() {
       <Card style={styles.headerCard}>
         <View style={styles.scoreRow}>
           <View style={styles.teamCol}>
-            <Avatar name={matchData.teamA.name} size={44} />
+            <TeamLogo
+              teamName={matchData.teamA.name}
+              shortName={matchData.teamA.shortName}
+              teamId={matchData.teamA.teamId}
+              logoUrl={matchData.teamA.logo}
+              size={48}
+            />
             <Text style={[styles.teamName, { color: colors.text }]} numberOfLines={1}>{matchData.teamA.name}</Text>
             <Text style={[styles.scoreText, { color: colors.text }]}>
               {matchData.teamAScore.runs}/{matchData.teamAScore.wickets}
@@ -160,7 +167,13 @@ export default function MatchDetailsScreen() {
           <Text style={[styles.vsText, { color: colors.primary }]}>VS</Text>
 
           <View style={styles.teamCol}>
-            <Avatar name={matchData.teamB.name} size={44} />
+            <TeamLogo
+              teamName={matchData.teamB.name}
+              shortName={matchData.teamB.shortName}
+              teamId={matchData.teamB.teamId}
+              logoUrl={matchData.teamB.logo}
+              size={48}
+            />
             <Text style={[styles.teamName, { color: colors.text }]} numberOfLines={1}>{matchData.teamB.name}</Text>
             <Text style={[styles.scoreText, { color: colors.text }]}>
               {matchData.teamBScore.runs}/{matchData.teamBScore.wickets}

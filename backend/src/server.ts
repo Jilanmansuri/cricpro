@@ -33,13 +33,19 @@ const PORT = process.env.PORT || 5000;
 app.use(requestLogger);
 
 // Security & Header Middlewares
-app.use(helmet());
-app.use(cors());
+app.use(helmet({
+  crossOriginResourcePolicy: false,
+  crossOriginEmbedderPolicy: false,
+}));
+app.use(cors({
+  origin: true,
+  credentials: true,
+}));
 
-// Rate Limiting (Prevents API abuse)
+// Rate Limiting (Prevents API abuse, relaxed during development)
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per window
+  max: process.env.NODE_ENV === 'production' ? 100 : 2000,
   message: 'Too many requests from this IP, please try again later after 15 minutes.',
 });
 app.use('/api', limiter);
@@ -63,9 +69,10 @@ app.use('/api/teams', teamRoutes);
 app.use('/api/tournaments', tournamentRoutes);
 app.use('/api/notifications', notificationRoutes);
 
-// Base route for sanity check
-app.get('/', (_req, res) => {
+// Base route for sanity check & health check
+app.get(['/', '/api/health'], (_req, res) => {
   res.json({
+    status: 'OK',
     message: 'Welcome to CricStats Pro API. Server is running securely with Clean Repository-Service Architecture.',
     version: '2.0.0',
     env: process.env.NODE_ENV,

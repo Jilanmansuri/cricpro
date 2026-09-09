@@ -6,6 +6,7 @@ import { useAuthStore } from '../../../store/authStore';
 import Card from '../../../components/Card';
 import Avatar from '../../../components/Avatar';
 import StatCard from '../../../components/StatCard';
+import TeamLogo from '../../../components/TeamLogo';
 import { LineChart } from '../../../components/Charts';
 import api from '../../../services/api';
 
@@ -130,9 +131,13 @@ export default function DashboardScreen() {
                 <Text style={[styles.matchDate, { color: colors.textMuted }]}> 
                   {new Date(item.date).toLocaleDateString(undefined, { dateStyle: 'medium' })}
                 </Text>
-                <Text style={[styles.matchVs, { color: colors.text }]}> 
-                  {item.teamA?.name} vs {item.teamB?.name}
-                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginVertical: 4 }}>
+                  <TeamLogo teamName={item.teamA?.name} shortName={item.teamA?.shortName} teamId={item.teamA?.teamId} size={20} />
+                  <Text style={[styles.matchVs, { color: colors.text, marginVertical: 0 }]} numberOfLines={1}> 
+                    {item.teamA?.name} vs {item.teamB?.name}
+                  </Text>
+                  <TeamLogo teamName={item.teamB?.name} shortName={item.teamB?.shortName} teamId={item.teamB?.teamId} size={20} />
+                </View>
                 <Text style={[styles.matchResult, { color: colors.primary }]} numberOfLines={1}>
                   {item.result}
                 </Text>

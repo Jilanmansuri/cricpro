@@ -5,6 +5,7 @@ import Card from '../../../components/Card';
 import Avatar from '../../../components/Avatar';
 import api from '../../../services/api';
 import { useFocusEffect } from 'expo-router';
+import TeamLogo from '../../../components/TeamLogo';
 
 export default function StatsLeaderboardTab() {
   const { colors, isDarkMode } = useTheme();
@@ -56,11 +57,14 @@ export default function StatsLeaderboardTab() {
               <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>{player.name}</Text>
               {team ? (
                 <View style={[styles.teamBadge, { backgroundColor: colors.surfaceLighter || 'rgba(255,255,255,0.06)', borderColor: colors.border }]}>
-                  {team.logo ? (
-                    <Image source={{ uri: team.logo }} style={styles.teamLogoImg} resizeMode="contain" />
-                  ) : (
-                    <Text style={styles.teamFlagEmoji}>{team.flag || '🏏'}</Text>
-                  )}
+                  <TeamLogo
+                    shortName={team.shortName}
+                    teamName={team.name}
+                    teamId={team.teamId}
+                    logoUrl={team.logo}
+                    fallbackEmoji={team.flag}
+                    size={16}
+                  />
                   <Text style={[styles.teamBadgeText, { color: team.color || colors.text }]}>
                     {team.shortName || team.name}
                   </Text>
@@ -111,11 +115,14 @@ export default function StatsLeaderboardTab() {
               <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>{player.name}</Text>
               {team ? (
                 <View style={[styles.teamBadge, { backgroundColor: colors.surfaceLighter || 'rgba(255,255,255,0.06)', borderColor: colors.border }]}>
-                  {team.logo ? (
-                    <Image source={{ uri: team.logo }} style={styles.teamLogoImg} resizeMode="contain" />
-                  ) : (
-                    <Text style={styles.teamFlagEmoji}>{team.flag || '🏏'}</Text>
-                  )}
+                  <TeamLogo
+                    shortName={team.shortName}
+                    teamName={team.name}
+                    teamId={team.teamId}
+                    logoUrl={team.logo}
+                    fallbackEmoji={team.flag}
+                    size={16}
+                  />
                   <Text style={[styles.teamBadgeText, { color: team.color || colors.text }]}>
                     {team.shortName || team.name}
                   </Text>

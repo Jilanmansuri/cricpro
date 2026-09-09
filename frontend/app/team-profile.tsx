@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTheme } from '../components/Theme';
 import Card from '../components/Card';
 import Avatar from '../components/Avatar';
+import TeamLogo from '../components/TeamLogo';
 import api from '../services/api';
 
 interface TeamProfile {
@@ -66,7 +67,12 @@ export default function TeamProfileScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Team header */}
       <Card style={styles.headerCard}>
-        <Avatar name={team.name} size={64} style={styles.avatar} />
+        <TeamLogo
+          teamName={team.name}
+          logoUrl={team.logo}
+          size={64}
+          containerStyle={styles.avatar}
+        />
         <Text style={[styles.teamName, { color: colors.text }]}>{team.name}</Text>
         <View style={styles.recordRow}>
           <Text style={[styles.recordText, { color: colors.textMuted }]}>
