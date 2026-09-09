@@ -94,6 +94,7 @@ export default function ManualMatchEntry() {
     centuries?: any[];
     fifties?: any[];
     topBowlers?: any[];
+    highestIndividualScore?: string | null;
     bestBatter?: string | null;
     bestBowler?: string | null;
   } | null>(null);
@@ -160,6 +161,10 @@ export default function ManualMatchEntry() {
       }
     }
 
+    const highestIndividual = topBatter
+      ? `${topBatter.name} ${topBatter.runs}${((topBatter.outStatus || '').toLowerCase().includes('not') ? '*' : '')} (${topBatter.balls || 0} balls)`
+      : null;
+
     return {
       centuries: (matchMilestones?.centuries && matchMilestones.centuries.length > 0)
         ? matchMilestones.centuries
@@ -170,6 +175,7 @@ export default function ManualMatchEntry() {
       topBowlers: (matchMilestones?.topBowlers && matchMilestones.topBowlers.length > 0)
         ? matchMilestones.topBowlers
         : liveTopBowlers,
+      highestIndividualScore: matchMilestones?.highestIndividualScore || highestIndividual,
       bestBatter: matchMilestones?.bestBatter || (topBatter ? `${topBatter.name} (${topBatter.runs} runs)` : null),
       bestBowler: matchMilestones?.bestBowler || (topBowler ? `${topBowler.name} (${topBowler.wickets} wkts)` : null),
     };
@@ -1085,6 +1091,16 @@ export default function ManualMatchEntry() {
                     <View style={{ flex: 1 }}>
                       <Text style={{ color: colors.textMuted, fontSize: 10, fontWeight: '800', letterSpacing: 0.5 }}>PLAYER OF THE MATCH</Text>
                       <Text style={{ color: colors.text, fontSize: 14, fontWeight: '800', marginTop: 1 }}>{matchInfo.mvp}</Text>
+                    </View>
+                  </View>
+                ) : null}
+
+                {computedMilestones.highestIndividualScore ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: colors.border }}>
+                    <Text style={{ fontSize: 18 }}>🏏</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: colors.textMuted, fontSize: 10, fontWeight: '800', letterSpacing: 0.5 }}>HIGHEST INDIVIDUAL SCORE</Text>
+                      <Text style={{ color: colors.primary, fontSize: 14, fontWeight: '800', marginTop: 1 }}>{computedMilestones.highestIndividualScore}</Text>
                     </View>
                   </View>
                 ) : null}

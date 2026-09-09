@@ -16,6 +16,7 @@ export interface IUser extends Document {
 
 export interface ICareerStats extends Document {
   playerId: Types.ObjectId;
+  playerName?: string;
   batting: {
     matches: number;
     runs: number;
@@ -148,6 +149,7 @@ export interface IMatch extends Document {
 export interface IPlayerMatchStats extends Document {
   matchId: Types.ObjectId;
   playerId: Types.ObjectId;
+  playerName?: string;
   teamId: Types.ObjectId;
   batting: {
     didNotBat: boolean;
