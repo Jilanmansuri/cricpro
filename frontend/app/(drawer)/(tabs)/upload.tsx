@@ -1403,7 +1403,7 @@ const styles = StyleSheet.create({
   },
   divider: {
     height: 1,
-    backgroundColor: '#333',
+    backgroundColor: 'rgba(150, 150, 150, 0.2)',
     marginVertical: 12,
   },
   saveBtn: {
