@@ -476,6 +476,7 @@ export class MatchService {
           await this.playerMatchStatsRepository.create({
             matchId: match._id,
             playerId: player._id,
+            playerName: player.name,
             teamId: teamDoc._id,
             batting: entry.batting,
             bowling: entry.bowling,

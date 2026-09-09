@@ -4,6 +4,7 @@ import { CareerStatsRepository } from '../repositories/CareerStatsRepository';
 import { TeamRepository } from '../repositories/TeamRepository';
 import { MatchRepository } from '../repositories/MatchRepository';
 import { PointsTableRepository } from '../repositories/PointsTableRepository';
+import { PlayerRepository } from '../repositories/PlayerRepository';
 
 export class StatsService {
   private playerMatchStatsRepository: PlayerMatchStatsRepository;
@@ -11,6 +12,7 @@ export class StatsService {
   private teamRepository: TeamRepository;
   private matchRepository: MatchRepository;
   private pointsTableRepository: PointsTableRepository;
+  private playerRepository: PlayerRepository;
 
   constructor() {
     this.playerMatchStatsRepository = new PlayerMatchStatsRepository();
@@ -18,6 +20,7 @@ export class StatsService {
     this.teamRepository = new TeamRepository();
     this.matchRepository = new MatchRepository();
     this.pointsTableRepository = new PointsTableRepository();
+    this.playerRepository = new PlayerRepository();
   }
 
   private addOvers(o1: number, o2: number): number {
@@ -141,9 +144,13 @@ export class StatsService {
       }
     }
 
+    const player = await this.playerRepository.findById(playerId, undefined);
+
     await this.careerStatsRepository.updateOne(
       { playerId },
       {
+        playerId,
+        playerName: player?.name || '',
         batting: {
           matches: matchesCount,
           runs,
