@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity, ScrollView, Image } from 'react-native';
 import { useTheme } from '../../../components/Theme';
 import Card from '../../../components/Card';
 import Avatar from '../../../components/Avatar';
@@ -9,18 +9,19 @@ import { useFocusEffect } from 'expo-router';
 export default function StatsLeaderboardTab() {
   const { colors } = useTheme();
   const [activeTab, setActiveTab] = useState<'batting' | 'bowling'>('batting');
+  const [selectedDivision, setSelectedDivision] = useState<'all' | 'international' | 'ipl'>('all');
   const [isLoading, setIsLoading] = useState(true);
   const [leaderboard, setLeaderboard] = useState<{ topBatsmen: any[], topBowlers: any[] }>({ topBatsmen: [], topBowlers: [] });
   const [battingSort, setBattingSort] = useState('Runs');
   const [bowlingSort, setBowlingSort] = useState('Wickets');
   
-  const battingFilters = ['Runs', 'Average', 'Strike Rate', 'Highest Score', 'Sixes', 'Fours', '50s', '100s'];
+  const battingFilters = ['Runs', 'Highest Score', 'Average', 'Strike Rate', '100s', '50s', 'Sixes', 'Fours'];
   const bowlingFilters = ['Wickets', 'Economy', 'Average', 'Maidens'];
 
-  const fetchLeaderboard = async () => {
+  const fetchLeaderboard = async (division = selectedDivision) => {
     setIsLoading(true);
     try {
-      const res = await api.get('/players/leaderboard');
+      const res = await api.get(`/players/leaderboard?division=${division}`);
       if (res.data.success) {
         setLeaderboard(res.data.data);
       }
@@ -33,13 +34,14 @@ export default function StatsLeaderboardTab() {
 
   useFocusEffect(
     useCallback(() => {
-      fetchLeaderboard();
-    }, [])
+      fetchLeaderboard(selectedDivision);
+    }, [selectedDivision])
   );
 
   const renderBattingItem = ({ item, index }: any) => {
     const player = item.playerId || { name: 'Unknown Player' };
     const stats = item.batting;
+    const team = item.team;
     const strikeRate = stats.balls > 0 ? ((stats.runs / stats.balls) * 100).toFixed(1) : '0.0';
     const outs = stats.matches - (stats.notOuts || 0);
     const average = outs > 0 ? (stats.runs / outs).toFixed(1) : stats.runs.toFixed(1);
@@ -50,9 +52,27 @@ export default function StatsLeaderboardTab() {
           <Text style={[styles.rank, { color: colors.primary }]}>#{index + 1}</Text>
           <Avatar name={player.name} size={42} style={styles.avatar} />
           <View style={styles.info}>
-            <Text style={[styles.name, { color: colors.text }]}>{player.name}</Text>
-            <Text style={[styles.subText, { color: colors.textMuted }]}>SR: {strikeRate} | Avg: {average}</Text>
-            <Text style={[styles.subText, { color: colors.textMuted, fontSize: 10, marginTop: 2 }]}>4s: {stats.fours} | 6s: {stats.sixes} | 50s: {stats.fifties}</Text>
+            <View style={styles.nameAndTeamRow}>
+              <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>{player.name}</Text>
+              {team ? (
+                <View style={[styles.teamBadge, { backgroundColor: colors.surfaceLighter || 'rgba(255,255,255,0.06)', borderColor: colors.border }]}>
+                  {team.logo ? (
+                    <Image source={{ uri: team.logo }} style={styles.teamLogoImg} resizeMode="contain" />
+                  ) : (
+                    <Text style={styles.teamFlagEmoji}>{team.flag || '🏏'}</Text>
+                  )}
+                  <Text style={[styles.teamBadgeText, { color: team.color || colors.text }]}>
+                    {team.shortName || team.name}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+            <Text style={[styles.subText, { color: colors.textMuted }]}>
+              Runs: <Text style={{ color: colors.text, fontWeight: '700' }}>{stats.runs}</Text> | HS: <Text style={{ color: colors.primary, fontWeight: '700' }}>{stats.highestScore || 0}</Text> | SR: {strikeRate}
+            </Text>
+            <Text style={[styles.subText, { color: colors.textMuted, fontSize: 10, marginTop: 2 }]}>
+              Avg: {average} | 100s: {stats.hundreds || 0} | 50s: {stats.fifties || 0} | 4s: {stats.fours} | 6s: {stats.sixes}
+            </Text>
           </View>
           <View style={styles.statsRight}>
             <Text style={[styles.mainStat, { color: colors.text }]}>
@@ -65,7 +85,9 @@ export default function StatsLeaderboardTab() {
                battingSort === '100s' ? stats.hundreds :
                stats.runs}
             </Text>
-            <Text style={[styles.statLabel, { color: colors.textMuted }]}>{battingSort}</Text>
+            <Text style={[styles.statLabel, { color: colors.textMuted }]}>
+              {battingSort === 'Highest Score' ? 'High Score (HS)' : battingSort === 'Runs' ? 'Total Runs' : battingSort}
+            </Text>
           </View>
         </View>
       </Card>
@@ -75,6 +97,7 @@ export default function StatsLeaderboardTab() {
   const renderBowlingItem = ({ item, index }: any) => {
     const player = item.playerId || { name: 'Unknown Player' };
     const stats = item.bowling;
+    const team = item.team;
     const economy = stats.overs > 0 ? (stats.runsConceded / stats.overs).toFixed(2) : '0.00';
     const average = stats.wickets > 0 ? (stats.runsConceded / stats.wickets).toFixed(1) : '0.0';
     
@@ -84,7 +107,21 @@ export default function StatsLeaderboardTab() {
           <Text style={[styles.rank, { color: colors.primary }]}>#{index + 1}</Text>
           <Avatar name={player.name} size={42} style={styles.avatar} />
           <View style={styles.info}>
-            <Text style={[styles.name, { color: colors.text }]}>{player.name}</Text>
+            <View style={styles.nameAndTeamRow}>
+              <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>{player.name}</Text>
+              {team ? (
+                <View style={[styles.teamBadge, { backgroundColor: colors.surfaceLighter || 'rgba(255,255,255,0.06)', borderColor: colors.border }]}>
+                  {team.logo ? (
+                    <Image source={{ uri: team.logo }} style={styles.teamLogoImg} resizeMode="contain" />
+                  ) : (
+                    <Text style={styles.teamFlagEmoji}>{team.flag || '🏏'}</Text>
+                  )}
+                  <Text style={[styles.teamBadgeText, { color: team.color || colors.text }]}>
+                    {team.shortName || team.name}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
             <Text style={[styles.subText, { color: colors.textMuted }]}>Econ: {economy} | Avg: {average}</Text>
             <Text style={[styles.subText, { color: colors.textMuted, fontSize: 10, marginTop: 2 }]}>Overs: {stats.overs} | Runs: {stats.runsConceded}</Text>
           </View>
@@ -156,6 +193,44 @@ export default function StatsLeaderboardTab() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
+      {/* Real Cricket Style Division / Tournament Selector */}
+      <View style={[styles.divisionCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <View style={styles.divisionHeaderRow}>
+          <Text style={[styles.divisionTitle, { color: colors.text }]}>🏆 Cricket Division</Text>
+          <Text style={[styles.divisionBadge, { color: colors.primary, backgroundColor: colors.primary + '18' }]}>
+            {selectedDivision === 'all' ? 'All Competitions' : selectedDivision === 'international' ? 'ICC International' : 'IPL Franchise'}
+          </Text>
+        </View>
+        <View style={styles.divisionBtnRow}>
+          {[
+            { key: 'all', label: 'All', icon: '🌐' },
+            { key: 'international', label: 'International', icon: '🇮🇳' },
+            { key: 'ipl', label: 'IPL', icon: '🏏' }
+          ].map(d => (
+            <TouchableOpacity
+              key={d.key}
+              style={[
+                styles.divisionBtn,
+                { backgroundColor: colors.background, borderColor: colors.border },
+                selectedDivision === d.key && { backgroundColor: colors.primary, borderColor: colors.primary }
+              ]}
+              onPress={() => setSelectedDivision(d.key as any)}
+            >
+              <Text style={{ fontSize: 13, marginRight: 4 }}>{d.icon}</Text>
+              <Text
+                style={[
+                  styles.divisionBtnText,
+                  { color: selectedDivision === d.key ? '#fff' : colors.text },
+                  selectedDivision === d.key && { fontWeight: '800' }
+                ]}
+              >
+                {d.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+
       <View style={styles.tabSwitcher}>
         <TouchableOpacity 
           style={[styles.tabBtn, activeTab === 'batting' && { backgroundColor: colors.primary, borderColor: colors.primary }]}
@@ -283,9 +358,37 @@ const styles = StyleSheet.create({
   info: {
     flex: 1,
   },
+  nameAndTeamRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flexWrap: 'wrap',
+  },
   name: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '800',
+  },
+  teamBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 6,
+    borderWidth: 1,
+    gap: 3,
+  },
+  teamLogoImg: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+  },
+  teamFlagEmoji: {
+    fontSize: 12,
+  },
+  teamBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.2,
   },
   subText: {
     fontSize: 12,
@@ -306,5 +409,48 @@ const styles = StyleSheet.create({
   empty: {
     alignItems: 'center',
     marginTop: 40,
+  },
+  divisionCard: {
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 4,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  divisionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  divisionTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  divisionBadge: {
+    fontSize: 11,
+    fontWeight: '800',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  divisionBtnRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  divisionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  divisionBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
   },
 });
