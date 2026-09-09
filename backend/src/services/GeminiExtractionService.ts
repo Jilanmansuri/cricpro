@@ -238,10 +238,47 @@ SPECIFIC CRICKET EXTRACTION & COLUMN ACCURACY RULES:
   * W or Wkts: Wickets taken by this bowler. DO NOT confuse with Maidens or Overs!
   * Econ: Economy rate.
 
+- MOBILE CRICKET GAMES (WCC2, WCC3, Real Cricket, Dream Cricket):
+  * Games often use parody or slightly altered names for licensed players (e.g. 'C Greeny' -> Cameron Green, 'M Starcy' -> Mitchell Starc, 'A Zamps' -> Adam Zampa, 'S Smudge' -> Steve Smith, 'M Bison' -> Mitchell Marsh, 'M Wadey' -> Matthew Wade).
+  * If clearly recognizable, map them to real cricket names or clean abbreviations (e.g. 'A Sharma', 'S Gill', 'S Yadav', 'R Gaikwad', 'S Samson', 'H Pandya', 'S Dube', 'A Patel', 'J Bumrah', 'M Siraj').
+
+- DEDUCING OPPONENT TEAM FROM DISMISSAL TEXT:
+  * If the opponent team (teamB) is not printed in the header, inspect the bowlers and fielders in the dismissal texts.
+  * For example, if fielders/bowlers are Australian players (Green, Starc, Zampa, Smith, Wade, Marsh, Cummins, Warner, Hazlewood), set teamB to 'Australia'. If English, set to 'England', etc.
+  * NEVER leave teamB as generic 'Team B' if the opponent can be deduced from the player names!
+
+- BOWLER EXTRACTION WHEN ONLY BATTING SCORECARD IS PROVIDED:
+  * If an innings image shows only the batting scorecard without a separate bowling table:
+    Extract bowlers who took wickets directly from the dismissals (e.g., 'b C Greeny' -> 1 wicket for C Greeny; 'c ... b M Bison' -> 1 wicket for M Bison).
+    Include these bowlers in the innings 'bowlers' array with their wickets count so bowling records are not empty!
+
+- MATCH OUTCOME & WINNER DECISION (GEMINI AI AS CRICKET ARBITER):
+  * When both teams / innings are provided in the scorecard images, YOU (Gemini AI) MUST decide the match result:
+    1. Compare Innings 1 total runs vs Innings 2 total runs:
+       - If Innings 1 Runs > Innings 2 Runs:
+         Set match.result.winner to the team batting first.
+         Set match.result.margin to: (Innings 1 Runs - Innings 2 Runs) + " runs".
+         Set match.result.text to: "[Winner Team] won by [margin] runs" (e.g. "India won by 45 runs").
+       - If Innings 2 Runs > Innings 1 Runs:
+         Set match.result.winner to the team chasing.
+         Set match.result.margin to: (10 - Innings 2 Wickets fallen) + " wickets".
+         Set match.result.text to: "[Winner Team] won by [margin] wickets" (e.g. "Australia won by 4 wickets").
+       - If scores are identical:
+         Set match.result.winner to "Tie".
+         Set match.result.margin to "Tied".
+         Set match.result.text to "Match tied".
+       - If only 1 innings scorecard is provided:
+         Set match.result.winner to null.
+         Set match.result.text to "[Team Name] [Runs]/[Wickets] ([Overs] ov) - 1st Innings".
+    2. Player of the Match / MVP (match.playerOfMatch):
+       Pick the single most valuable individual performer (e.g. batter who scored 100 or match-winning 50+, or bowler who took 3+ wickets).
+
+- HIGHEST INDIVIDUAL SCORE & MILESTONES:
+  * Distinguish carefully between TEAM TOTAL RUNS (e.g. 302/5) and HIGHEST INDIVIDUAL SCORE (e.g. S Samson 124*).
+  * Never confuse total runs of an innings with an individual batter's score.
+
 - INNINGS TOTAL & EXTRAS:
   * Sum of all batter runs + Extras total MUST equal the innings total runs.
-  * Sum of bowler wickets MUST match batter dismissals (excluding run outs).
-  * If both teams/innings are in the images, create inningsNumber 1 for the first batting team, and inningsNumber 2 for the chasing team.
   * DO NOT hallucinate or guess numbers; extract the exact figures displayed on the scorecard.`;
 
     let responseText = '';
