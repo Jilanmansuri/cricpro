@@ -18,22 +18,25 @@ export const LIVE_PRODUCTION_BACKEND_URL = 'https://cricpro-t7la.onrender.com/ap
  * 4. Fallback to current local development IP: "http://192.168.1.78:5000/api"
  */
 const resolveApiBaseUrl = (): string => {
-  // 1. If explicit environment variable is set in .env
-  if (process.env.EXPO_PUBLIC_API_URL && process.env.EXPO_PUBLIC_API_URL.trim() !== '') {
-    return process.env.EXPO_PUBLIC_API_URL.trim();
+  // 1. Web browser: Automatically connect to localhost:5000 or current web host
+  if (Platform.OS === 'web') {
+    if (typeof window !== 'undefined' && window.location?.hostname) {
+      const host = window.location.hostname;
+      if (host === 'localhost' || host === '127.0.0.1') {
+        return 'http://localhost:5000/api';
+      }
+      return `http://${host}:5000/api`;
+    }
+    return 'http://localhost:5000/api';
   }
 
-  // 2. Production release build (for any external user downloading the app)
+  // 2. Production release build (for APK release)
   if (!__DEV__) {
     return LIVE_PRODUCTION_BACKEND_URL;
   }
 
-  // 3. Web browser development
-  if (Platform.OS === 'web') {
-    return 'http://localhost:5000/api';
-  }
-
-  // 4. Dynamic mobile IP detection from Expo host
+  // 3. Mobile development (Expo Go / Android / iOS):
+  // Automatically detect PC's Wi-Fi LAN IP from Expo host
   const hostUri = Constants.expoConfig?.hostUri || 
     (Constants as any).manifest?.debuggerHost || 
     (Constants as any).manifest2?.extra?.expoGo?.debuggerHost;
@@ -45,7 +48,12 @@ const resolveApiBaseUrl = (): string => {
     }
   }
 
-  // 5. Default fallback to current development PC IP
+  // 4. If explicit environment variable is set in .env
+  if (process.env.EXPO_PUBLIC_API_URL && process.env.EXPO_PUBLIC_API_URL.trim() !== '') {
+    return process.env.EXPO_PUBLIC_API_URL.trim();
+  }
+
+  // 5. Default fallback to current development PC Wi-Fi IP
   return 'http://192.168.1.78:5000/api';
 };
 
