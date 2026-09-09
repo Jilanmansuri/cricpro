@@ -49,7 +49,7 @@ const HamburgerIcon = ({ color }: { color: string }) => (
 );
 
 export default function TabsLayout() {
-  const { colors } = useTheme();
+  const { colors, isDarkMode } = useTheme();
   const openDrawer = useDrawerStore((state) => state.openDrawer);
   const insets = useSafeAreaInsets();
 
@@ -86,13 +86,14 @@ export default function TabsLayout() {
           right: 16,
           height: 64,
           backgroundColor: colors.surface,
-          borderTopWidth: 0,
+          borderWidth: 1,
+          borderColor: colors.border,
           borderRadius: 32,
-          elevation: 10,
-          shadowColor: '#000',
+          elevation: isDarkMode ? 10 : 4,
+          shadowColor: isDarkMode ? '#000000' : '#64748B',
           shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.3,
-          shadowRadius: 8,
+          shadowOpacity: isDarkMode ? 0.35 : 0.10,
+          shadowRadius: 10,
           paddingBottom: 0,
           paddingTop: 0,
         },

@@ -7,7 +7,7 @@ import api from '../../../services/api';
 import { useFocusEffect } from 'expo-router';
 
 export default function StatsLeaderboardTab() {
-  const { colors } = useTheme();
+  const { colors, isDarkMode } = useTheme();
   const [activeTab, setActiveTab] = useState<'batting' | 'bowling'>('batting');
   const [selectedDivision, setSelectedDivision] = useState<'all' | 'international' | 'ipl'>('all');
   const [isLoading, setIsLoading] = useState(true);
@@ -233,13 +233,21 @@ export default function StatsLeaderboardTab() {
 
       <View style={styles.tabSwitcher}>
         <TouchableOpacity 
-          style={[styles.tabBtn, activeTab === 'batting' && { backgroundColor: colors.primary, borderColor: colors.primary }]}
+          style={[
+            styles.tabBtn,
+            { backgroundColor: colors.surface, borderColor: colors.border },
+            activeTab === 'batting' && { backgroundColor: colors.primary, borderColor: colors.primary }
+          ]}
           onPress={() => setActiveTab('batting')}
         >
           <Text style={[styles.tabBtnText, { color: activeTab === 'batting' ? '#fff' : colors.text }]}>Top Batsmen</Text>
         </TouchableOpacity>
         <TouchableOpacity 
-          style={[styles.tabBtn, activeTab === 'bowling' && { backgroundColor: colors.primary, borderColor: colors.primary }]}
+          style={[
+            styles.tabBtn,
+            { backgroundColor: colors.surface, borderColor: colors.border },
+            activeTab === 'bowling' && { backgroundColor: colors.primary, borderColor: colors.primary }
+          ]}
           onPress={() => setActiveTab('bowling')}
         >
           <Text style={[styles.tabBtnText, { color: activeTab === 'bowling' ? '#fff' : colors.text }]}>Top Bowlers</Text>
@@ -321,9 +329,8 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 12,
     alignItems: 'center',
-    borderRadius: 8,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#444',
   },
   tabBtnText: {
     fontWeight: '700',
