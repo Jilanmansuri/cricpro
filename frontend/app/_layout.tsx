@@ -5,6 +5,7 @@ import { useAuthStore } from '../store/authStore';
 import { useSettingsStore } from '../store/settingsStore';
 import { ThemeProvider, useTheme } from '../components/Theme';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { prewarmBackend } from '../services/api';
 
 const NavigationLayout = () => {
   const { isAuthenticated, isLoading, restoreSession } = useAuthStore();
@@ -14,10 +15,19 @@ const NavigationLayout = () => {
   const router = useRouter();
   const rootNavigationState = useRootNavigationState();
 
-  // Load user settings and sessions on mount
+  // Load user settings, sessions on mount and proactively pre-warm Render cloud backend
   useEffect(() => {
     loadSettings();
     restoreSession();
+    // Non-blocking Render cloud wake-up ping
+    prewarmBackend();
+
+    // Keep backend warm every 4 minutes while app is active
+    const keepAliveTimer = setInterval(() => {
+      prewarmBackend();
+    }, 4 * 60 * 1000);
+
+    return () => clearInterval(keepAliveTimer);
   }, []);
 
   useEffect(() => {

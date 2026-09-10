@@ -51,6 +51,25 @@ const resolveApiBaseUrl = (): string => {
 
 export const API_BASE_URL = resolveApiBaseUrl();
 console.log(`[CricPro API] Connecting to backend at: ${API_BASE_URL}`);
+
+/**
+ * Proactive pre-warming ping for Render Cloud Backend.
+ * Wakes up sleeping Render free tier container immediately in the background.
+ */
+export const prewarmBackend = async (): Promise<void> => {
+  try {
+    const rootUrl = API_BASE_URL.replace(/\/api\/?$/, '');
+    const pingUrl = `${rootUrl}/health`;
+
+    if (Platform.OS === 'web') {
+      fetch(pingUrl, { method: 'GET', mode: 'no-cors' }).catch(() => {});
+    } else {
+      fetch(pingUrl, { method: 'GET' }).catch(() => {});
+    }
+  } catch (err) {
+    // Non-blocking background keep-alive ping
+  }
+};
 export const getToken = async (): Promise<string | null> => {
   try {
     if (Platform.OS === 'web') {

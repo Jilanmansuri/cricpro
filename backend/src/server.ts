@@ -29,6 +29,11 @@ connectDB();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Instant Keep-Alive & Health Ping for Zero Cold-Starts
+app.get(['/health', '/ping'], (_req, res) => {
+  res.status(200).send('PONG');
+});
+
 // Global Request Logger
 app.use(requestLogger);
 
