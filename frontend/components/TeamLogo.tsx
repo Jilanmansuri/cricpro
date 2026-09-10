@@ -125,10 +125,45 @@ export const getTeamAsset = (teamIdentifier?: string | null): any => {
   return null;
 };
 
+// Player-level Nationality Resolver (India, South Africa, Australia, etc.)
+export const getPlayerCountryAsset = (playerName?: string | null): any => {
+  if (!playerName) return null;
+  const clean = playerName.toLowerCase().trim();
+
+  // Indian Cricketers
+  const isIndian = [
+    'sharma', 'yadav', 'samson', 'gill', 'gaikwad', 'pandya',
+    'bumrah', 'siraj', 'patel', 'arshdeep', 'kohli', 'rahul',
+    'pant', 'chahal', 'dube', 'iyer', 'jaiswal', 'singh', 'rinku'
+  ].some(sub => clean.includes(sub));
+
+  if (isIndian) return INT_FLAGS.IND;
+
+  // South African Cricketers
+  const isSouthAfrican = [
+    'ferreira', 'naicker', 'marco', 'kg', 'khoza', 'klaasen',
+    'de kock', 'rabada', 'miller', 'bavuma', 'nortje', 'stubbs'
+  ].some(sub => clean.includes(sub));
+
+  if (isSouthAfrican) return INT_FLAGS.SA;
+
+  // Australian Cricketers
+  const isAustralian = [
+    'head', 'cummins', 'starc', 'maxwell', 'warner', 'smith',
+    'marsh', 'hazlewood', 'zampa', 'labuschagne'
+  ].some(sub => clean.includes(sub));
+
+  if (isAustralian) return INT_FLAGS.AUS;
+
+  return null;
+};
+
 interface TeamLogoProps {
   teamName?: string | null;
   shortName?: string | null;
   teamId?: string | null;
+  playerName?: string | null;
+  country?: string | null;
   logoUrl?: string | null;
   fallbackEmoji?: string | null;
   size?: number;
@@ -141,6 +176,8 @@ export const TeamLogo: React.FC<TeamLogoProps> = ({
   teamName,
   shortName,
   teamId,
+  playerName,
+  country,
   logoUrl,
   fallbackEmoji,
   size = 24,
@@ -148,11 +185,17 @@ export const TeamLogo: React.FC<TeamLogoProps> = ({
   containerStyle,
   borderRadius,
 }) => {
+  // If player is explicitly Indian / known country, ensure correct asset resolution
+  const playerAsset = playerName ? getPlayerCountryAsset(playerName) : null;
+  const countryAsset = country ? getTeamAsset(country) : null;
+
   // Check local assets in priority order
   const localAsset =
+    countryAsset ||
     getTeamAsset(shortName) ||
     getTeamAsset(teamId) ||
-    getTeamAsset(teamName);
+    getTeamAsset(teamName) ||
+    playerAsset;
 
   const radius = borderRadius !== undefined ? borderRadius : size / 2;
 

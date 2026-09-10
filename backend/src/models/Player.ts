@@ -9,6 +9,29 @@ const PlayerSchema = new Schema<IPlayer>(
       trim: true,
       index: true,
     },
+    fullName: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    country: {
+      type: String,
+      default: '',
+      trim: true,
+      index: true,
+    },
+    nationalTeamId: {
+      type: String,
+      default: '',
+      trim: true,
+      index: true,
+    },
+    iplTeamId: {
+      type: String,
+      default: '',
+      trim: true,
+      index: true,
+    },
     aliases: {
       type: [String],
       default: [],

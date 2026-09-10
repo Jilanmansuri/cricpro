@@ -53,6 +53,10 @@ export interface ICareerStats extends Document {
 
 export interface IPlayer extends Document {
   name: string;
+  fullName?: string;
+  country?: string;
+  nationalTeamId?: string;
+  iplTeamId?: string;
   aliases: string[];
   profilePic?: string;
   createdAt: Date;

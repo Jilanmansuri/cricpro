@@ -97,30 +97,116 @@ export const getPlayerHistory = async (req: Request, res: Response): Promise<voi
 
     const statsList = await playerMatchStatsRepository.find(
       { playerId },
-      { populate: 'matchId', sort: { createdAt: 1 } }
+      {
+        populate: [
+          {
+            path: 'matchId',
+            populate: [
+              { path: 'teamA', select: 'name shortName logo flag teamId' },
+              { path: 'teamB', select: 'name shortName logo flag teamId' },
+              { path: 'mvp', select: 'name' }
+            ]
+          },
+          { path: 'teamId', select: 'name shortName logo flag teamId' }
+        ],
+        sort: { createdAt: -1 }
+      }
     );
 
     const history = statsList.map((stats: any) => {
       const match = stats.matchId;
       if (!match) return null;
 
-      const batSR = stats.batting.balls > 0 
-        ? parseFloat(((stats.batting.runs / stats.batting.balls) * 100).toFixed(2)) 
+      const playerTeam = stats.teamId;
+      let opponentTeam: any = null;
+      if (match.teamA && match.teamB) {
+        if (playerTeam && match.teamA._id?.toString() === playerTeam._id?.toString()) {
+          opponentTeam = match.teamB;
+        } else if (playerTeam && match.teamB._id?.toString() === playerTeam._id?.toString()) {
+          opponentTeam = match.teamA;
+        } else if (match.teamA.name === playerTeam?.name) {
+          opponentTeam = match.teamB;
+        } else {
+          opponentTeam = match.teamA;
+        }
+      }
+
+      const batRuns = Number(stats.batting?.runs) || 0;
+      const batBalls = Number(stats.batting?.balls) || 0;
+      const batFours = Number(stats.batting?.fours) || 0;
+      const batSixes = Number(stats.batting?.sixes) || 0;
+      const outStatus = stats.batting?.outStatus || (stats.batting?.didNotBat ? 'dnb' : 'not_out');
+
+      const batSR = batBalls > 0 
+        ? parseFloat(((batRuns / batBalls) * 100).toFixed(2)) 
         : 0;
 
-      const bowlEcon = stats.bowling.overs > 0 
-        ? parseFloat((stats.bowling.runsConceded / stats.bowling.overs).toFixed(2)) 
+      const oversNum = Number(stats.bowling?.overs) || 0;
+      const runsConceded = Number(stats.bowling?.runsConceded) || 0;
+      const wickets = Number(stats.bowling?.wickets) || 0;
+      const maidens = Number(stats.bowling?.maidens) || 0;
+
+      const bowlEcon = oversNum > 0 
+        ? parseFloat((runsConceded / oversNum).toFixed(2)) 
         : 0;
+
+      const oversLimit = Number(match.overs) || 20;
+      const format = oversLimit <= 10 ? 'T10' : oversLimit <= 20 ? 'T20' : oversLimit <= 50 ? 'ODI' : 'Custom';
+
+      const isMvp = match.mvp 
+        ? (match.mvp._id?.toString() === playerId.toString() || match.mvp.name?.toLowerCase() === stats.playerName?.toLowerCase())
+        : false;
 
       return {
         matchId: match._id,
-        date: match.date,
-        runs: stats.batting.runs,
-        balls: stats.batting.balls,
+        date: match.date || match.createdAt,
+        format,
+        matchOvers: match.overs,
+        result: match.result || '',
+        playerTeam: playerTeam ? {
+          name: playerTeam.name,
+          shortName: playerTeam.shortName || playerTeam.name,
+          flag: playerTeam.flag || '',
+          logo: playerTeam.logo || '',
+          teamId: playerTeam.teamId || ''
+        } : null,
+        opponentTeam: opponentTeam ? {
+          name: opponentTeam.name,
+          shortName: opponentTeam.shortName || opponentTeam.name,
+          flag: opponentTeam.flag || '',
+          logo: opponentTeam.logo || '',
+          teamId: opponentTeam.teamId || ''
+        } : null,
+        batting: {
+          runs: batRuns,
+          balls: batBalls,
+          fours: batFours,
+          sixes: batSixes,
+          outStatus,
+          strikeRate: batSR,
+          didNotBat: !!stats.batting?.didNotBat
+        },
+        bowling: {
+          overs: oversNum,
+          maidens,
+          runsConceded,
+          wickets,
+          economy: bowlEcon,
+          didNotBowl: !!stats.bowling?.didNotBowl
+        },
+        fielding: {
+          catches: stats.fielding?.catches || 0,
+          stumpings: stats.fielding?.stumpings || 0,
+          runOuts: stats.fielding?.runOuts || 0
+        },
+        isMvp,
+        // Flat legacy fields for chart backwards compatibility
+        runs: batRuns,
+        balls: batBalls,
         strikeRate: batSR,
-        wickets: stats.bowling.wickets,
-        runsConceded: stats.bowling.runsConceded,
-        overs: stats.bowling.overs,
+        wickets,
+        runsConceded,
+        overs: oversNum,
         economy: bowlEcon
       };
     }).filter(item => item !== null);
@@ -198,6 +284,65 @@ function formatTeamInfo(teamDoc: any) {
   };
 }
 
+function resolvePlayerTeam(
+  playerDoc: any,
+  division: string,
+  lastTeamId: any,
+  teamMap: Map<string, any>,
+  teamByCodeMap: Map<string, any>,
+  playerToTeamMap: Map<string, any>
+) {
+  if (!playerDoc) return null;
+
+  const natCode = playerDoc.nationalTeamId;
+  const iplCode = playerDoc.iplTeamId;
+  const country = playerDoc.country;
+
+  // 1. If looking at IPL division, prioritize player's IPL franchise
+  if (division === 'ipl') {
+    if (iplCode && teamByCodeMap.has(iplCode)) {
+      return formatTeamInfo(teamByCodeMap.get(iplCode));
+    }
+  }
+
+  // 2. If looking at International division, prioritize player's country / national team
+  if (division === 'international') {
+    if (natCode && teamByCodeMap.has(natCode)) {
+      return formatTeamInfo(teamByCodeMap.get(natCode));
+    }
+    if (country && country.toLowerCase() === 'india' && teamByCodeMap.has('INT_IND')) {
+      return formatTeamInfo(teamByCodeMap.get('INT_IND'));
+    }
+  }
+
+  // 3. For 'all' division:
+  if (division === 'all') {
+    // If player has a national team, prefer that (e.g. India)
+    if (natCode && teamByCodeMap.has(natCode)) {
+      return formatTeamInfo(teamByCodeMap.get(natCode));
+    }
+    if (country && country.toLowerCase() === 'india' && teamByCodeMap.has('INT_IND')) {
+      return formatTeamInfo(teamByCodeMap.get('INT_IND'));
+    }
+    if (iplCode && teamByCodeMap.has(iplCode)) {
+      return formatTeamInfo(teamByCodeMap.get(iplCode));
+    }
+  }
+
+  // 4. Fallback to last team from match stats if valid
+  if (lastTeamId && teamMap.has(lastTeamId.toString())) {
+    return formatTeamInfo(teamMap.get(lastTeamId.toString()));
+  }
+
+  // 5. Fallback to playerToTeamMap
+  const pIdStr = playerDoc._id?.toString();
+  if (pIdStr && playerToTeamMap.has(pIdStr)) {
+    return playerToTeamMap.get(pIdStr);
+  }
+
+  return null;
+}
+
 export const getLeaderboard = async (req: Request, res: Response): Promise<void> => {
   try {
     const division = ((req.query.division as string) || 'all').toLowerCase();
@@ -207,6 +352,7 @@ export const getLeaderboard = async (req: Request, res: Response): Promise<void>
 
     const allTeams = await Team.find({}).lean();
     const teamMap = new Map(allTeams.map(t => [t._id.toString(), t]));
+    const teamByCodeMap = new Map<string, any>(allTeams.filter(t => !!t.teamId).map(t => [t.teamId as string, t]));
     const playerToTeamMap = new Map<string, any>();
 
     for (const t of allTeams) {
@@ -231,18 +377,20 @@ export const getLeaderboard = async (req: Request, res: Response): Promise<void>
       );
 
       const topBatsmen = topBatsmenDocs.map((item: any) => {
-        const pIdStr = item.playerId?._id?.toString() || item.playerId?.toString();
+        const pDoc = item.playerId;
+        const teamInfo = resolvePlayerTeam(pDoc, 'all', null, teamMap, teamByCodeMap, playerToTeamMap);
         return {
           ...item.toObject ? item.toObject() : item,
-          team: playerToTeamMap.get(pIdStr) || null
+          team: teamInfo
         };
       });
 
       const topBowlers = topBowlersDocs.map((item: any) => {
-        const pIdStr = item.playerId?._id?.toString() || item.playerId?.toString();
+        const pDoc = item.playerId;
+        const teamInfo = resolvePlayerTeam(pDoc, 'all', null, teamMap, teamByCodeMap, playerToTeamMap);
         return {
           ...item.toObject ? item.toObject() : item,
-          team: playerToTeamMap.get(pIdStr) || null
+          team: teamInfo
         };
       });
 
@@ -353,13 +501,12 @@ export const getLeaderboard = async (req: Request, res: Response): Promise<void>
 
     // Populate player info so it matches CareerStats structure
     const playerIds = Array.from(new Set([...battingAgg.map(b => b._id), ...bowlingAgg.map(b => b._id)]));
-    const playersList = await Player.find({ _id: { $in: playerIds } }).select('_id name');
+    const playersList = await Player.find({ _id: { $in: playerIds } }).select('_id name fullName country nationalTeamId iplTeamId');
     const playerMap = new Map(playersList.map(p => [p._id.toString(), p]));
 
     const topBatsmen = battingAgg.map(b => {
       const pDoc = playerMap.get(b._id?.toString());
-      const pIdStr = b._id?.toString();
-      const teamInfo = playerToTeamMap.get(pIdStr) || formatTeamInfo(teamMap.get(b.lastTeamId?.toString())) || null;
+      const teamInfo = resolvePlayerTeam(pDoc, division, b.lastTeamId, teamMap, teamByCodeMap, playerToTeamMap);
 
       return {
         _id: b._id,
@@ -382,8 +529,7 @@ export const getLeaderboard = async (req: Request, res: Response): Promise<void>
 
     const topBowlers = bowlingAgg.map(bw => {
       const pDoc = playerMap.get(bw._id?.toString());
-      const pIdStr = bw._id?.toString();
-      const teamInfo = playerToTeamMap.get(pIdStr) || formatTeamInfo(teamMap.get(bw.lastTeamId?.toString())) || null;
+      const teamInfo = resolvePlayerTeam(pDoc, division, bw.lastTeamId, teamMap, teamByCodeMap, playerToTeamMap);
 
       return {
         _id: bw._id,

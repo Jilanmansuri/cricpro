@@ -11,6 +11,8 @@ import { Image } from 'expo-image';
 import { Swipeable } from 'react-native-gesture-handler';
 import Svg, { Path } from 'react-native-svg';
 import { useRouter } from 'expo-router';
+import { ErrorAlertModal } from '../../../components/ErrorAlertModal';
+import { parseApiError, AppErrorInfo } from '../../../utils/errorHelper';
 
 const TrashIcon = ({ color }: { color: string }) => (
   <Svg width="24" height="24" viewBox="0 0 24 24" fill="none">
@@ -98,6 +100,9 @@ export default function ManualMatchEntry() {
     bestBatter?: string | null;
     bestBowler?: string | null;
   } | null>(null);
+
+  const [activeError, setActiveError] = useState<AppErrorInfo | null>(null);
+  const [showErrorModal, setShowErrorModal] = useState<boolean>(false);
 
   const [matchInfo, setMatchInfo] = useState({
     date: new Date().toISOString().split('T')[0],
@@ -229,7 +234,7 @@ export default function ManualMatchEntry() {
         }
       } else {
         const pickerResult = await ImagePicker.launchImageLibraryAsync({
-          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          mediaTypes: ['images'],
           allowsMultipleSelection: true,
           selectionLimit: remainingSlots,
           quality: 0.85,
@@ -240,7 +245,9 @@ export default function ManualMatchEntry() {
         }
       }
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to select image');
+      const parsed = parseApiError(err, 'Failed to Select Image');
+      setActiveError(parsed);
+      setShowErrorModal(true);
     }
   };
 
@@ -415,7 +422,9 @@ export default function ManualMatchEntry() {
       }
     } catch (err: any) {
       console.error('Scan run error:', err);
-      Alert.alert('Scan Failed', err.response?.data?.message || err.message || 'Unable to scan scorecard.');
+      const parsed = parseApiError(err, 'Scorecard Scan Failed');
+      setActiveError(parsed);
+      setShowErrorModal(true);
     } finally {
       setIsOcrLoading(false);
     }
@@ -501,7 +510,13 @@ export default function ManualMatchEntry() {
 
   const saveMatch = async () => {
     if (!matchInfo.teamName) {
-      Alert.alert('Validation Error', 'Please enter your Team Name.');
+      const valErr: AppErrorInfo = {
+        title: 'Validation Error',
+        message: 'Please enter your Team Name (Team 1) before saving the match.',
+        suggestedFix: 'Go to the Details tab and enter your team name.',
+      };
+      setActiveError(valErr);
+      setShowErrorModal(true);
       setActiveTab(1);
       return;
     }
@@ -608,29 +623,9 @@ export default function ManualMatchEntry() {
       }
     } catch (err: any) {
       console.error('Save error:', err);
-      // If the server responded with an error, the phone is ONLINE!
-      if (err.response) {
-        const errorMsg = err.response.data?.message || err.response.data?.error || `Server error (${err.response.status})`;
-        Alert.alert('Save Failed', errorMsg);
-        return;
-      }
-
-      // Only if there is genuinely no server response (network down/timeout) prompt offline queue:
-      Alert.alert(
-        'Device Offline',
-        'Could not reach server. Would you like to queue this match locally to sync automatically when internet is restored?',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Queue Offline',
-            onPress: async () => {
-              await SyncManager.queueOfflineMatch(payload);
-              Alert.alert('Queued', 'Match queued offline. It will be synced when internet is restored.');
-              router.push('/(drawer)/(tabs)');
-            }
-          }
-        ]
-      );
+      const parsed = parseApiError(err, 'Save Match Failed');
+      setActiveError(parsed);
+      setShowErrorModal(true);
     } finally {
       setIsSaving(false);
     }
@@ -650,6 +645,52 @@ export default function ManualMatchEntry() {
           </TouchableOpacity>
         ))}
       </View>
+
+      {/* Real-time UI Error Notification Banner */}
+      {activeError && (
+        <View
+          style={[
+            styles.uiErrorBanner,
+            {
+              backgroundColor: colors.error + '18',
+              borderColor: colors.error,
+            },
+          ]}
+        >
+          <View style={styles.uiErrorBannerLeft}>
+            <Text style={{ fontSize: 20 }}>⚠️</Text>
+            <View style={{ flex: 1 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                <Text style={[styles.uiErrorBannerTitle, { color: colors.error }]}>
+                  {activeError.title}
+                </Text>
+                {activeError.status ? (
+                  <View style={[styles.uiErrorBadge, { backgroundColor: colors.error }]}>
+                    <Text style={styles.uiErrorBadgeText}>HTTP {activeError.status}</Text>
+                  </View>
+                ) : null}
+              </View>
+              <Text style={[styles.uiErrorBannerMsg, { color: colors.text }]} numberOfLines={2}>
+                {activeError.message}
+              </Text>
+            </View>
+          </View>
+          <View style={styles.uiErrorBannerActions}>
+            <TouchableOpacity
+              onPress={() => setShowErrorModal(true)}
+              style={[styles.uiErrorDetailsBtn, { backgroundColor: colors.error }]}
+            >
+              <Text style={styles.uiErrorDetailsBtnText}>Details</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setActiveError(null)}
+              style={styles.uiErrorCloseBtn}
+            >
+              <Text style={{ color: colors.textMuted, fontSize: 16, fontWeight: 'bold' }}>✕</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* Tab 0: Scan Scorecard */}
@@ -1306,6 +1347,13 @@ export default function ManualMatchEntry() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      {/* Detailed Diagnostics & Error Modal */}
+      <ErrorAlertModal
+        visible={showErrorModal}
+        error={activeError}
+        onClose={() => setShowErrorModal(false)}
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -1329,6 +1377,61 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: 20,
     paddingBottom: 100,
+  },
+  uiErrorBanner: {
+    marginHorizontal: 16,
+    marginTop: 10,
+    marginBottom: 4,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  uiErrorBannerLeft: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  uiErrorBannerTitle: {
+    fontWeight: '800',
+    fontSize: 13,
+  },
+  uiErrorBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  uiErrorBadgeText: {
+    color: '#FFF',
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  uiErrorBannerMsg: {
+    fontSize: 12,
+    lineHeight: 16,
+    marginTop: 2,
+  },
+  uiErrorBannerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  uiErrorDetailsBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  uiErrorDetailsBtnText: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  uiErrorCloseBtn: {
+    padding: 6,
   },
   tabContent: {
     flex: 1,

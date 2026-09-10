@@ -39,14 +39,58 @@ export default function StatsLeaderboardTab() {
     }, [selectedDivision])
   );
 
+  const resolveDisplayTeam = (player: any, rawTeam: any, division: string) => {
+    const pName = (player?.name || '').toLowerCase();
+    const isIndian = [
+      'sharma', 'yadav', 'samson', 'gill', 'gaikwad', 'pandya',
+      'bumrah', 'siraj', 'patel', 'arshdeep', 'kohli', 'rahul',
+      'pant', 'chahal', 'dube', 'iyer', 'jaiswal', 'singh', 'rinku'
+    ].some(sub => pName.includes(sub));
+
+    if (division === 'ipl') {
+      if (rawTeam && (rawTeam.teamId?.startsWith('IPL_') || rawTeam.shortName?.length <= 4)) {
+        return rawTeam;
+      }
+      return rawTeam;
+    }
+
+    // In International or All division:
+    if (isIndian) {
+      return {
+        name: 'India',
+        shortName: 'IND',
+        flag: '🇮🇳',
+        color: '#0078FF',
+        teamId: 'INT_IND'
+      };
+    }
+
+    const isSouthAfrican = [
+      'ferreira', 'naicker', 'marco', 'kg', 'khoza', 'klaasen',
+      'de kock', 'rabada', 'miller', 'bavuma', 'nortje', 'stubbs'
+    ].some(sub => pName.includes(sub));
+
+    if (isSouthAfrican) {
+      return {
+        name: 'South Africa',
+        shortName: 'SA',
+        flag: '🇿🇦',
+        color: '#007A3D',
+        teamId: 'INT_RSA'
+      };
+    }
+
+    return rawTeam;
+  };
+
   const renderBattingItem = ({ item, index }: any) => {
-    const player = item.playerId || { name: 'Unknown Player' };
+    const player = item.playerId || { name: item.playerName || 'Unknown Player' };
     const stats = item.batting;
-    const team = item.team;
+    const team = resolveDisplayTeam(player, item.team, selectedDivision);
     const strikeRate = stats.balls > 0 ? ((stats.runs / stats.balls) * 100).toFixed(1) : '0.0';
     const outs = stats.matches - (stats.notOuts || 0);
-    const average = outs > 0 ? (stats.runs / outs).toFixed(1) : stats.runs.toFixed(1);
-    
+    const average = outs > 0 ? (stats.runs / outs).toFixed(1) : stats.runs.toString();
+
     return (
       <Card style={styles.card}>
         <View style={styles.row}>
@@ -61,6 +105,8 @@ export default function StatsLeaderboardTab() {
                     shortName={team.shortName}
                     teamName={team.name}
                     teamId={team.teamId}
+                    playerName={player.name}
+                    country={player.country}
                     logoUrl={team.logo}
                     fallbackEmoji={team.flag}
                     size={16}
@@ -99,9 +145,9 @@ export default function StatsLeaderboardTab() {
   };
 
   const renderBowlingItem = ({ item, index }: any) => {
-    const player = item.playerId || { name: 'Unknown Player' };
+    const player = item.playerId || { name: item.playerName || 'Unknown Player' };
     const stats = item.bowling;
-    const team = item.team;
+    const team = resolveDisplayTeam(player, item.team, selectedDivision);
     const economy = stats.overs > 0 ? (stats.runsConceded / stats.overs).toFixed(2) : '0.00';
     const average = stats.wickets > 0 ? (stats.runsConceded / stats.wickets).toFixed(1) : '0.0';
     
@@ -119,6 +165,8 @@ export default function StatsLeaderboardTab() {
                     shortName={team.shortName}
                     teamName={team.name}
                     teamId={team.teamId}
+                    playerName={player.name}
+                    country={player.country}
                     logoUrl={team.logo}
                     fallbackEmoji={team.flag}
                     size={16}
