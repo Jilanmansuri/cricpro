@@ -78,7 +78,19 @@ export const useAuthStore = create<AuthState>((set) => ({
         throw new Error(res.data.message || 'Login failed');
       }
     } catch (err: any) {
-      const serverMsg = err.response?.data?.errors?.[0]?.message || err.response?.data?.message || err.message || 'Login failed';
+      if (err.code === 'ERR_NETWORK' || err.message === 'Network Error') {
+        throw new Error('Cannot connect to server. Please check your internet or wait for cloud server to wake up.');
+      }
+      if (err.code === 'ECONNABORTED' || err.message?.includes('timeout')) {
+        throw new Error('Connection timed out. Cloud server is waking up, please try again in a few seconds.');
+      }
+      const serverMsg =
+        err.response?.data?.message ||
+        err.response?.data?.error ||
+        err.response?.data?.errors?.[0]?.message ||
+        err.response?.data?.errors?.[0]?.msg ||
+        err.message ||
+        'Login failed';
       throw new Error(serverMsg);
     } finally {
       set({ isLoading: false });
@@ -104,7 +116,16 @@ export const useAuthStore = create<AuthState>((set) => ({
         throw new Error(res.data.message || 'Registration failed');
       }
     } catch (err: any) {
-      const serverMsg = err.response?.data?.errors?.[0]?.message || err.response?.data?.message || err.message || 'Registration failed';
+      if (err.code === 'ERR_NETWORK' || err.message === 'Network Error') {
+        throw new Error('Cannot connect to server. Please check your internet or wait for cloud server to wake up.');
+      }
+      const serverMsg =
+        err.response?.data?.message ||
+        err.response?.data?.error ||
+        err.response?.data?.errors?.[0]?.message ||
+        err.response?.data?.errors?.[0]?.msg ||
+        err.message ||
+        'Registration failed';
       throw new Error(serverMsg);
     } finally {
       set({ isLoading: false });

@@ -54,15 +54,25 @@ export class AuthService {
 
   public async login(payload: any): Promise<{ user: IUser; accessToken: string; refreshToken: string }> {
     const { email, password } = payload;
+    const identifier = (email || payload.username || '').trim();
 
-    const user = await this.userRepository.findByEmail(email);
+    if (!identifier) {
+      throw new Error('Email address or username is required.');
+    }
+
+    if (!password) {
+      throw new Error('Password is required.');
+    }
+
+    // Support login via either email or username
+    const user = await this.userRepository.findByUsernameOrEmail(identifier, identifier);
     if (!user) {
-      throw new Error('Invalid credentials');
+      throw new Error(`No account found with "${identifier}". Please check your email or Sign Up.`);
     }
 
     const isMatch = await user.matchPassword(password);
     if (!isMatch) {
-      throw new Error('Invalid credentials');
+      throw new Error('Incorrect password. Please verify your password or use Forgot Password.');
     }
 
     if (user.status === 'inactive') {

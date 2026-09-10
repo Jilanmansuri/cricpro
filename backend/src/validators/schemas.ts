@@ -18,8 +18,17 @@ export const registerValidator = [
 export const loginValidator = [
   body('email')
     .trim()
-    .isEmail()
-    .withMessage('Please provide a valid email address'),
+    .notEmpty()
+    .withMessage('Email address is required')
+    .custom((val) => {
+      if (val.includes('@')) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(val)) {
+          throw new Error('Please enter a valid email address (e.g. name@example.com)');
+        }
+      }
+      return true;
+    }),
   body('password')
     .trim()
     .notEmpty()

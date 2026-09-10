@@ -10,23 +10,33 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
   
   const { login } = useAuthStore();
   const { colors } = useTheme();
   const router = useRouter();
 
   const handleLogin = async () => {
-    if (!email || !password) {
-      Alert.alert('Error', 'Please fill in all fields');
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail) {
+      setErrorMessage('Please enter your email address or username.');
       return;
     }
 
+    if (!password) {
+      setErrorMessage('Please enter your password.');
+      return;
+    }
+
+    setErrorMessage('');
     setIsLoading(true);
     try {
-      await login(email, password);
+      await login(trimmedEmail, password);
       router.replace('/(drawer)/(tabs)');
     } catch (err: any) {
-      Alert.alert('Login Failed', err.message || 'Something went wrong');
+      const msg = err.message || 'Unable to log in. Please check your credentials.';
+      setErrorMessage(msg);
+      Alert.alert('Login Failed', msg);
     } finally {
       setIsLoading(false);
     }
@@ -44,11 +54,31 @@ export default function LoginScreen() {
         </View>
 
         <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          {/* Exact In-Page Error Alert Banner */}
+          {errorMessage ? (
+            <View style={[styles.errorBox, { backgroundColor: colors.error + '18', borderColor: colors.error }]}>
+              <Text style={styles.errorIcon}>⚠️</Text>
+              <View style={styles.errorContent}>
+                <Text style={[styles.errorTitle, { color: colors.error }]}>Sign In Error</Text>
+                <Text style={[styles.errorMsg, { color: colors.text }]}>{errorMessage}</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setErrorMessage('')}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Text style={{ color: colors.textMuted, fontSize: 16, fontWeight: '700' }}>✕</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
+
           <Input
-            label="Email Address"
-            placeholder="Enter your email"
+            label="Email Address / Username"
+            placeholder="Enter your email or username"
             value={email}
-            onChangeText={setEmail}
+            onChangeText={(text) => {
+              setEmail(text);
+              if (errorMessage) setErrorMessage('');
+            }}
             keyboardType="email-address"
             autoCapitalize="none"
           />
@@ -57,7 +87,10 @@ export default function LoginScreen() {
             label="Password"
             placeholder="Enter your password"
             value={password}
-            onChangeText={setPassword}
+            onChangeText={(text) => {
+              setPassword(text);
+              if (errorMessage) setErrorMessage('');
+            }}
             secureTextEntry
             autoCapitalize="none"
           />
@@ -138,5 +171,33 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: 24,
+  },
+  errorBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    marginBottom: 16,
+    gap: 8,
+  },
+  errorIcon: {
+    fontSize: 18,
+    marginTop: 1,
+  },
+  errorContent: {
+    flex: 1,
+    gap: 2,
+  },
+  errorTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  errorMsg: {
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '500',
   },
 });
