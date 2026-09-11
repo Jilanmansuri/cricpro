@@ -43,39 +43,6 @@ export class PlayerMatchingService {
     return 1.0 - distance / maxLength;
   }
 
-  private getSoundexCode(name: string): string {
-    const s = name.toUpperCase().replace(/[^A-Z]/g, '');
-    if (s.length === 0) return '';
-
-    const firstLetter = s[0];
-    const mappings: { [key: string]: string } = {
-      B: '1', F: '1', P: '1', V: '1',
-      C: '2', G: '2', J: '2', K: '2', Q: '2', S: '2', X: '2', Z: '2',
-      D: '3', T: '3',
-      L: '4',
-      M: '5', N: '5',
-      R: '6'
-    };
-
-    let code = firstLetter;
-    let prevCode = mappings[firstLetter] || '';
-
-    for (let i = 1; i < s.length; i++) {
-      const char = s[i];
-      if (['A', 'E', 'I', 'O', 'U', 'H', 'W', 'Y'].includes(char)) {
-        prevCode = '';
-        continue;
-      }
-      const nextCode = mappings[char] || '';
-      if (nextCode !== '' && nextCode !== prevCode) {
-        code += nextCode;
-        prevCode = nextCode;
-      }
-    }
-
-    return (code + '0000').slice(0, 4);
-  }
-
   private isAbbreviationMatch(abbr: string, full: string): boolean {
     const cleanAbbr = abbr.toLowerCase().trim().replace(/\./g, '');
     const cleanFull = full.toLowerCase().trim().replace(/\./g, '');
@@ -112,6 +79,7 @@ export class PlayerMatchingService {
 
   public async findMatchingPlayer(rawName: string, session?: mongoose.ClientSession): Promise<IPlayer | null> {
     const name = rawName.trim();
+    if (!name) return null;
     const lowerName = name.toLowerCase();
 
     // 1. Exact case-insensitive match
@@ -125,36 +93,41 @@ export class PlayerMatchingService {
     if (aliasEntry) {
       matchedPlayer = await this.playerRepository.findById(aliasEntry.playerId, undefined, session);
       if (matchedPlayer) return matchedPlayer;
+      // If alias points to a non-existent player, delete orphan alias so it doesn't block resolution
+      await this.aliasRepository.delete(aliasEntry._id, session).catch(() => {});
     }
 
-    // 3. Search database for abbreviation match, fuzzy match, or phonetic Soundex match
+    // 3. Search database for strict abbreviation or very high fuzzy match (typo only)
+    // NOTE: Soundex matching was removed because it falsely merged different players (e.g., S Dube and S Yadav share soundex S310)
     const allPlayers = await this.playerRepository.find({}, { session });
-    const inputSoundex = this.getSoundexCode(name);
 
     for (const player of allPlayers) {
       const playerName = player.name;
 
+      // Abbreviation match: only if last names match exactly and initial matches first token (e.g. 'V Kohli' -> 'Virat Kohli')
       if (this.isAbbreviationMatch(name, playerName) || this.isAbbreviationMatch(playerName, name)) {
-        // Link alias
         await this.aliasRepository.create({ playerId: player._id, alias: lowerName }, session).catch(() => {});
         return player;
       }
 
-      if (this.getSimilarity(name, playerName) > 0.85) {
-        // Link alias
-        await this.aliasRepository.create({ playerId: player._id, alias: lowerName }, session).catch(() => {});
-        return player;
-      }
-
-      // Phonetic matching using Soundex
-      if (inputSoundex && inputSoundex === this.getSoundexCode(playerName)) {
-        // Link alias
+      // Very high similarity (>=0.92) with matching first letter for minor typos
+      if (
+        name.length > 4 &&
+        playerName.length > 4 &&
+        name[0].toLowerCase() === playerName[0].toLowerCase() &&
+        this.getSimilarity(name, playerName) >= 0.92
+      ) {
         await this.aliasRepository.create({ playerId: player._id, alias: lowerName }, session).catch(() => {});
         return player;
       }
 
       for (const playerAlias of player.aliases) {
-        if (this.getSimilarity(name, playerAlias) > 0.85 || (inputSoundex && inputSoundex === this.getSoundexCode(playerAlias))) {
+        if (
+          name.length > 4 &&
+          playerAlias.length > 4 &&
+          name[0].toLowerCase() === playerAlias[0].toLowerCase() &&
+          this.getSimilarity(name, playerAlias) >= 0.92
+        ) {
           return player;
         }
       }
@@ -164,16 +137,21 @@ export class PlayerMatchingService {
   }
 
   public async findOrCreatePlayer(name: string, session?: mongoose.ClientSession): Promise<IPlayer> {
-    let player = await this.findMatchingPlayer(name, session);
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+      throw new Error('Player name cannot be empty');
+    }
+
+    let player = await this.findMatchingPlayer(trimmedName, session);
     if (!player) {
       player = await this.playerRepository.create({
-        name,
-        aliases: [name],
+        name: trimmedName,
+        aliases: [trimmedName],
       }, session);
 
       await this.aliasRepository.create({
         playerId: player._id,
-        alias: name.toLowerCase(),
+        alias: trimmedName.toLowerCase(),
       }, session).catch(() => {});
     }
     return player;

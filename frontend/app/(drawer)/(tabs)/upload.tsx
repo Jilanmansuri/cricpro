@@ -186,22 +186,13 @@ export default function ManualMatchEntry() {
     };
   }, [batting, teamBBatting, bowling, teamABowling, matchInfo.teamName, matchInfo.opponentTeam, matchMilestones]);
 
+  const [battingInnings, setBattingInnings] = useState<'teamA' | 'teamB'>('teamA');
+  const [bowlingInnings, setBowlingInnings] = useState<'teamB' | 'teamA'>('teamB');
+
   useEffect(() => {
     api.get('/players?limit=100').then(res => {
       const players = res.data.data;
-      setDbPlayers(players);
-      
-      if (players.length > 0) {
-        setBatting(prev => prev.map((row, i) => {
-          if (row.name === '' && players[i]) return { ...row, name: players[i].name };
-          return row;
-        }));
-        
-        setBowling(prev => prev.map((row, i) => {
-          if (row.name === '' && players[i]) return { ...row, name: players[i].name };
-          return row;
-        }));
-      }
+      setDbPlayers(players || []);
     }).catch(err => console.error(err));
   }, []);
 
@@ -488,6 +479,18 @@ export default function ManualMatchEntry() {
     setBatting(batting.filter(b => b.id !== id));
   };
 
+  const addTeamBBatsman = () => {
+    setTeamBBatting(prev => [...prev, { id: 'tb_' + Date.now().toString(), name: '', outStatus: 'out', runs: '0', balls: '0', fours: '0', sixes: '0' }]);
+  };
+
+  const updateTeamBBatsman = (id: string, field: string, value: string) => {
+    setTeamBBatting(prev => prev.map(b => b.id === id ? { ...b, [field]: value } : b));
+  };
+
+  const removeTeamBBatsman = (id: string) => {
+    setTeamBBatting(prev => prev.filter(b => b.id !== id));
+  };
+
   const addBowler = () => {
     setBowling([...bowling, { id: Date.now().toString(), name: '', overs: '0', maidens: '0', runs: '0', wickets: '0' }]);
   };
@@ -498,6 +501,18 @@ export default function ManualMatchEntry() {
 
   const removeBowler = (id: string) => {
     setBowling(bowling.filter(b => b.id !== id));
+  };
+
+  const addTeamABowler = () => {
+    setTeamABowling(prev => [...prev, { id: 'ta_' + Date.now().toString(), name: '', overs: '0', maidens: '0', runs: '0', wickets: '0' }]);
+  };
+
+  const updateTeamABowler = (id: string, field: string, value: string) => {
+    setTeamABowling(prev => prev.map(b => b.id === id ? { ...b, [field]: value } : b));
+  };
+
+  const removeTeamABowler = (id: string) => {
+    setTeamABowling(prev => prev.filter(b => b.id !== id));
   };
 
   const renderRightActions = (onDelete: () => void) => {
@@ -973,100 +988,296 @@ export default function ManualMatchEntry() {
         {/* Tab 2: Batting Tab */}
         {activeTab === 2 && (
           <View style={styles.tabContent}>
-            <View style={styles.headerRow}>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>My Team Batting</Text>
-              <TouchableOpacity onPress={addBatsman}>
-                <Text style={[styles.addText, { color: colors.primary }]}>+ Add Batsman</Text>
+            <View style={{ flexDirection: 'row', backgroundColor: colors.surfaceLighter || '#262626', borderRadius: 8, padding: 4, marginBottom: 16 }}>
+              <TouchableOpacity
+                style={{
+                  flex: 1,
+                  paddingVertical: 10,
+                  borderRadius: 6,
+                  alignItems: 'center',
+                  backgroundColor: battingInnings === 'teamA' ? colors.primary : 'transparent',
+                }}
+                onPress={() => setBattingInnings('teamA')}
+              >
+                <Text style={{ fontWeight: '800', fontSize: 13, color: battingInnings === 'teamA' ? '#fff' : colors.textMuted }}>
+                  Innings 1: {matchInfo.teamName || 'Team 1'} ({batting.filter(b => b.name.trim()).length})
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{
+                  flex: 1,
+                  paddingVertical: 10,
+                  borderRadius: 6,
+                  alignItems: 'center',
+                  backgroundColor: battingInnings === 'teamB' ? colors.primary : 'transparent',
+                }}
+                onPress={() => setBattingInnings('teamB')}
+              >
+                <Text style={{ fontWeight: '800', fontSize: 13, color: battingInnings === 'teamB' ? '#fff' : colors.textMuted }}>
+                  Innings 2: {matchInfo.opponentTeam || 'Team 2'} ({teamBBatting.filter(b => b.name.trim()).length})
+                </Text>
               </TouchableOpacity>
             </View>
 
-            {batting.length === 0 ? (
-              <Text style={[styles.emptyText, { color: colors.textMuted }]}>No batsmen added. Tap "+ Add Batsman" to begin.</Text>
+            {battingInnings === 'teamA' ? (
+              <>
+                <View style={styles.headerRow}>
+                  <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                    {matchInfo.teamName || 'Team 1'} Batting (Inn 1)
+                  </Text>
+                  <TouchableOpacity onPress={addBatsman}>
+                    <Text style={[styles.addText, { color: colors.primary }]}>+ Add Batsman</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {batting.length === 0 ? (
+                  <Text style={[styles.emptyText, { color: colors.textMuted }]}>No batsmen added. Tap "+ Add Batsman" to begin.</Text>
+                ) : (
+                  batting.map((b, idx) => (
+                    <Swipeable key={b.id} renderRightActions={() => renderRightActions(() => removeBatsman(b.id))}>
+                      <Card style={styles.rowCard}>
+                        <View style={styles.rowInputs}>
+                          <View style={[styles.inputGroup, { flex: 2, zIndex: 10 }]}>
+                            <Text style={[styles.label, { color: colors.textMuted }]}>Player Name</Text>
+                            <PlayerAutocomplete value={b.name} onChangeText={(t: string) => updateBatsman(b.id, 'name', t)} players={dbPlayers} colors={colors} styles={styles} />
+                          </View>
+                          <View style={[styles.inputGroup, { flex: 1 }]}>
+                            <Text style={[styles.label, { color: colors.textMuted }]}>Status</Text>
+                            <TextInput style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={b.outStatus} onChangeText={t => updateBatsman(b.id, 'outStatus', t)} placeholder="out/not_out/DNB" placeholderTextColor={colors.textMuted} />
+                          </View>
+                        </View>
+                        <View style={styles.rowInputs}>
+                          <View style={[styles.inputGroup, { flex: 1 }]}>
+                            <Text style={[styles.label, { color: colors.textMuted }]}>R</Text>
+                            <TextInput style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={b.runs} onChangeText={t => updateBatsman(b.id, 'runs', t)} keyboardType="numeric" />
+                          </View>
+                          <View style={[styles.inputGroup, { flex: 1 }]}>
+                            <Text style={[styles.label, { color: colors.textMuted }]}>B</Text>
+                            <TextInput style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={b.balls} onChangeText={t => updateBatsman(b.id, 'balls', t)} keyboardType="numeric" />
+                          </View>
+                          <View style={[styles.inputGroup, { flex: 1 }]}>
+                            <Text style={[styles.label, { color: colors.textMuted }]}>4s</Text>
+                            <TextInput style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={b.fours} onChangeText={t => updateBatsman(b.id, 'fours', t)} keyboardType="numeric" />
+                          </View>
+                          <View style={[styles.inputGroup, { flex: 1 }]}>
+                            <Text style={[styles.label, { color: colors.textMuted }]}>6s</Text>
+                            <TextInput style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={b.sixes} onChangeText={t => updateBatsman(b.id, 'sixes', t)} keyboardType="numeric" />
+                          </View>
+                        </View>
+                      </Card>
+                    </Swipeable>
+                  ))
+                )}
+
+                <View style={[styles.inputGroup, { marginTop: 12 }]}>
+                  <Text style={[styles.label, { color: colors.textMuted }]}>Extras (Innings 1: Wides, No Balls, Byes)</Text>
+                  <TextInput
+                    style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]}
+                    value={String(extrasA || 0)}
+                    onChangeText={t => setExtrasA(Number(t) || 0)}
+                    keyboardType="numeric"
+                  />
+                </View>
+              </>
             ) : (
-              batting.map((b, idx) => (
-                <Swipeable key={b.id} renderRightActions={() => renderRightActions(() => removeBatsman(b.id))}>
-                  <Card style={styles.rowCard}>
-                    <View style={styles.rowInputs}>
-                      <View style={[styles.inputGroup, { flex: 2, zIndex: 10 }]}>
-                        <Text style={[styles.label, { color: colors.textMuted }]}>Player Name</Text>
-                        <PlayerAutocomplete value={b.name} onChangeText={(t: string) => updateBatsman(b.id, 'name', t)} players={dbPlayers} colors={colors} styles={styles} />
-                      </View>
-                      <View style={[styles.inputGroup, { flex: 1 }]}>
-                        <Text style={[styles.label, { color: colors.textMuted }]}>Status</Text>
-                        <TextInput style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={b.outStatus} onChangeText={t => updateBatsman(b.id, 'outStatus', t)} placeholder="out/not_out/DNB" placeholderTextColor={colors.textMuted} />
-                      </View>
-                    </View>
-                    <View style={styles.rowInputs}>
-                      <View style={[styles.inputGroup, { flex: 1 }]}>
-                        <Text style={[styles.label, { color: colors.textMuted }]}>R</Text>
-                        <TextInput style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={b.runs} onChangeText={t => updateBatsman(b.id, 'runs', t)} keyboardType="numeric" />
-                      </View>
-                      <View style={[styles.inputGroup, { flex: 1 }]}>
-                        <Text style={[styles.label, { color: colors.textMuted }]}>B</Text>
-                        <TextInput style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={b.balls} onChangeText={t => updateBatsman(b.id, 'balls', t)} keyboardType="numeric" />
-                      </View>
-                      <View style={[styles.inputGroup, { flex: 1 }]}>
-                        <Text style={[styles.label, { color: colors.textMuted }]}>4s</Text>
-                        <TextInput style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={b.fours} onChangeText={t => updateBatsman(b.id, 'fours', t)} keyboardType="numeric" />
-                      </View>
-                      <View style={[styles.inputGroup, { flex: 1 }]}>
-                        <Text style={[styles.label, { color: colors.textMuted }]}>6s</Text>
-                        <TextInput style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={b.sixes} onChangeText={t => updateBatsman(b.id, 'sixes', t)} keyboardType="numeric" />
-                      </View>
-                    </View>
-                  </Card>
-                </Swipeable>
-              ))
+              <>
+                <View style={styles.headerRow}>
+                  <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                    {matchInfo.opponentTeam || 'Team 2'} Batting (Inn 2)
+                  </Text>
+                  <TouchableOpacity onPress={addTeamBBatsman}>
+                    <Text style={[styles.addText, { color: colors.primary }]}>+ Add Batsman</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {teamBBatting.length === 0 ? (
+                  <View style={{ padding: 16, backgroundColor: colors.surfaceLighter, borderRadius: 8, marginVertical: 8, alignItems: 'center' }}>
+                    <Text style={{ color: colors.textMuted, fontSize: 13, textAlign: 'center' }}>
+                      No batsmen recorded for Innings 2 yet. Tap "+ Add Batsman" above to add players.
+                    </Text>
+                  </View>
+                ) : (
+                  teamBBatting.map((b, idx) => (
+                    <Swipeable key={b.id} renderRightActions={() => renderRightActions(() => removeTeamBBatsman(b.id))}>
+                      <Card style={styles.rowCard}>
+                        <View style={styles.rowInputs}>
+                          <View style={[styles.inputGroup, { flex: 2, zIndex: 10 }]}>
+                            <Text style={[styles.label, { color: colors.textMuted }]}>Player Name</Text>
+                            <PlayerAutocomplete value={b.name} onChangeText={(t: string) => updateTeamBBatsman(b.id, 'name', t)} players={dbPlayers} colors={colors} styles={styles} />
+                          </View>
+                          <View style={[styles.inputGroup, { flex: 1 }]}>
+                            <Text style={[styles.label, { color: colors.textMuted }]}>Status</Text>
+                            <TextInput style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={b.outStatus} onChangeText={t => updateTeamBBatsman(b.id, 'outStatus', t)} placeholder="out/not_out/DNB" placeholderTextColor={colors.textMuted} />
+                          </View>
+                        </View>
+                        <View style={styles.rowInputs}>
+                          <View style={[styles.inputGroup, { flex: 1 }]}>
+                            <Text style={[styles.label, { color: colors.textMuted }]}>R</Text>
+                            <TextInput style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={b.runs} onChangeText={t => updateTeamBBatsman(b.id, 'runs', t)} keyboardType="numeric" />
+                          </View>
+                          <View style={[styles.inputGroup, { flex: 1 }]}>
+                            <Text style={[styles.label, { color: colors.textMuted }]}>B</Text>
+                            <TextInput style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={b.balls} onChangeText={t => updateTeamBBatsman(b.id, 'balls', t)} keyboardType="numeric" />
+                          </View>
+                          <View style={[styles.inputGroup, { flex: 1 }]}>
+                            <Text style={[styles.label, { color: colors.textMuted }]}>4s</Text>
+                            <TextInput style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={b.fours} onChangeText={t => updateTeamBBatsman(b.id, 'fours', t)} keyboardType="numeric" />
+                          </View>
+                          <View style={[styles.inputGroup, { flex: 1 }]}>
+                            <Text style={[styles.label, { color: colors.textMuted }]}>6s</Text>
+                            <TextInput style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={b.sixes} onChangeText={t => updateTeamBBatsman(b.id, 'sixes', t)} keyboardType="numeric" />
+                          </View>
+                        </View>
+                      </Card>
+                    </Swipeable>
+                  ))
+                )}
+
+                <View style={[styles.inputGroup, { marginTop: 12 }]}>
+                  <Text style={[styles.label, { color: colors.textMuted }]}>Extras (Innings 2: Wides, No Balls, Byes)</Text>
+                  <TextInput
+                    style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]}
+                    value={String(extrasB || 0)}
+                    onChangeText={t => setExtrasB(Number(t) || 0)}
+                    keyboardType="numeric"
+                  />
+                </View>
+              </>
             )}
 
-            <Button title="Next: Bowling ➔" onPress={() => setActiveTab(3)} variant="secondary" style={{ marginTop: 12 }} />
+            <Button title="Next: Bowling ➔" onPress={() => setActiveTab(3)} variant="secondary" style={{ marginTop: 16 }} />
           </View>
         )}
 
         {/* Tab 3: Bowling Tab */}
         {activeTab === 3 && (
           <View style={styles.tabContent}>
-            <View style={styles.headerRow}>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>My Team Bowling</Text>
-              <TouchableOpacity onPress={addBowler}>
-                <Text style={[styles.addText, { color: colors.primary }]}>+ Add Bowler</Text>
+            <View style={{ flexDirection: 'row', backgroundColor: colors.surfaceLighter || '#262626', borderRadius: 8, padding: 4, marginBottom: 16 }}>
+              <TouchableOpacity
+                style={{
+                  flex: 1,
+                  paddingVertical: 10,
+                  borderRadius: 6,
+                  alignItems: 'center',
+                  backgroundColor: bowlingInnings === 'teamB' ? colors.primary : 'transparent',
+                }}
+                onPress={() => setBowlingInnings('teamB')}
+              >
+                <Text style={{ fontWeight: '800', fontSize: 13, color: bowlingInnings === 'teamB' ? '#fff' : colors.textMuted }}>
+                  Innings 1: {matchInfo.opponentTeam || 'Team 2'} Bowling ({bowling.filter(b => b.name.trim()).length})
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{
+                  flex: 1,
+                  paddingVertical: 10,
+                  borderRadius: 6,
+                  alignItems: 'center',
+                  backgroundColor: bowlingInnings === 'teamA' ? colors.primary : 'transparent',
+                }}
+                onPress={() => setBowlingInnings('teamA')}
+              >
+                <Text style={{ fontWeight: '800', fontSize: 13, color: bowlingInnings === 'teamA' ? '#fff' : colors.textMuted }}>
+                  Innings 2: {matchInfo.teamName || 'Team 1'} Bowling ({teamABowling.filter(b => b.name.trim()).length})
+                </Text>
               </TouchableOpacity>
             </View>
 
-            {bowling.length === 0 ? (
-              <Text style={[styles.emptyText, { color: colors.textMuted }]}>No bowlers added. Tap "+ Add Bowler" to begin.</Text>
+            {bowlingInnings === 'teamB' ? (
+              <>
+                <View style={styles.headerRow}>
+                  <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                    {matchInfo.opponentTeam || 'Team 2'} Bowling (Inn 1)
+                  </Text>
+                  <TouchableOpacity onPress={addBowler}>
+                    <Text style={[styles.addText, { color: colors.primary }]}>+ Add Bowler</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {bowling.length === 0 ? (
+                  <Text style={[styles.emptyText, { color: colors.textMuted }]}>No bowlers added. Tap "+ Add Bowler" to begin.</Text>
+                ) : (
+                  bowling.map((b, idx) => (
+                    <Swipeable key={b.id} renderRightActions={() => renderRightActions(() => removeBowler(b.id))}>
+                      <Card style={styles.rowCard}>
+                        <View style={[styles.inputGroup, { zIndex: 10 }]}>
+                          <Text style={[styles.label, { color: colors.textMuted }]}>Bowler Name</Text>
+                          <PlayerAutocomplete value={b.name} onChangeText={(t: string) => updateBowler(b.id, 'name', t)} players={dbPlayers} colors={colors} styles={styles} />
+                        </View>
+                        <View style={styles.rowInputs}>
+                          <View style={[styles.inputGroup, { flex: 1 }]}>
+                            <Text style={[styles.label, { color: colors.textMuted }]}>O</Text>
+                            <TextInput style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={b.overs} onChangeText={t => updateBowler(b.id, 'overs', t)} keyboardType="numeric" />
+                          </View>
+                          <View style={[styles.inputGroup, { flex: 1 }]}>
+                            <Text style={[styles.label, { color: colors.textMuted }]}>M</Text>
+                            <TextInput style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={b.maidens} onChangeText={t => updateBowler(b.id, 'maidens', t)} keyboardType="numeric" />
+                          </View>
+                          <View style={[styles.inputGroup, { flex: 1 }]}>
+                            <Text style={[styles.label, { color: colors.textMuted }]}>R</Text>
+                            <TextInput style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={b.runs} onChangeText={t => updateBowler(b.id, 'runs', t)} keyboardType="numeric" />
+                          </View>
+                          <View style={[styles.inputGroup, { flex: 1 }]}>
+                            <Text style={[styles.label, { color: colors.textMuted }]}>W</Text>
+                            <TextInput style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={b.wickets} onChangeText={t => updateBowler(b.id, 'wickets', t)} keyboardType="numeric" />
+                          </View>
+                        </View>
+                      </Card>
+                    </Swipeable>
+                  ))
+                )}
+              </>
             ) : (
-              bowling.map((b, idx) => (
-                <Swipeable key={b.id} renderRightActions={() => renderRightActions(() => removeBowler(b.id))}>
-                  <Card style={styles.rowCard}>
-                    <View style={[styles.inputGroup, { zIndex: 10 }]}>
-                      <Text style={[styles.label, { color: colors.textMuted }]}>Bowler Name</Text>
-                      <PlayerAutocomplete value={b.name} onChangeText={(t: string) => updateBowler(b.id, 'name', t)} players={dbPlayers} colors={colors} styles={styles} />
-                    </View>
-                    <View style={styles.rowInputs}>
-                      <View style={[styles.inputGroup, { flex: 1 }]}>
-                        <Text style={[styles.label, { color: colors.textMuted }]}>O</Text>
-                        <TextInput style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={b.overs} onChangeText={t => updateBowler(b.id, 'overs', t)} keyboardType="numeric" />
-                      </View>
-                      <View style={[styles.inputGroup, { flex: 1 }]}>
-                        <Text style={[styles.label, { color: colors.textMuted }]}>M</Text>
-                        <TextInput style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={b.maidens} onChangeText={t => updateBowler(b.id, 'maidens', t)} keyboardType="numeric" />
-                      </View>
-                      <View style={[styles.inputGroup, { flex: 1 }]}>
-                        <Text style={[styles.label, { color: colors.textMuted }]}>R</Text>
-                        <TextInput style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={b.runs} onChangeText={t => updateBowler(b.id, 'runs', t)} keyboardType="numeric" />
-                      </View>
-                      <View style={[styles.inputGroup, { flex: 1 }]}>
-                        <Text style={[styles.label, { color: colors.textMuted }]}>W</Text>
-                        <TextInput style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={b.wickets} onChangeText={t => updateBowler(b.id, 'wickets', t)} keyboardType="numeric" />
-                      </View>
-                    </View>
-                  </Card>
-                </Swipeable>
-              ))
+              <>
+                <View style={styles.headerRow}>
+                  <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                    {matchInfo.teamName || 'Team 1'} Bowling (Inn 2)
+                  </Text>
+                  <TouchableOpacity onPress={addTeamABowler}>
+                    <Text style={[styles.addText, { color: colors.primary }]}>+ Add Bowler</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {teamABowling.length === 0 ? (
+                  <View style={{ padding: 16, backgroundColor: colors.surfaceLighter, borderRadius: 8, marginVertical: 8, alignItems: 'center' }}>
+                    <Text style={{ color: colors.textMuted, fontSize: 13, textAlign: 'center' }}>
+                      No bowlers recorded for Innings 2 yet. Tap "+ Add Bowler" above to add bowlers.
+                    </Text>
+                  </View>
+                ) : (
+                  teamABowling.map((b, idx) => (
+                    <Swipeable key={b.id} renderRightActions={() => renderRightActions(() => removeTeamABowler(b.id))}>
+                      <Card style={styles.rowCard}>
+                        <View style={[styles.inputGroup, { zIndex: 10 }]}>
+                          <Text style={[styles.label, { color: colors.textMuted }]}>Bowler Name</Text>
+                          <PlayerAutocomplete value={b.name} onChangeText={(t: string) => updateTeamABowler(b.id, 'name', t)} players={dbPlayers} colors={colors} styles={styles} />
+                        </View>
+                        <View style={styles.rowInputs}>
+                          <View style={[styles.inputGroup, { flex: 1 }]}>
+                            <Text style={[styles.label, { color: colors.textMuted }]}>O</Text>
+                            <TextInput style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={b.overs} onChangeText={t => updateTeamABowler(b.id, 'overs', t)} keyboardType="numeric" />
+                          </View>
+                          <View style={[styles.inputGroup, { flex: 1 }]}>
+                            <Text style={[styles.label, { color: colors.textMuted }]}>M</Text>
+                            <TextInput style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={b.maidens} onChangeText={t => updateTeamABowler(b.id, 'maidens', t)} keyboardType="numeric" />
+                          </View>
+                          <View style={[styles.inputGroup, { flex: 1 }]}>
+                            <Text style={[styles.label, { color: colors.textMuted }]}>R</Text>
+                            <TextInput style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={b.runs} onChangeText={t => updateTeamABowler(b.id, 'runs', t)} keyboardType="numeric" />
+                          </View>
+                          <View style={[styles.inputGroup, { flex: 1 }]}>
+                            <Text style={[styles.label, { color: colors.textMuted }]}>W</Text>
+                            <TextInput style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={b.wickets} onChangeText={t => updateTeamABowler(b.id, 'wickets', t)} keyboardType="numeric" />
+                          </View>
+                        </View>
+                      </Card>
+                    </Swipeable>
+                  ))
+                )}
+              </>
             )}
 
-            <Button title="Next: Review Match ➔" onPress={() => setActiveTab(4)} variant="secondary" style={{ marginTop: 12 }} />
+            <Button title="Next: Review Match ➔" onPress={() => setActiveTab(4)} variant="secondary" style={{ marginTop: 16 }} />
           </View>
         )}
 

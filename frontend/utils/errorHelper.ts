@@ -92,24 +92,37 @@ export const parseApiError = (err: any, fallbackTitle = 'Action Failed'): AppErr
   // 2. Network / Connection Refused Error
   if (err.code === 'ERR_NETWORK' || err.message === 'Network Error' || err.message?.includes('NetworkError')) {
     const targetUrl = err.config?.url ? `${err.config.baseURL || ''}${err.config.url}` : 'http://localhost:5000';
+    const isCloud = targetUrl.includes('onrender.com');
+
     return {
-      title: '🔌 Network Error (Connection Refused)',
-      message: `Backend server se connection nahi ho saka. Server unreachable hai.`,
+      title: isCloud ? '☁️ Cloud Server Waking Up' : '🔌 Network Error (Connection Refused)',
+      message: isCloud
+        ? 'Cloud backend sleep mode se wake up ho raha hai. Thoda sa waqt lag sakta hai.'
+        : 'Backend server se connection nahi ho saka. Server unreachable hai.',
       endpoint: targetUrl,
       code: 'ERR_NETWORK',
-      technicalDetails: `Cannot connect to: ${targetUrl}. Is backend running on port 5000?`,
-      suggestedFix: 'Check karein ki Backend server (Node/Express) port 5000 par running hai ya nahi.',
+      technicalDetails: `Cannot connect to: ${targetUrl}`,
+      suggestedFix: isCloud
+        ? 'Render cloud free tier 15 min inactive rehne par sleep ho jata hai. Ek baar refresh ya 5-10 second baad dobara koshish karein, server turant chal padega.'
+        : 'Check karein ki Backend server (Node/Express) port 5000 par running hai ya nahi.',
     };
   }
 
   // 3. Timeout Error
   if (err.code === 'ECONNABORTED' || err.message?.toLowerCase().includes('timeout')) {
+    const targetUrl = err.config?.url ? `${err.config.baseURL || ''}${err.config.url}` : '';
+    const isCloud = targetUrl.includes('onrender.com');
+
     return {
-      title: '⏱️ Request Timeout',
-      message: 'Server ne response dene me bohot zyada samay liya (Request timed out).',
+      title: isCloud ? '⏳ Server Starting Up' : '⏱️ Request Timeout',
+      message: isCloud
+        ? 'Cloud server start hone me thoda samay le raha hai. Kripya dubara koshish karein.'
+        : 'Server ne response dene me bohot zyada samay liya (Request timed out).',
       code: 'ECONNABORTED',
       technicalDetails: err.message,
-      suggestedFix: 'Apna internet connection check karein ya thoda ruk kar dubara koshish karein.',
+      suggestedFix: isCloud
+        ? 'Server wake ho chuka hai, ab dubara tap karein to turant response aayega.'
+        : 'Apna internet connection check karein ya thoda ruk kar dubara koshish karein.',
     };
   }
 

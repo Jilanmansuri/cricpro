@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { Stack, useRouter, useSegments, useRootNavigationState } from 'expo-router';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, View, AppState } from 'react-native';
 import { useAuthStore } from '../store/authStore';
 import { useSettingsStore } from '../store/settingsStore';
 import { ThemeProvider, useTheme } from '../components/Theme';
@@ -22,12 +22,22 @@ const NavigationLayout = () => {
     // Non-blocking Render cloud wake-up ping
     prewarmBackend();
 
-    // Keep backend warm every 4 minutes while app is active
+    // Keep backend warm every 2.5 minutes while app is active
     const keepAliveTimer = setInterval(() => {
       prewarmBackend();
-    }, 4 * 60 * 1000);
+    }, 2.5 * 60 * 1000);
 
-    return () => clearInterval(keepAliveTimer);
+    // Also wake up immediately when app returns from background to foreground
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'active') {
+        prewarmBackend();
+      }
+    });
+
+    return () => {
+      clearInterval(keepAliveTimer);
+      subscription.remove();
+    };
   }, []);
 
   useEffect(() => {

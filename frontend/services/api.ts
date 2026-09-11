@@ -271,6 +271,25 @@ api.interceptors.response.use(
       }
     }
 
+    // Smart Auto-Retry on Transient Network Drops, Timeout, or Cloud Server Cold-Start (502, 503, 504, ERR_NETWORK, ECONNABORTED)
+    const isColdStartOrTransient =
+      !error.response ||
+      error.code === 'ERR_NETWORK' ||
+      error.code === 'ECONNABORTED' ||
+      [502, 503, 504].includes(error.response?.status);
+
+    const retryCount = originalRequest._retryCount || 0;
+    const MAX_RETRIES = 3;
+
+    if (isColdStartOrTransient && retryCount < MAX_RETRIES) {
+      originalRequest._retryCount = retryCount + 1;
+      const delay = Math.min(1500 * Math.pow(1.5, retryCount), 5000);
+      console.warn(`[CricPro API] Transient connection / cold-start issue (${error.code || error.response?.status || 'network error'}). Auto-retrying request (${retryCount + 1}/${MAX_RETRIES}) in ${Math.round(delay)}ms...`);
+      
+      await new Promise((res) => setTimeout(res, delay));
+      return api(originalRequest);
+    }
+
     return Promise.reject(error);
   }
 );

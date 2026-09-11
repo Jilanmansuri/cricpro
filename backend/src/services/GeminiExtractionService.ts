@@ -238,9 +238,12 @@ SPECIFIC CRICKET EXTRACTION & COLUMN ACCURACY RULES:
   * W or Wkts: Wickets taken by this bowler. DO NOT confuse with Maidens or Overs!
   * Econ: Economy rate.
 
-- MOBILE CRICKET GAMES (WCC2, WCC3, Real Cricket, Dream Cricket):
+- MOBILE CRICKET GAMES & CUSTOM / NEW PLAYERS:
   * Games often use parody or slightly altered names for licensed players (e.g. 'C Greeny' -> Cameron Green, 'M Starcy' -> Mitchell Starc, 'A Zamps' -> Adam Zampa, 'S Smudge' -> Steve Smith, 'M Bison' -> Mitchell Marsh, 'M Wadey' -> Matthew Wade).
-  * If clearly recognizable, map them to real cricket names or clean abbreviations (e.g. 'A Sharma', 'S Gill', 'S Yadav', 'R Gaikwad', 'S Samson', 'H Pandya', 'S Dube', 'A Patel', 'J Bumrah', 'M Siraj').
+  * CRITICAL FOR NEW PLAYERS: ALWAYS preserve the EXACT name of every player row visible on the scorecard.
+  * NEVER merge two different players into one.
+  * NEVER substitute or overwrite a new, unfamiliar, or custom player name with a famous player! (e.g. If the name is 'S Dube', keep 'S Dube'; do NOT change to 'S Yadav'. If 'T Malik', do NOT change to 'D Malik'!).
+  * Extract every single player row that has runs, balls, or overs, even if they are unknown or newly added.
 
 - DEDUCING OPPONENT TEAM FROM DISMISSAL TEXT:
   * If the opponent team (teamB) is not printed in the header, inspect the bowlers and fielders in the dismissal texts.
@@ -289,7 +292,7 @@ SPECIFIC CRICKET EXTRACTION & COLUMN ACCURACY RULES:
 
     try {
       const response = await this.ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-2.0-flash',
         contents: [
           {
             role: 'user',
@@ -305,7 +308,7 @@ SPECIFIC CRICKET EXTRACTION & COLUMN ACCURACY RULES:
       });
       responseText = response.text || '';
     } catch (primaryError: any) {
-      console.warn('[GeminiExtraction] gemini-2.5-flash failed, attempting fallback to gemini-flash-latest:', primaryError.message);
+      console.warn('[GeminiExtraction] gemini-2.0-flash failed, attempting fallback to gemini-flash-latest:', primaryError.message);
       try {
         const fallbackResponse = await this.ai.models.generateContent({
           model: 'gemini-flash-latest',
@@ -324,9 +327,9 @@ SPECIFIC CRICKET EXTRACTION & COLUMN ACCURACY RULES:
         });
         responseText = fallbackResponse.text || '';
       } catch (secError: any) {
-        console.warn('[GeminiExtraction] gemini-flash-latest failed, attempting fallback to gemini-3.5-flash:', secError.message);
+        console.warn('[GeminiExtraction] gemini-flash-latest failed, attempting fallback to gemini-1.5-flash:', secError.message);
         const tertResponse = await this.ai.models.generateContent({
-          model: 'gemini-3.5-flash',
+          model: 'gemini-1.5-flash',
           contents: [
             {
               role: 'user',
