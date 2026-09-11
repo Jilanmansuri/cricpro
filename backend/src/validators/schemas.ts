@@ -35,12 +35,42 @@ export const loginValidator = [
     .withMessage('Password is required'),
 ];
 
+export const sendOtpValidator = [
+  body('email')
+    .trim()
+    .notEmpty()
+    .withMessage('Please provide your registered email address or username'),
+];
+
+export const verifyOtpValidator = [
+  body('email')
+    .trim()
+    .notEmpty()
+    .withMessage('Email address is required'),
+  body('otp')
+    .trim()
+    .isLength({ min: 6, max: 6 })
+    .withMessage('Please enter a valid 6-digit verification code'),
+];
+
+export const resetPasswordValidator = [
+  body('email')
+    .trim()
+    .notEmpty()
+    .withMessage('Email address is required'),
+  body('newPassword')
+    .trim()
+    .isLength({ min: 6 })
+    .withMessage('New password must be at least 6 characters long'),
+];
+
 export const forgotPasswordValidator = [
   body('email')
     .trim()
-    .isEmail()
-    .withMessage('Please provide a valid email address'),
+    .notEmpty()
+    .withMessage('Please provide your registered email address or username'),
   body('newPassword')
+    .optional()
     .trim()
     .isLength({ min: 6 })
     .withMessage('New password must be at least 6 characters long'),

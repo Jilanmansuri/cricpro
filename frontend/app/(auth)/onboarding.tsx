@@ -57,17 +57,17 @@ export default function OnboardingScreen() {
     },
   ];
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (activeIdx < slides.length - 1) {
       setActiveIdx(prev => prev + 1);
     } else {
-      setOnboardingCompleted(true);
+      await setOnboardingCompleted(true);
       router.replace('/(auth)/login');
     }
   };
 
-  const handleSkip = () => {
-    setOnboardingCompleted(true);
+  const handleSkip = async () => {
+    await setOnboardingCompleted(true);
     router.replace('/(auth)/login');
   };
 

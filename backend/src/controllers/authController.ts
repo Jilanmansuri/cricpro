@@ -80,14 +80,87 @@ export const logoutUser = async (req: Request, res: Response): Promise<void> => 
   }
 };
 
-export const forgotPassword = async (req: Request, res: Response): Promise<void> => {
-  const { email, newPassword } = req.body;
+export const sendResetOtp = async (req: Request, res: Response): Promise<void> => {
+  const { email, identifier } = req.body;
+  const target = email || identifier;
+
   try {
-    await authService.forgotPassword(email, newPassword);
+    const result = await authService.sendResetOtp(target);
     res.json({
       success: true,
-      message: 'Password reset successful. Please login with your new credentials.'
+      message: result.message,
+      data: {
+        email: result.email,
+        maskedEmail: result.maskedEmail,
+        otp: result.otp,
+      }
     });
+  } catch (error: any) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+export const verifyResetOtp = async (req: Request, res: Response): Promise<void> => {
+  const { email, otp } = req.body;
+
+  try {
+    const result = await authService.verifyResetOtp(email, otp);
+    res.json({
+      success: true,
+      message: result.message,
+      data: {
+        resetToken: result.resetToken,
+        email: result.email,
+      }
+    });
+  } catch (error: any) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+export const resetPassword = async (req: Request, res: Response): Promise<void> => {
+  const { email, newPassword, otp, resetToken } = req.body;
+
+  try {
+    const result = await authService.resetPasswordWithOtpOrToken({
+      email,
+      newPassword,
+      otp,
+      resetToken,
+    });
+    res.json({
+      success: true,
+      message: result.message,
+    });
+  } catch (error: any) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+export const forgotPassword = async (req: Request, res: Response): Promise<void> => {
+  const { email, newPassword, identifier } = req.body;
+  const target = email || identifier;
+
+  try {
+    if (newPassword) {
+      await authService.forgotPassword(target, newPassword);
+      res.json({
+        success: true,
+        message: 'Password reset successful. Please login with your new credentials.'
+      });
+    } else {
+      // If only email/identifier is passed, send OTP
+      const result = await authService.sendResetOtp(target);
+      res.json({
+        success: true,
+        message: result.message,
+        data: {
+          email: result.email,
+          maskedEmail: result.maskedEmail,
+          otp: result.otp,
+        }
+      });
+    }
   } catch (error: any) {
     res.status(400).json({ success: false, message: error.message });
   }

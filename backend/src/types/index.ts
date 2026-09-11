@@ -9,6 +9,8 @@ export interface IUser extends Document {
   role: 'admin' | 'manager' | 'player';
   status: 'active' | 'inactive';
   refreshToken?: string;
+  resetPasswordOtp?: string;
+  resetPasswordExpires?: Date;
   createdAt: Date;
   updatedAt: Date;
   matchPassword(enteredPassword: string): Promise<boolean>;

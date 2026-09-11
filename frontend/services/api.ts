@@ -1,5 +1,6 @@
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
 import Constants from 'expo-constants';
@@ -140,6 +141,38 @@ export const removeRefreshToken = async (): Promise<void> => {
   } catch (err) {
     console.error('Failed to clear refresh token:', err);
   }
+};
+
+export const setStoredUser = async (user: any): Promise<void> => {
+  try {
+    const val = JSON.stringify(user);
+    if (Platform.OS === 'web') {
+      localStorage.setItem('userProfile', val);
+    } else {
+      await AsyncStorage.setItem('userProfile', val);
+    }
+  } catch (err) {
+    console.error('Failed to save user profile:', err);
+  }
+};
+
+export const getStoredUser = async (): Promise<any | null> => {
+  try {
+    const val = Platform.OS === 'web' ? localStorage.getItem('userProfile') : await AsyncStorage.getItem('userProfile');
+    return val ? JSON.parse(val) : null;
+  } catch (err) {
+    return null;
+  }
+};
+
+export const removeStoredUser = async (): Promise<void> => {
+  try {
+    if (Platform.OS === 'web') {
+      localStorage.removeItem('userProfile');
+    } else {
+      await AsyncStorage.removeItem('userProfile');
+    }
+  } catch (err) {}
 };
 
 const api = axios.create({

@@ -9,7 +9,7 @@ import { prewarmBackend } from '../services/api';
 
 const NavigationLayout = () => {
   const { isAuthenticated, isLoading, restoreSession } = useAuthStore();
-  const { isOnboardingCompleted, loadSettings } = useSettingsStore();
+  const { isOnboardingCompleted, isSettingsLoaded, loadSettings } = useSettingsStore();
   const { colors } = useTheme();
   const segments = useSegments() as string[];
   const router = useRouter();
@@ -31,10 +31,8 @@ const NavigationLayout = () => {
   }, []);
 
   useEffect(() => {
-    // Wait until root navigation state is mounted before routing
-    if (!rootNavigationState?.key) return;
-    
-    if (isLoading) return;
+    // Wait until root navigation state is mounted AND both settings & session are fully loaded
+    if (!rootNavigationState?.key || isLoading || !isSettingsLoaded) return;
 
     const inAuthGroup = segments[0] === '(auth)';
     const inDrawerGroup = segments[0] === '(drawer)';
@@ -46,15 +44,15 @@ const NavigationLayout = () => {
         router.replace('/(auth)/login');
       }
     } else {
-      // Authenticated user
+      // Authenticated user: navigate to main drawer/tabs if currently in auth screen
       if (inAuthGroup) {
         router.replace('/(drawer)/(tabs)');
       }
     }
-  }, [isAuthenticated, isLoading, isOnboardingCompleted, segments, rootNavigationState?.key]);
+  }, [isAuthenticated, isLoading, isSettingsLoaded, isOnboardingCompleted, segments, rootNavigationState?.key]);
 
   const isAuthGroup = segments[0] === '(auth)';
-  const showLoadingOverlay = isLoading || (!isAuthenticated && !isAuthGroup);
+  const showLoadingOverlay = isLoading || !isSettingsLoaded;
 
   return (
     <View style={{ flex: 1 }}>

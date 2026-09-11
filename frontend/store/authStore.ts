@@ -1,5 +1,15 @@
 import { create } from 'zustand';
-import api, { setToken, setRefreshToken, removeToken, removeRefreshToken, getToken, getRefreshToken } from '../services/api';
+import api, {
+  setToken,
+  setRefreshToken,
+  removeToken,
+  removeRefreshToken,
+  getToken,
+  getRefreshToken,
+  setStoredUser,
+  getStoredUser,
+  removeStoredUser,
+} from '../services/api';
 
 interface UserProfile {
   _id: string;
@@ -33,27 +43,38 @@ export const useAuthStore = create<AuthState>((set) => ({
     try {
       const storedAccess = await getToken();
       const storedRefresh = await getRefreshToken();
+      const storedUser = await getStoredUser();
 
       if (storedAccess && storedRefresh) {
-        // Retrieve profile details to verify token validity
-        const res = await api.get('/auth/profile');
-        if (res.data.success) {
-          set({
-            user: res.data.data,
-            accessToken: storedAccess,
-            refreshToken: storedRefresh,
-            isAuthenticated: true,
-          });
-        } else {
-          throw new Error('Verification failed');
-        }
+        // Immediately restore active session so the user never has to re-login!
+        set({
+          user: storedUser || null,
+          accessToken: storedAccess,
+          refreshToken: storedRefresh,
+          isAuthenticated: true,
+          isLoading: false,
+        });
+
+        // Non-blocking background verification / refresh of profile
+        api.get('/auth/profile').then(async (res) => {
+          if (res.data.success) {
+            set({ user: res.data.data });
+            await setStoredUser(res.data.data);
+          }
+        }).catch(async (err: any) => {
+          // CRITICAL: Only log out if server explicitly returns 401 Unauthorized.
+          // Never log out on network errors, timeouts, or cold starts!
+          if (err.response?.status === 401) {
+            await removeToken();
+            await removeRefreshToken();
+            await removeStoredUser();
+            set({ user: null, accessToken: null, refreshToken: null, isAuthenticated: false });
+          }
+        });
+        return;
       }
     } catch (e) {
       console.warn('Restore session warning:', e);
-      // Clean up invalid session keys
-      await removeToken();
-      await removeRefreshToken();
-      set({ user: null, accessToken: null, refreshToken: null, isAuthenticated: false });
     } finally {
       set({ isLoading: false });
     }
@@ -67,6 +88,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         const { accessToken, refreshToken, ...profile } = res.data.data;
         await setToken(accessToken);
         await setRefreshToken(refreshToken);
+        await setStoredUser(profile);
 
         set({
           user: profile,
@@ -105,6 +127,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         const { accessToken, refreshToken, ...profile } = res.data.data;
         await setToken(accessToken);
         await setRefreshToken(refreshToken);
+        await setStoredUser(profile);
 
         set({
           user: profile,
@@ -139,9 +162,12 @@ export const useAuthStore = create<AuthState>((set) => ({
       if (refreshTkn) {
         await api.post('/auth/logout', { token: refreshTkn }).catch(() => {});
       }
+    } catch (err) {
+      console.error('Logout error:', err);
     } finally {
       await removeToken();
       await removeRefreshToken();
+      await removeStoredUser();
       set({
         user: null,
         accessToken: null,

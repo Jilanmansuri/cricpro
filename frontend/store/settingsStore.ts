@@ -4,9 +4,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 interface SettingsState {
   isDarkMode: boolean;
   isOnboardingCompleted: boolean;
+  isSettingsLoaded: boolean;
   notificationsEnabled: boolean;
   toggleTheme: () => void;
-  setOnboardingCompleted: (completed: boolean) => void;
+  setOnboardingCompleted: (completed: boolean) => Promise<void>;
   toggleNotifications: () => void;
   loadSettings: () => Promise<void>;
 }
@@ -14,6 +15,7 @@ interface SettingsState {
 export const useSettingsStore = create<SettingsState>((set) => ({
   isDarkMode: true,
   isOnboardingCompleted: false,
+  isSettingsLoaded: false,
   notificationsEnabled: true,
 
   toggleTheme: async () => {
@@ -26,7 +28,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
 
   setOnboardingCompleted: async (completed) => {
     await AsyncStorage.setItem('isOnboardingCompleted', String(completed)).catch(() => {});
-    set({ isOnboardingCompleted: completed });
+    set({ isOnboardingCompleted: completed, isSettingsLoaded: true });
   },
 
   toggleNotifications: async () => {
@@ -46,10 +48,12 @@ export const useSettingsStore = create<SettingsState>((set) => ({
       set({
         isDarkMode: mode === null ? true : mode === 'true',
         isOnboardingCompleted: onboard === 'true',
+        isSettingsLoaded: true,
         notificationsEnabled: notif === null ? true : notif === 'true',
       });
     } catch (error) {
       console.error('Failed to load settings from storage:', error);
+      set({ isSettingsLoaded: true });
     }
   },
 }));
