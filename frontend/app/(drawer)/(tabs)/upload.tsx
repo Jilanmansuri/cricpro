@@ -990,33 +990,57 @@ export default function ManualMatchEntry() {
         {/* Tab 2: Batting Tab */}
         {activeTab === 2 && (
           <View style={styles.tabContent}>
-            <View style={{ flexDirection: 'row', backgroundColor: colors.surfaceLighter || '#262626', borderRadius: 8, padding: 4, marginBottom: 16 }}>
+            <View style={[styles.inningsSwitchContainer, { backgroundColor: colors.surfaceLighter || '#262626', borderColor: colors.border }]}>
               <TouchableOpacity
-                style={{
-                  flex: 1,
-                  paddingVertical: 10,
-                  borderRadius: 6,
-                  alignItems: 'center',
-                  backgroundColor: battingInnings === 'teamA' ? colors.primary : 'transparent',
-                }}
+                style={[
+                  styles.inningsSwitchTab,
+                  battingInnings === 'teamA' && { backgroundColor: colors.primary, shadowColor: colors.primary, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, elevation: 3 }
+                ]}
                 onPress={() => setBattingInnings('teamA')}
+                activeOpacity={0.8}
               >
-                <Text style={{ fontWeight: '800', fontSize: 13, color: battingInnings === 'teamA' ? '#fff' : colors.textMuted }}>
-                  Innings 1: {matchInfo.teamName || 'Team 1'} ({batting.filter(b => b.name.trim()).length})
+                <Text
+                  numberOfLines={1}
+                  style={[
+                    styles.inningsSwitchTitle,
+                    { color: battingInnings === 'teamA' ? '#fff' : colors.text }
+                  ]}
+                >
+                  Inn 1: {matchInfo.teamName || 'Team 1'}
+                </Text>
+                <Text
+                  style={[
+                    styles.inningsSwitchSub,
+                    { color: battingInnings === 'teamA' ? 'rgba(255,255,255,0.85)' : colors.textMuted }
+                  ]}
+                >
+                  {batting.filter(b => b.name.trim()).length} Batters
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={{
-                  flex: 1,
-                  paddingVertical: 10,
-                  borderRadius: 6,
-                  alignItems: 'center',
-                  backgroundColor: battingInnings === 'teamB' ? colors.primary : 'transparent',
-                }}
+                style={[
+                  styles.inningsSwitchTab,
+                  battingInnings === 'teamB' && { backgroundColor: colors.primary, shadowColor: colors.primary, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, elevation: 3 }
+                ]}
                 onPress={() => setBattingInnings('teamB')}
+                activeOpacity={0.8}
               >
-                <Text style={{ fontWeight: '800', fontSize: 13, color: battingInnings === 'teamB' ? '#fff' : colors.textMuted }}>
-                  Innings 2: {matchInfo.opponentTeam || 'Team 2'} ({teamBBatting.filter(b => b.name.trim()).length})
+                <Text
+                  numberOfLines={1}
+                  style={[
+                    styles.inningsSwitchTitle,
+                    { color: battingInnings === 'teamB' ? '#fff' : colors.text }
+                  ]}
+                >
+                  Inn 2: {matchInfo.opponentTeam || 'Team 2'}
+                </Text>
+                <Text
+                  style={[
+                    styles.inningsSwitchSub,
+                    { color: battingInnings === 'teamB' ? 'rgba(255,255,255,0.85)' : colors.textMuted }
+                  ]}
+                >
+                  {teamBBatting.filter(b => b.name.trim()).length} Batters
                 </Text>
               </TouchableOpacity>
             </View>
@@ -1051,19 +1075,19 @@ export default function ManualMatchEntry() {
                         <View style={styles.rowInputs}>
                           <View style={[styles.inputGroup, { flex: 1 }]}>
                             <Text style={[styles.label, { color: colors.textMuted }]}>R</Text>
-                            <TextInput style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={b.runs} onChangeText={t => updateBatsman(b.id, 'runs', t)} keyboardType="numeric" />
+                            <TextInput style={[styles.input, styles.numberInput, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={b.runs} onChangeText={t => updateBatsman(b.id, 'runs', t)} keyboardType="numeric" />
                           </View>
                           <View style={[styles.inputGroup, { flex: 1 }]}>
                             <Text style={[styles.label, { color: colors.textMuted }]}>B</Text>
-                            <TextInput style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={b.balls} onChangeText={t => updateBatsman(b.id, 'balls', t)} keyboardType="numeric" />
+                            <TextInput style={[styles.input, styles.numberInput, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={b.balls} onChangeText={t => updateBatsman(b.id, 'balls', t)} keyboardType="numeric" />
                           </View>
                           <View style={[styles.inputGroup, { flex: 1 }]}>
                             <Text style={[styles.label, { color: colors.textMuted }]}>4s</Text>
-                            <TextInput style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={b.fours} onChangeText={t => updateBatsman(b.id, 'fours', t)} keyboardType="numeric" />
+                            <TextInput style={[styles.input, styles.numberInput, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={b.fours} onChangeText={t => updateBatsman(b.id, 'fours', t)} keyboardType="numeric" />
                           </View>
                           <View style={[styles.inputGroup, { flex: 1 }]}>
                             <Text style={[styles.label, { color: colors.textMuted }]}>6s</Text>
-                            <TextInput style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={b.sixes} onChangeText={t => updateBatsman(b.id, 'sixes', t)} keyboardType="numeric" />
+                            <TextInput style={[styles.input, styles.numberInput, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={b.sixes} onChangeText={t => updateBatsman(b.id, 'sixes', t)} keyboardType="numeric" />
                           </View>
                         </View>
                       </Card>
@@ -1115,19 +1139,19 @@ export default function ManualMatchEntry() {
                         <View style={styles.rowInputs}>
                           <View style={[styles.inputGroup, { flex: 1 }]}>
                             <Text style={[styles.label, { color: colors.textMuted }]}>R</Text>
-                            <TextInput style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={b.runs} onChangeText={t => updateTeamBBatsman(b.id, 'runs', t)} keyboardType="numeric" />
+                            <TextInput style={[styles.input, styles.numberInput, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={b.runs} onChangeText={t => updateTeamBBatsman(b.id, 'runs', t)} keyboardType="numeric" />
                           </View>
                           <View style={[styles.inputGroup, { flex: 1 }]}>
                             <Text style={[styles.label, { color: colors.textMuted }]}>B</Text>
-                            <TextInput style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={b.balls} onChangeText={t => updateTeamBBatsman(b.id, 'balls', t)} keyboardType="numeric" />
+                            <TextInput style={[styles.input, styles.numberInput, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={b.balls} onChangeText={t => updateTeamBBatsman(b.id, 'balls', t)} keyboardType="numeric" />
                           </View>
                           <View style={[styles.inputGroup, { flex: 1 }]}>
                             <Text style={[styles.label, { color: colors.textMuted }]}>4s</Text>
-                            <TextInput style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={b.fours} onChangeText={t => updateTeamBBatsman(b.id, 'fours', t)} keyboardType="numeric" />
+                            <TextInput style={[styles.input, styles.numberInput, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={b.fours} onChangeText={t => updateTeamBBatsman(b.id, 'fours', t)} keyboardType="numeric" />
                           </View>
                           <View style={[styles.inputGroup, { flex: 1 }]}>
                             <Text style={[styles.label, { color: colors.textMuted }]}>6s</Text>
-                            <TextInput style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={b.sixes} onChangeText={t => updateTeamBBatsman(b.id, 'sixes', t)} keyboardType="numeric" />
+                            <TextInput style={[styles.input, styles.numberInput, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={b.sixes} onChangeText={t => updateTeamBBatsman(b.id, 'sixes', t)} keyboardType="numeric" />
                           </View>
                         </View>
                       </Card>
@@ -1154,33 +1178,57 @@ export default function ManualMatchEntry() {
         {/* Tab 3: Bowling Tab */}
         {activeTab === 3 && (
           <View style={styles.tabContent}>
-            <View style={{ flexDirection: 'row', backgroundColor: colors.surfaceLighter || '#262626', borderRadius: 8, padding: 4, marginBottom: 16 }}>
+            <View style={[styles.inningsSwitchContainer, { backgroundColor: colors.surfaceLighter || '#262626', borderColor: colors.border }]}>
               <TouchableOpacity
-                style={{
-                  flex: 1,
-                  paddingVertical: 10,
-                  borderRadius: 6,
-                  alignItems: 'center',
-                  backgroundColor: bowlingInnings === 'teamB' ? colors.primary : 'transparent',
-                }}
+                style={[
+                  styles.inningsSwitchTab,
+                  bowlingInnings === 'teamB' && { backgroundColor: colors.primary, shadowColor: colors.primary, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, elevation: 3 }
+                ]}
                 onPress={() => setBowlingInnings('teamB')}
+                activeOpacity={0.8}
               >
-                <Text style={{ fontWeight: '800', fontSize: 13, color: bowlingInnings === 'teamB' ? '#fff' : colors.textMuted }}>
-                  Innings 1: {matchInfo.opponentTeam || 'Team 2'} Bowling ({bowling.filter(b => b.name.trim()).length})
+                <Text
+                  numberOfLines={1}
+                  style={[
+                    styles.inningsSwitchTitle,
+                    { color: bowlingInnings === 'teamB' ? '#fff' : colors.text }
+                  ]}
+                >
+                  Inn 1: {matchInfo.opponentTeam || 'Team 2'}
+                </Text>
+                <Text
+                  style={[
+                    styles.inningsSwitchSub,
+                    { color: bowlingInnings === 'teamB' ? 'rgba(255,255,255,0.85)' : colors.textMuted }
+                  ]}
+                >
+                  {bowling.filter(b => b.name.trim()).length} Bowlers
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={{
-                  flex: 1,
-                  paddingVertical: 10,
-                  borderRadius: 6,
-                  alignItems: 'center',
-                  backgroundColor: bowlingInnings === 'teamA' ? colors.primary : 'transparent',
-                }}
+                style={[
+                  styles.inningsSwitchTab,
+                  bowlingInnings === 'teamA' && { backgroundColor: colors.primary, shadowColor: colors.primary, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, elevation: 3 }
+                ]}
                 onPress={() => setBowlingInnings('teamA')}
+                activeOpacity={0.8}
               >
-                <Text style={{ fontWeight: '800', fontSize: 13, color: bowlingInnings === 'teamA' ? '#fff' : colors.textMuted }}>
-                  Innings 2: {matchInfo.teamName || 'Team 1'} Bowling ({teamABowling.filter(b => b.name.trim()).length})
+                <Text
+                  numberOfLines={1}
+                  style={[
+                    styles.inningsSwitchTitle,
+                    { color: bowlingInnings === 'teamA' ? '#fff' : colors.text }
+                  ]}
+                >
+                  Inn 2: {matchInfo.teamName || 'Team 1'}
+                </Text>
+                <Text
+                  style={[
+                    styles.inningsSwitchSub,
+                    { color: bowlingInnings === 'teamA' ? 'rgba(255,255,255,0.85)' : colors.textMuted }
+                  ]}
+                >
+                  {teamABowling.filter(b => b.name.trim()).length} Bowlers
                 </Text>
               </TouchableOpacity>
             </View>
@@ -1209,19 +1257,19 @@ export default function ManualMatchEntry() {
                         <View style={styles.rowInputs}>
                           <View style={[styles.inputGroup, { flex: 1 }]}>
                             <Text style={[styles.label, { color: colors.textMuted }]}>O</Text>
-                            <TextInput style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={b.overs} onChangeText={t => updateBowler(b.id, 'overs', t)} keyboardType="numeric" />
+                            <TextInput style={[styles.input, styles.numberInput, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={b.overs} onChangeText={t => updateBowler(b.id, 'overs', t)} keyboardType="numeric" />
                           </View>
                           <View style={[styles.inputGroup, { flex: 1 }]}>
                             <Text style={[styles.label, { color: colors.textMuted }]}>M</Text>
-                            <TextInput style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={b.maidens} onChangeText={t => updateBowler(b.id, 'maidens', t)} keyboardType="numeric" />
+                            <TextInput style={[styles.input, styles.numberInput, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={b.maidens} onChangeText={t => updateBowler(b.id, 'maidens', t)} keyboardType="numeric" />
                           </View>
                           <View style={[styles.inputGroup, { flex: 1 }]}>
                             <Text style={[styles.label, { color: colors.textMuted }]}>R</Text>
-                            <TextInput style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={b.runs} onChangeText={t => updateBowler(b.id, 'runs', t)} keyboardType="numeric" />
+                            <TextInput style={[styles.input, styles.numberInput, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={b.runs} onChangeText={t => updateBowler(b.id, 'runs', t)} keyboardType="numeric" />
                           </View>
                           <View style={[styles.inputGroup, { flex: 1 }]}>
                             <Text style={[styles.label, { color: colors.textMuted }]}>W</Text>
-                            <TextInput style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={b.wickets} onChangeText={t => updateBowler(b.id, 'wickets', t)} keyboardType="numeric" />
+                            <TextInput style={[styles.input, styles.numberInput, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={b.wickets} onChangeText={t => updateBowler(b.id, 'wickets', t)} keyboardType="numeric" />
                           </View>
                         </View>
                       </Card>
@@ -1257,19 +1305,19 @@ export default function ManualMatchEntry() {
                         <View style={styles.rowInputs}>
                           <View style={[styles.inputGroup, { flex: 1 }]}>
                             <Text style={[styles.label, { color: colors.textMuted }]}>O</Text>
-                            <TextInput style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={b.overs} onChangeText={t => updateTeamABowler(b.id, 'overs', t)} keyboardType="numeric" />
+                            <TextInput style={[styles.input, styles.numberInput, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={b.overs} onChangeText={t => updateTeamABowler(b.id, 'overs', t)} keyboardType="numeric" />
                           </View>
                           <View style={[styles.inputGroup, { flex: 1 }]}>
                             <Text style={[styles.label, { color: colors.textMuted }]}>M</Text>
-                            <TextInput style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={b.maidens} onChangeText={t => updateTeamABowler(b.id, 'maidens', t)} keyboardType="numeric" />
+                            <TextInput style={[styles.input, styles.numberInput, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={b.maidens} onChangeText={t => updateTeamABowler(b.id, 'maidens', t)} keyboardType="numeric" />
                           </View>
                           <View style={[styles.inputGroup, { flex: 1 }]}>
                             <Text style={[styles.label, { color: colors.textMuted }]}>R</Text>
-                            <TextInput style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={b.runs} onChangeText={t => updateTeamABowler(b.id, 'runs', t)} keyboardType="numeric" />
+                            <TextInput style={[styles.input, styles.numberInput, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={b.runs} onChangeText={t => updateTeamABowler(b.id, 'runs', t)} keyboardType="numeric" />
                           </View>
                           <View style={[styles.inputGroup, { flex: 1 }]}>
                             <Text style={[styles.label, { color: colors.textMuted }]}>W</Text>
-                            <TextInput style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={b.wickets} onChangeText={t => updateTeamABowler(b.id, 'wickets', t)} keyboardType="numeric" />
+                            <TextInput style={[styles.input, styles.numberInput, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={b.wickets} onChangeText={t => updateTeamABowler(b.id, 'wickets', t)} keyboardType="numeric" />
                           </View>
                         </View>
                       </Card>
@@ -1318,12 +1366,12 @@ export default function ManualMatchEntry() {
 
               <View style={styles.divider} />
               
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                <Text style={[styles.summarySubtitle, { color: colors.text, marginBottom: 0 }]}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, gap: 8 }}>
+                <Text style={[styles.summarySubtitle, { color: colors.text, marginBottom: 0, flex: 1 }]} numberOfLines={1}>
                   🌟 Match Records & Milestones
                 </Text>
-                <View style={{ backgroundColor: colors.primary + '20', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 }}>
-                  <Text style={{ color: colors.primary, fontSize: 11, fontWeight: '800' }}>AI ANALYZED</Text>
+                <View style={{ backgroundColor: colors.primary + '20', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, flexShrink: 0 }}>
+                  <Text style={{ color: colors.primary, fontSize: 10, fontWeight: '800' }}>AI ANALYZED</Text>
                 </View>
               </View>
 
@@ -1576,20 +1624,56 @@ const styles = StyleSheet.create({
   tabBar: {
     flexDirection: 'row',
     borderBottomWidth: 1,
-    paddingTop: 10,
+    paddingTop: 8,
+    justifyContent: 'space-around',
   },
   tabItem: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 2,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   tabText: {
     fontWeight: '700',
-    fontSize: 14,
+    fontSize: 13,
+    textAlign: 'center',
   },
   scrollContent: {
-    padding: 20,
-    paddingBottom: 100,
+    padding: 16,
+    paddingBottom: 150,
+  },
+  inningsSwitchContainer: {
+    flexDirection: 'row',
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 4,
+    marginBottom: 16,
+    gap: 6,
+  },
+  inningsSwitchTab: {
+    flex: 1,
+    paddingVertical: 9,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  inningsSwitchTitle: {
+    fontWeight: '800',
+    fontSize: 12,
+    textAlign: 'center',
+  },
+  inningsSwitchSub: {
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 2,
+    textAlign: 'center',
+  },
+  numberInput: {
+    textAlign: 'center',
+    paddingHorizontal: 4,
+    fontWeight: '700',
   },
   uiErrorBanner: {
     marginHorizontal: 16,
