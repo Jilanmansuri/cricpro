@@ -68,6 +68,49 @@ export class MatchService {
     return Math.floor(totalBalls / 6) + (totalBalls % 6) / 10;
   }
 
+  /**
+   * Determine if a team represents India (or an Indian franchise like IPL)
+   * to strictly prevent foreign/opponent players from being added to stats.
+   */
+  private isIndianOrEligibleTeam(teamDoc: any): boolean {
+    if (!teamDoc) return false;
+    const teamId = (teamDoc.teamId || '').toUpperCase();
+    const name = (teamDoc.name || '').toLowerCase();
+    const shortName = (teamDoc.shortName || '').toLowerCase();
+
+    // 1. Team India
+    if (teamId === 'INT_IND' || name.includes('india') || shortName === 'ind') {
+      return true;
+    }
+
+    // 2. IPL Franchise teams (CSK, MI, RCB, KKR, DC, GT, RR, SRH, LSG, PBKS)
+    if (teamId.startsWith('IPL_') || teamDoc.league?.toLowerCase() === 'ipl') {
+      return true;
+    }
+
+    // 3. Exclude foreign international teams
+    const foreignInternationalCodes = [
+      'INT_AUS', 'INT_ENG', 'INT_RSA', 'INT_NZL', 'INT_PAK', 
+      'INT_SRI', 'INT_WI', 'INT_AFG', 'INT_BAN', 'INT_ZIM', 'INT_IRE'
+    ];
+    if (foreignInternationalCodes.includes(teamId)) {
+      return false;
+    }
+
+    const foreignCountryNames = [
+      'australia', 'england', 'south africa', 'new zealand', 'pakistan',
+      'sri lanka', 'west indies', 'afghanistan', 'bangladesh', 'zimbabwe',
+      'ireland', 'oman', 'hong kong', 'hongkong', 'scotland', 'netherlands',
+      'nepal', 'namibia', 'usa', 'canada', 'uae'
+    ];
+    if (foreignCountryNames.some(c => name.includes(c))) {
+      return false;
+    }
+
+    // Default to false for unknown non-Indian teams
+    return false;
+  }
+
   public async checkDuplicateMatch(payload: {
     date?: string;
     teamAName: string;
@@ -306,11 +349,13 @@ export class MatchService {
         overs: Number(teamBScoreData.overs) || calcTeamBOvers
       };
 
-      // 4. Resolve MVP player if present
+      // 4. Resolve MVP player if present (only associate if it matches an existing player, do not create non-Indian players)
       let mvpPlayerId: Types.ObjectId | undefined = undefined;
       if (rawMvp && typeof rawMvp === 'string' && rawMvp.trim()) {
-        const mvpPlayer = await this.playerMatchingService.findOrCreatePlayer(rawMvp.trim());
-        mvpPlayerId = mvpPlayer._id as Types.ObjectId;
+        const matchedMvp = await this.playerMatchingService.findMatchingPlayer(rawMvp.trim());
+        if (matchedMvp) {
+          mvpPlayerId = matchedMvp._id as Types.ObjectId;
+        }
       }
 
       // 5. Check if duplicate match exists
@@ -389,6 +434,13 @@ export class MatchService {
         bowlers: BowlingItem[],
         fieldingMap: { [name: string]: { catches: number; stumpings: number; runOuts: number } }
       ) => {
+        // STRICT GUARD: Only track players for Team India (and Indian franchise leagues like IPL).
+        // Non-Indian / opponent teams (Australia, Pakistan, England, etc.) must NEVER create players or stats!
+        if (!this.isIndianOrEligibleTeam(teamDoc)) {
+          console.log(`[MatchService] Skipping player creation and stats calculation for opponent/non-Indian team: ${teamDoc?.name || 'Unknown'}`);
+          return;
+        }
+
         const playerStatsMap = new Map<string, {
           name: string;
           batting: any;
@@ -466,7 +518,10 @@ export class MatchService {
 
         // Save each player to DB and create PlayerMatchStats
         for (const entry of playerStatsMap.values()) {
-          const player = await this.playerMatchingService.findOrCreatePlayer(entry.name);
+          const player = await this.playerMatchingService.findOrCreatePlayer(entry.name, {
+            country: 'India',
+            nationalTeamId: 'INT_IND'
+          });
           affectedPlayerIds.push(player._id as Types.ObjectId);
 
           if (!teamDoc.players.some((id: any) => id.toString() === player._id.toString())) {

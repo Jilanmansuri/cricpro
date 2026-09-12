@@ -136,7 +136,11 @@ export class PlayerMatchingService {
     return null;
   }
 
-  public async findOrCreatePlayer(name: string, session?: mongoose.ClientSession): Promise<IPlayer> {
+  public async findOrCreatePlayer(
+    name: string,
+    metadata?: { country?: string; nationalTeamId?: string; iplTeamId?: string; fullName?: string },
+    session?: mongoose.ClientSession
+  ): Promise<IPlayer> {
     const trimmedName = name.trim();
     if (!trimmedName) {
       throw new Error('Player name cannot be empty');
@@ -146,6 +150,10 @@ export class PlayerMatchingService {
     if (!player) {
       player = await this.playerRepository.create({
         name: trimmedName,
+        fullName: metadata?.fullName || '',
+        country: metadata?.country || 'India',
+        nationalTeamId: metadata?.nationalTeamId || 'INT_IND',
+        iplTeamId: metadata?.iplTeamId || '',
         aliases: [trimmedName],
       }, session);
 
