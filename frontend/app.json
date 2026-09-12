@@ -19,7 +19,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#121212"
+        "backgroundColor": "#000000"
       },
       "package": "com.jilan2410.cricstatspro"
     },
