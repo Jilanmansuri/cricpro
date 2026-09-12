@@ -1,6 +1,9 @@
 import api from './api';
 
-export const uploadScorecard = async (uris: string | string[]): Promise<any> => {
+export const uploadScorecard = async (
+  uris: string | string[],
+  onStatusUpdate?: (status: string) => void
+): Promise<any> => {
   const uriList = Array.isArray(uris) ? uris : [uris];
   const formData = new FormData();
 
@@ -16,12 +19,42 @@ export const uploadScorecard = async (uris: string | string[]): Promise<any> => 
     } as any);
   });
 
-  const res = await api.post('/matches/upload', formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
-  });
-  return res.data;
+  const maxAttempts = 3;
+  let lastError: any = null;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      if (attempt > 1) {
+        onStatusUpdate?.(`Server wake-up in progress, retrying (${attempt}/${maxAttempts})...`);
+      }
+
+      const res = await api.post('/matches/upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+        timeout: 120000, // 2 minutes to allow Render cold start + Gemini Vision AI processing
+      });
+      return res.data;
+    } catch (err: any) {
+      lastError = err;
+      const isNetworkOrTimeout =
+        err.code === 'ERR_NETWORK' ||
+        err.code === 'ECONNABORTED' ||
+        err.message === 'Network Error' ||
+        err.message?.toLowerCase().includes('timeout');
+
+      // If it's a cold start / network issue and we have remaining attempts, wait and retry
+      if (isNetworkOrTimeout && attempt < maxAttempts) {
+        console.warn(`[uploadScorecard] Attempt ${attempt} failed. Retrying in 4 seconds...`, err.message);
+        onStatusUpdate?.(`Cloud server wake ho raha hai... (Attempt ${attempt}/${maxAttempts})`);
+        await new Promise((resolve) => setTimeout(resolve, 4000));
+        continue;
+      }
+      throw err;
+    }
+  }
+
+  throw lastError;
 };
 
 export const checkDuplicateMatch = async (payload: {

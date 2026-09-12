@@ -76,6 +76,7 @@ export default function ManualMatchEntry() {
   const [activeTab, setActiveTab] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [isOcrLoading, setIsOcrLoading] = useState(false);
+  const [ocrStatusText, setOcrStatusText] = useState<string>('');
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
   const [ocrConfidence, setOcrConfidence] = useState<number | null>(null);
   const [extractionEngine, setExtractionEngine] = useState<string | null>(null);
@@ -218,7 +219,7 @@ export default function ManualMatchEntry() {
 
       if (fromCamera) {
         const pickerResult = await ImagePicker.launchCameraAsync({
-          quality: 0.85,
+          quality: 0.7,
         });
         if (!pickerResult.canceled && pickerResult.assets?.[0]?.uri) {
           setSelectedImages(prev => [...prev, pickerResult.assets[0].uri].slice(0, 5));
@@ -228,7 +229,7 @@ export default function ManualMatchEntry() {
           mediaTypes: ['images'],
           allowsMultipleSelection: true,
           selectionLimit: remainingSlots,
-          quality: 0.85,
+          quality: 0.7,
         });
         if (!pickerResult.canceled && pickerResult.assets && pickerResult.assets.length > 0) {
           const uris = pickerResult.assets.map(a => a.uri);
@@ -260,8 +261,9 @@ export default function ManualMatchEntry() {
     }
 
     setIsOcrLoading(true);
+    setOcrStatusText('Connecting to server...');
     try {
-      const result = await uploadScorecard(selectedImages);
+      const result = await uploadScorecard(selectedImages, (status) => setOcrStatusText(status));
       if (result.success && result.data) {
         const d = result.data;
         if (d.ocrConfidence) {
@@ -799,7 +801,7 @@ export default function ManualMatchEntry() {
 
               {selectedImages.length > 0 && (
                 <Button
-                  title={isOcrLoading ? "Scanning Scorecard with AI..." : `Analyze & Extract ${selectedImages.length} Image${selectedImages.length > 1 ? 's' : ''} 🚀`}
+                  title={isOcrLoading ? (ocrStatusText || 'Scanning Scorecard with AI...') : `Analyze & Extract ${selectedImages.length} Image${selectedImages.length > 1 ? 's' : ''} 🚀`}
                   onPress={handleRunOcr}
                   variant="primary"
                   isLoading={isOcrLoading}

@@ -56,8 +56,8 @@ const limiter = rateLimit({
 app.use('/api', limiter);
 
 // Request Parsing
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Logging & Performance Middlewares
 app.use(compression());
@@ -75,7 +75,7 @@ app.use('/api/tournaments', tournamentRoutes);
 app.use('/api/notifications', notificationRoutes);
 
 // Base route for sanity check & health check
-app.get(['/', '/api/health'], (_req, res) => {
+app.get(['/', '/health', '/api/health'], (_req, res) => {
   res.json({
     status: 'OK',
     message: 'Welcome to CricStats Pro API. Server is running securely with Clean Repository-Service Architecture.',
