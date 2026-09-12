@@ -130,12 +130,21 @@ Return ONLY a valid JSON object strictly matching this schema with NO markdown a
   ]
 }`;
 
-        const response = await this.ai.models.generateContent({
-          model: 'gemini-2.5-flash',
-          contents: prompt
-        });
+        let response: any;
+        try {
+          response = await this.ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: prompt
+          });
+        } catch (priErr: any) {
+          console.warn('[GeminiPlayerService] gemini-2.5-flash failed, trying gemini-3.6-flash:', priErr.message);
+          response = await this.ai.models.generateContent({
+            model: 'gemini-3.6-flash',
+            contents: prompt
+          });
+        }
 
-        const rawText = (response.text || '').trim();
+        const rawText = (response?.text || '').trim();
         const jsonText = rawText.replace(/^```(json)?\s*/i, '').replace(/\s*```$/i, '').trim();
         const parsed = JSON.parse(jsonText);
 

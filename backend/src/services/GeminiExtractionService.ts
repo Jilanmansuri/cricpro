@@ -292,7 +292,7 @@ SPECIFIC CRICKET EXTRACTION & COLUMN ACCURACY RULES:
 
     try {
       const response = await this.ai.models.generateContent({
-        model: 'gemini-2.0-flash',
+        model: 'gemini-2.5-flash',
         contents: [
           {
             role: 'user',
@@ -308,10 +308,10 @@ SPECIFIC CRICKET EXTRACTION & COLUMN ACCURACY RULES:
       });
       responseText = response.text || '';
     } catch (primaryError: any) {
-      console.warn('[GeminiExtraction] gemini-2.0-flash failed, attempting fallback to gemini-flash-latest:', primaryError.message);
+      console.warn('[GeminiExtraction] gemini-2.5-flash failed, attempting fallback to gemini-3.6-flash:', primaryError.message);
       try {
         const fallbackResponse = await this.ai.models.generateContent({
-          model: 'gemini-flash-latest',
+          model: 'gemini-3.6-flash',
           contents: [
             {
               role: 'user',
@@ -327,23 +327,8 @@ SPECIFIC CRICKET EXTRACTION & COLUMN ACCURACY RULES:
         });
         responseText = fallbackResponse.text || '';
       } catch (secError: any) {
-        console.warn('[GeminiExtraction] gemini-flash-latest failed, attempting fallback to gemini-1.5-flash:', secError.message);
-        const tertResponse = await this.ai.models.generateContent({
-          model: 'gemini-1.5-flash',
-          contents: [
-            {
-              role: 'user',
-              parts: [
-                ...imageParts,
-                {
-                  text: prompt
-                }
-              ]
-            }
-          ],
-          config: generationConfig
-        });
-        responseText = tertResponse.text || '';
+        console.error('[GeminiExtraction] All Gemini models failed:', secError.message);
+        throw secError;
       }
     }
 
