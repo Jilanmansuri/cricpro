@@ -410,8 +410,8 @@ export const getLeaderboard = async (req: Request, res: Response): Promise<void>
     if (division === 'international') {
       teamFilter = {
         $or: [
-          { teamType: 'international' },
-          { teamId: { $regex: /^INT_/i } }
+          { teamId: 'INT_IND' },
+          { name: { $regex: /^india$/i } }
         ]
       };
     } else if (division === 'ipl') {
