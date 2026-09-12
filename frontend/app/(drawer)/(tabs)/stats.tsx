@@ -4,10 +4,11 @@ import { useTheme } from '../../../components/Theme';
 import Card from '../../../components/Card';
 import Avatar from '../../../components/Avatar';
 import api from '../../../services/api';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import TeamLogo from '../../../components/TeamLogo';
 
 export default function StatsLeaderboardTab() {
+  const router = useRouter();
   const { colors, isDarkMode } = useTheme();
   const [activeTab, setActiveTab] = useState<'batting' | 'bowling'>('batting');
   const [selectedDivision, setSelectedDivision] = useState<'all' | 'international' | 'ipl'>('all');
@@ -83,6 +84,13 @@ export default function StatsLeaderboardTab() {
     return rawTeam;
   };
 
+  const handlePlayerPress = (item: any) => {
+    const pId = item.playerId?._id || (typeof item.playerId === 'string' ? item.playerId : null) || item._id;
+    if (pId) {
+      router.push({ pathname: '/player-career', params: { id: pId.toString() } });
+    }
+  };
+
   const renderBattingItem = ({ item, index }: any) => {
     const player = item.playerId || { name: item.playerName || 'Unknown Player' };
     const stats = item.batting;
@@ -92,55 +100,58 @@ export default function StatsLeaderboardTab() {
     const average = outs > 0 ? (stats.runs / outs).toFixed(1) : stats.runs.toString();
 
     return (
-      <Card style={styles.card}>
-        <View style={styles.row}>
-          <Text style={[styles.rank, { color: colors.primary }]}>#{index + 1}</Text>
-          <Avatar name={player.name} size={42} style={styles.avatar} />
-          <View style={styles.info}>
-            <View style={styles.nameAndTeamRow}>
-              <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>{player.name}</Text>
-              {team ? (
-                <View style={[styles.teamBadge, { backgroundColor: colors.surfaceLighter || 'rgba(255,255,255,0.06)', borderColor: colors.border }]}>
-                  <TeamLogo
-                    shortName={team.shortName}
-                    teamName={team.name}
-                    teamId={team.teamId}
-                    playerName={player.name}
-                    country={player.country}
-                    logoUrl={team.logo}
-                    fallbackEmoji={team.flag}
-                    size={16}
-                  />
-                  <Text style={[styles.teamBadgeText, { color: team.color || colors.text }]}>
-                    {team.shortName || team.name}
-                  </Text>
-                </View>
-              ) : null}
+      <TouchableOpacity activeOpacity={0.7} onPress={() => handlePlayerPress(item)}>
+        <Card style={styles.card}>
+          <View style={styles.row}>
+            <Text style={[styles.rank, { color: colors.primary }]}>#{index + 1}</Text>
+            <Avatar name={player.name} size={42} style={styles.avatar} />
+            <View style={styles.info}>
+              <View style={styles.nameAndTeamRow}>
+                <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>{player.name}</Text>
+                {team ? (
+                  <View style={[styles.teamBadge, { backgroundColor: colors.surfaceLighter || 'rgba(255,255,255,0.06)', borderColor: colors.border }]}>
+                    <TeamLogo
+                      shortName={team.shortName}
+                      teamName={team.name}
+                      teamId={team.teamId}
+                      playerName={player.name}
+                      country={player.country}
+                      logoUrl={team.logo}
+                      fallbackEmoji={team.flag}
+                      size={16}
+                    />
+                    <Text style={[styles.teamBadgeText, { color: team.color || colors.text }]}>
+                      {team.shortName || team.name}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
+              <Text style={[styles.subText, { color: colors.textMuted }]}>
+                Runs: <Text style={{ color: colors.text, fontWeight: '700' }}>{stats.runs}</Text> | HS: <Text style={{ color: colors.primary, fontWeight: '700' }}>{stats.highestScore || 0}</Text> | SR: {strikeRate}
+              </Text>
+              <Text style={[styles.subText, { color: colors.textMuted, fontSize: 10, marginTop: 2 }]}>
+                Avg: {average} | 100s: {stats.hundreds || 0} | 50s: {stats.fifties || 0} | 4s: {stats.fours} | 6s: {stats.sixes}
+              </Text>
             </View>
-            <Text style={[styles.subText, { color: colors.textMuted }]}>
-              Runs: <Text style={{ color: colors.text, fontWeight: '700' }}>{stats.runs}</Text> | HS: <Text style={{ color: colors.primary, fontWeight: '700' }}>{stats.highestScore || 0}</Text> | SR: {strikeRate}
-            </Text>
-            <Text style={[styles.subText, { color: colors.textMuted, fontSize: 10, marginTop: 2 }]}>
-              Avg: {average} | 100s: {stats.hundreds || 0} | 50s: {stats.fifties || 0} | 4s: {stats.fours} | 6s: {stats.sixes}
-            </Text>
+            <View style={styles.statsRight}>
+              <Text style={[styles.mainStat, { color: colors.text }]}>
+                {battingSort === 'Average' ? average :
+                 battingSort === 'Strike Rate' ? strikeRate :
+                 battingSort === 'Highest Score' ? (stats.highestScore || 0) :
+                 battingSort === 'Sixes' ? stats.sixes :
+                 battingSort === 'Fours' ? stats.fours :
+                 battingSort === '50s' ? stats.fifties :
+                 battingSort === '100s' ? stats.hundreds :
+                 stats.runs}
+              </Text>
+              <Text style={[styles.statLabel, { color: colors.textMuted }]}>
+                {battingSort === 'Highest Score' ? 'High Score (HS)' : battingSort === 'Runs' ? 'Total Runs' : battingSort}
+              </Text>
+            </View>
+            <Text style={[styles.chevron, { color: colors.textMuted }]}>›</Text>
           </View>
-          <View style={styles.statsRight}>
-            <Text style={[styles.mainStat, { color: colors.text }]}>
-              {battingSort === 'Average' ? average :
-               battingSort === 'Strike Rate' ? strikeRate :
-               battingSort === 'Highest Score' ? (stats.highestScore || 0) :
-               battingSort === 'Sixes' ? stats.sixes :
-               battingSort === 'Fours' ? stats.fours :
-               battingSort === '50s' ? stats.fifties :
-               battingSort === '100s' ? stats.hundreds :
-               stats.runs}
-            </Text>
-            <Text style={[styles.statLabel, { color: colors.textMuted }]}>
-              {battingSort === 'Highest Score' ? 'High Score (HS)' : battingSort === 'Runs' ? 'Total Runs' : battingSort}
-            </Text>
-          </View>
-        </View>
-      </Card>
+        </Card>
+      </TouchableOpacity>
     );
   };
 
@@ -152,45 +163,48 @@ export default function StatsLeaderboardTab() {
     const average = stats.wickets > 0 ? (stats.runsConceded / stats.wickets).toFixed(1) : '0.0';
     
     return (
-      <Card style={styles.card}>
-        <View style={styles.row}>
-          <Text style={[styles.rank, { color: colors.primary }]}>#{index + 1}</Text>
-          <Avatar name={player.name} size={42} style={styles.avatar} />
-          <View style={styles.info}>
-            <View style={styles.nameAndTeamRow}>
-              <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>{player.name}</Text>
-              {team ? (
-                <View style={[styles.teamBadge, { backgroundColor: colors.surfaceLighter || 'rgba(255,255,255,0.06)', borderColor: colors.border }]}>
-                  <TeamLogo
-                    shortName={team.shortName}
-                    teamName={team.name}
-                    teamId={team.teamId}
-                    playerName={player.name}
-                    country={player.country}
-                    logoUrl={team.logo}
-                    fallbackEmoji={team.flag}
-                    size={16}
-                  />
-                  <Text style={[styles.teamBadgeText, { color: team.color || colors.text }]}>
-                    {team.shortName || team.name}
-                  </Text>
-                </View>
-              ) : null}
+      <TouchableOpacity activeOpacity={0.7} onPress={() => handlePlayerPress(item)}>
+        <Card style={styles.card}>
+          <View style={styles.row}>
+            <Text style={[styles.rank, { color: colors.primary }]}>#{index + 1}</Text>
+            <Avatar name={player.name} size={42} style={styles.avatar} />
+            <View style={styles.info}>
+              <View style={styles.nameAndTeamRow}>
+                <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>{player.name}</Text>
+                {team ? (
+                  <View style={[styles.teamBadge, { backgroundColor: colors.surfaceLighter || 'rgba(255,255,255,0.06)', borderColor: colors.border }]}>
+                    <TeamLogo
+                      shortName={team.shortName}
+                      teamName={team.name}
+                      teamId={team.teamId}
+                      playerName={player.name}
+                      country={player.country}
+                      logoUrl={team.logo}
+                      fallbackEmoji={team.flag}
+                      size={16}
+                    />
+                    <Text style={[styles.teamBadgeText, { color: team.color || colors.text }]}>
+                      {team.shortName || team.name}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
+              <Text style={[styles.subText, { color: colors.textMuted }]}>Econ: {economy} | Avg: {average}</Text>
+              <Text style={[styles.subText, { color: colors.textMuted, fontSize: 10, marginTop: 2 }]}>Overs: {stats.overs} | Runs: {stats.runsConceded}</Text>
             </View>
-            <Text style={[styles.subText, { color: colors.textMuted }]}>Econ: {economy} | Avg: {average}</Text>
-            <Text style={[styles.subText, { color: colors.textMuted, fontSize: 10, marginTop: 2 }]}>Overs: {stats.overs} | Runs: {stats.runsConceded}</Text>
+            <View style={styles.statsRight}>
+              <Text style={[styles.mainStat, { color: colors.text }]}>
+                {bowlingSort === 'Economy' ? economy :
+                 bowlingSort === 'Average' ? average :
+                 bowlingSort === 'Maidens' ? (stats.maidens || 0) :
+                 stats.wickets}
+              </Text>
+              <Text style={[styles.statLabel, { color: colors.textMuted }]}>{bowlingSort}</Text>
+            </View>
+            <Text style={[styles.chevron, { color: colors.textMuted }]}>›</Text>
           </View>
-          <View style={styles.statsRight}>
-            <Text style={[styles.mainStat, { color: colors.text }]}>
-              {bowlingSort === 'Economy' ? economy :
-               bowlingSort === 'Average' ? average :
-               bowlingSort === 'Maidens' ? (stats.maidens || 0) :
-               stats.wickets}
-            </Text>
-            <Text style={[styles.statLabel, { color: colors.textMuted }]}>{bowlingSort}</Text>
-          </View>
-        </View>
-      </Card>
+        </Card>
+      </TouchableOpacity>
     );
   };
 
@@ -246,8 +260,8 @@ export default function StatsLeaderboardTab() {
     }
   };
 
-  return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+  const renderHeader = () => (
+    <View style={styles.headerContainer}>
       {/* Real Cricket Style Division / Tournament Selector */}
       <View style={[styles.divisionCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <View style={styles.divisionHeaderRow}>
@@ -295,7 +309,7 @@ export default function StatsLeaderboardTab() {
           ]}
           onPress={() => setActiveTab('batting')}
         >
-          <Text style={[styles.tabBtnText, { color: activeTab === 'batting' ? '#fff' : colors.text }]}>Top Batsmen</Text>
+          <Text style={[styles.tabBtnText, { color: activeTab === 'batting' ? '#fff' : colors.text }]}>🏏 Top Batsmen</Text>
         </TouchableOpacity>
         <TouchableOpacity 
           style={[
@@ -305,7 +319,7 @@ export default function StatsLeaderboardTab() {
           ]}
           onPress={() => setActiveTab('bowling')}
         >
-          <Text style={[styles.tabBtnText, { color: activeTab === 'bowling' ? '#fff' : colors.text }]}>Top Bowlers</Text>
+          <Text style={[styles.tabBtnText, { color: activeTab === 'bowling' ? '#fff' : colors.text }]}>🎯 Top Bowlers</Text>
         </TouchableOpacity>
       </View>
 
@@ -330,24 +344,33 @@ export default function StatsLeaderboardTab() {
           ))}
         </ScrollView>
       </View>
+    </View>
+  );
 
-      {isLoading ? (
-        <View style={styles.loader}>
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
-      ) : (
-        <FlatList
-          data={getSortedData()}
-          keyExtractor={(item: any) => item._id}
-          contentContainerStyle={styles.list}
-          renderItem={activeTab === 'batting' ? renderBattingItem : renderBowlingItem}
-          ListEmptyComponent={
-            <View style={styles.empty}>
-              <Text style={{ color: colors.textMuted }}>No {activeTab} stats recorded yet.</Text>
+  return (
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <FlatList
+        data={isLoading ? [] : getSortedData()}
+        keyExtractor={(item: any, idx: number) => (item._id || item.playerId?._id || String(idx))}
+        ListHeaderComponent={renderHeader}
+        contentContainerStyle={styles.list}
+        renderItem={activeTab === 'batting' ? renderBattingItem : renderBowlingItem}
+        showsVerticalScrollIndicator={false}
+        ListEmptyComponent={
+          isLoading ? (
+            <View style={styles.loader}>
+              <ActivityIndicator size="large" color={colors.primary} />
+              <Text style={{ color: colors.textMuted, marginTop: 12, fontSize: 13, fontWeight: '600' }}>
+                Loading stats...
+              </Text>
             </View>
-          }
-        />
-      )}
+          ) : (
+            <View style={styles.empty}>
+              <Text style={{ color: colors.textMuted, fontSize: 14 }}>No {activeTab} stats recorded yet.</Text>
+            </View>
+          )
+        }
+      />
     </View>
   );
 }
@@ -356,33 +379,61 @@ const styles = StyleSheet.create({
   container: {
     flex: 1
   },
-  tabSwitcher: {
-    flexDirection: 'row',
-    padding: 16,
-    paddingBottom: 8,
-    gap: 12,
-  },
-  filtersContainer: {
-    paddingVertical: 8,
+  headerContainer: {
     marginBottom: 8,
   },
-  filtersScroll: {
-    paddingHorizontal: 16,
+  divisionCard: {
+    marginHorizontal: 0,
+    marginTop: 10,
+    marginBottom: 8,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  divisionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  divisionTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  divisionBadge: {
+    fontSize: 11,
+    fontWeight: '800',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  divisionBtnRow: {
+    flexDirection: 'row',
     gap: 8,
   },
-  filterPill: {
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 20,
+  divisionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    borderRadius: 8,
     borderWidth: 1,
-    marginRight: 8,
   },
-  filterText: {
-    fontSize: 13,
+  divisionBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  tabSwitcher: {
+    flexDirection: 'row',
+    paddingVertical: 6,
+    paddingHorizontal: 0,
+    gap: 10,
   },
   tabBtn: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: 10,
     alignItems: 'center',
     borderRadius: 10,
     borderWidth: 1,
@@ -391,14 +442,32 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 14,
   },
+  filtersContainer: {
+    paddingVertical: 6,
+    marginBottom: 4,
+  },
+  filtersScroll: {
+    paddingHorizontal: 0,
+    gap: 8,
+  },
+  filterPill: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    marginRight: 6,
+  },
+  filterText: {
+    fontSize: 12,
+  },
   loader: {
-    flex: 1,
-    justifyContent: 'center',
+    paddingVertical: 60,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   list: {
     paddingHorizontal: 16,
-    paddingBottom: 90,
+    paddingBottom: 140,
     gap: 10,
   },
   card: {
@@ -411,11 +480,11 @@ const styles = StyleSheet.create({
   rank: {
     fontSize: 18,
     fontWeight: '900',
-    marginRight: 12,
+    marginRight: 10,
     width: 32,
   },
   avatar: {
-    marginRight: 12,
+    marginRight: 10,
   },
   info: {
     flex: 1,
@@ -458,6 +527,7 @@ const styles = StyleSheet.create({
   },
   statsRight: {
     alignItems: 'flex-end',
+    marginLeft: 6,
   },
   mainStat: {
     fontSize: 22,
@@ -468,51 +538,13 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     fontWeight: '700',
   },
+  chevron: {
+    fontSize: 22,
+    fontWeight: '400',
+    marginLeft: 8,
+  },
   empty: {
     alignItems: 'center',
-    marginTop: 40,
-  },
-  divisionCard: {
-    marginHorizontal: 16,
-    marginTop: 12,
-    marginBottom: 4,
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  divisionHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  divisionTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  divisionBadge: {
-    fontSize: 11,
-    fontWeight: '800',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  divisionBtnRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  divisionBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 8,
-    borderRadius: 8,
-    borderWidth: 1,
-  },
-  divisionBtnText: {
-    fontSize: 12,
-    fontWeight: '700',
+    paddingVertical: 60,
   },
 });
