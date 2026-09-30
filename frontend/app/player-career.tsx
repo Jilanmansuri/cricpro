@@ -705,7 +705,7 @@ export default function PlayerCareerScreen() {
 
               return (
                 <Card
-                  key={m.matchId || idx}
+                  key={m._id ? `${m._id}-${idx}` : `${m.matchId || 'match'}-${idx}`}
                   style={[
                     styles.matchLogCard,
                     {

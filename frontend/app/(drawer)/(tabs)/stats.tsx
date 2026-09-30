@@ -351,7 +351,7 @@ export default function StatsLeaderboardTab() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <FlatList
         data={isLoading ? [] : getSortedData()}
-        keyExtractor={(item: any, idx: number) => (item._id || item.playerId?._id || String(idx))}
+        keyExtractor={(item: any, idx: number) => (item._id ? `${item._id}-${idx}` : (item.playerId?._id ? `${item.playerId._id}-${idx}` : String(idx)))}
         ListHeaderComponent={renderHeader}
         contentContainerStyle={styles.list}
         renderItem={activeTab === 'batting' ? renderBattingItem : renderBowlingItem}
