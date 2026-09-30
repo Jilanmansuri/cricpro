@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CricStats Pro | AI Cricket Scorecard Scanner & Statistics App</title>
+  <meta name="description" content="Download CricStats Pro Android APK. AI-powered scorecard scanning, career leaderboards, tournaments, and real-time cricket analytics. Free and instant download.">
+  <meta property="og:title" content="CricStats Pro | AI Cricket Statistics Platform">
+  <meta property="og:description" content="Instant scorecard OCR with Google Gemini Vision, career leaderboards, and team stats. Download the free Android APK.">
+  <meta property="og:image" content="./assets/icon.png">
+  <meta property="og:type" content="website">
+  
+  <link rel="icon" type="image/png" href="./assets/favicon.png">
+  <!-- Google Fonts: Outfit -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="bg-glow-top"></div>
+  <div class="bg-glow-middle"></div>
+
+  <!-- Navigation -->
+  <header class="navbar">
+    <div class="container" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+      <a href="#" class="logo-wrapper">
+        <img src="./assets/icon.png" alt="CricStats Pro Icon" class="app-icon">
+        <div class="logo-text">CricStats <span>Pro</span></div>
+      </a>
+      
+      <div class="nav-actions">
+        <div class="badge-version">v1.0.0 Stable</div>
+        <a href="https://github.com/Jilanmansuri/cricpro" target="_blank" class="btn-github" rel="noopener noreferrer">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
+          </svg>
+          GitHub
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <main>
+    <section class="hero container">
+      <div class="hero-left">
+        <div class="hero-pill">
+          ⚡ AI-Powered Cricket Intelligence
+        </div>
+        <h1 class="hero-title">
+          Smart Cricket Stats, <br>
+          <span class="text-gradient">Scanned in Seconds.</span>
+        </h1>
+        <p class="hero-subtitle">
+          Simply take a photo of any printed or handwritten scorecard. CricStats Pro automatically extracts runs, wickets, strike rates, and builds comprehensive career stats for your team.
+        </p>
+
+        <div class="cta-group">
+          <a href="#" id="mainDownloadBtn" class="btn-download-primary">
+            <svg width="24" height="24" viewBox="0 0 24 24">
+              <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z"/>
+            </svg>
+            Download Android APK (Direct)
+          </a>
+
+          <div class="btn-sub-options">
+            <button id="qrBtn" class="btn-outline">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M3 3h8v8H3V3zm2 2v4h4V5H5zm8-2h8v8h-8V3zm2 2v4h4V5h-4zM3 13h8v8H3v-8zm2 2v4h4v-4H5zm13-2h3v2h-3v-2zm-5 0h2v5h-2v-5zm2 5h2v3h-2v-3zm3 0h3v3h-3v-3zm0-3h3v1h-3v-1z"/>
+              </svg>
+              Scan QR to Install on Mobile
+            </button>
+            <a href="#features" class="btn-outline">Explore Features &darr;</a>
+          </div>
+        </div>
+
+        <div class="hero-metrics">
+          <div class="metric-item">
+            <h4>Gemini AI</h4>
+            <p>Scorecard Vision OCR</p>
+          </div>
+          <div class="metric-item">
+            <h4>100% Free</h4>
+            <p>No In-App Purchases</p>
+          </div>
+          <div class="metric-item">
+            <h4>OTA Updates</h4>
+            <p>Automatic In-App Sync</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Hero Device Mockup -->
+      <div class="mockup-wrapper">
+        <div class="floating-badge badge-scan">
+          <span>📸</span> Auto Scorecard Scan
+        </div>
+        <div class="floating-badge badge-update">
+          <span>🔄</span> Silent Auto-Update
+        </div>
+
+        <div class="phone-frame">
+          <div class="notch"></div>
+          <div class="phone-screen">
+            <div class="mock-card">
+              <div class="mock-title">Live Match Scorecard</div>
+              <div class="mock-score">
+                <span>IND vs AUS</span>
+                <span class="mock-badge">T20 Final</span>
+              </div>
+              <p style="color: #94a3b8; margin: 4px 0 10px; font-size: 0.75rem;">198/4 (20.0 ov) vs 174/8 (20.0 ov)</p>
+              <div style="font-size: 0.72rem; color: #10B981; font-weight: 700;">India won by 24 runs 🏆</div>
+            </div>
+
+            <div class="mock-card">
+              <div class="mock-title">Top Performers</div>
+              <div class="mock-player-stat">
+                <span>🏏 Virat Kohli</span>
+                <span style="color: #F8FAFC; font-weight: 700;">82* (53b)</span>
+              </div>
+              <div class="mock-player-stat">
+                <span>🎯 Jasprit Bumrah</span>
+                <span style="color: #F8FAFC; font-weight: 700;">3/14 (4.0)</span>
+              </div>
+              <div class="mock-player-stat">
+                <span>💥 Hardik Pandya</span>
+                <span style="color: #F8FAFC; font-weight: 700;">40 (19b)</span>
+              </div>
+            </div>
+
+            <div class="mock-card">
+              <div class="mock-title">Leaderboard Rankings</div>
+              <div style="display: flex; gap: 8px; margin-top: 6px;">
+                <div style="flex: 1; background: rgba(16, 185, 129, 0.15); padding: 8px; border-radius: 8px; text-align: center;">
+                  <div style="color: #10B981; font-size: 0.7rem; font-weight: 700;">Orange Cap</div>
+                  <div style="font-size: 0.85rem; font-weight: 800;">580 Runs</div>
+                </div>
+                <div style="flex: 1; background: rgba(6, 182, 212, 0.15); padding: 8px; border-radius: 8px; text-align: center;">
+                  <div style="color: #06B6D4; font-size: 0.7rem; font-weight: 700;">Purple Cap</div>
+                  <div style="font-size: 0.85rem; font-weight: 800;">19 Wickets</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="features-section container" id="features">
+      <div class="section-head">
+        <div class="section-tag">Powerful Architecture</div>
+        <h2 class="section-title">Everything a Cricketer & League Organizer Needs</h2>
+        <p class="section-desc">Designed with high-precision cricket rules, intelligent normalization, and cloud synchronisation.</p>
+      </div>
+
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon-box">🧠</div>
+          <h3>AI Vision Scorecard OCR</h3>
+          <p>Powered by Google Gemini Vision with Tesseract fallback. Snap 1 to 5 scorecard photos and watch runs, boundaries, overs, and wickets parse automatically.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon-box">📊</div>
+          <h3>Dynamic Career Engine</h3>
+          <p>Real-time calculation of batting average, strike rates, economy, 50s, 100s, 3-wicket hauls, and interactive run charts over time.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon-box">🏆</div>
+          <h3>Tournaments & Points Tables</h3>
+          <p>Organize club tournaments, track group standings, Net Run Rate (NRR), and automatically crown Orange & Purple cap leaders.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon-box">🔒</div>
+          <h3>User Data Isolation</h3>
+          <p>Every account has its own private space. Your matches, teams, and tournament stats belong strictly to your club with zero data mixing.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon-box">🔄</div>
+          <h3>Seamless Auto-Updates</h3>
+          <p>Powered by Expo Updates (OTA). Once installed, future bug fixes and features sync silently to your phone without manual APK reinstalls.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon-box">📄</div>
+          <h3>Scorecard Export</h3>
+          <p>Export any match scorecard to beautifully formatted HTML or raw CSV files with a single tap for sharing across WhatsApp groups.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Installation Steps Section -->
+    <section class="steps-section">
+      <div class="container">
+        <div class="section-head">
+          <div class="section-tag">Quick Start</div>
+          <h2 class="section-title">Install CricStats Pro in 3 Easy Steps</h2>
+          <p class="section-desc">No Google Play Store account required. Direct Android installation.</p>
+        </div>
+
+        <div class="steps-grid">
+          <div class="step-card">
+            <div class="step-num">01</div>
+            <h3>Download APK</h3>
+            <p>Click the download button above or scan the QR code using your mobile phone's camera.</p>
+          </div>
+
+          <div class="step-card">
+            <div class="step-num">02</div>
+            <h3>Allow Installation</h3>
+            <p>When prompted by Android, choose <em>"Install unknown apps"</em> and allow your browser to install.</p>
+          </div>
+
+          <div class="step-card">
+            <div class="step-num">03</div>
+            <h3>Open & Score</h3>
+            <p>Sign up in 10 seconds and start snapping photos of scorecards or scoring your matches live.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- FAQ Section -->
+    <section class="faq-section container">
+      <div class="section-head">
+        <div class="section-tag">Frequently Asked Questions</div>
+        <h2 class="section-title">Got Questions? We've Got Answers</h2>
+      </div>
+
+      <div class="faq-container">
+        <div class="faq-item active">
+          <div class="faq-question">
+            <span>Is CricStats Pro free to download and use?</span>
+            <span class="faq-icon">&darr;</span>
+          </div>
+          <div class="faq-answer">
+            Yes! CricStats Pro is 100% free with no hidden charges, subscriptions, or paywalls for scorecard scanning.
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <div class="faq-question">
+            <span>How does the AI Scorecard Scanner work?</span>
+            <span class="faq-icon">&darr;</span>
+          </div>
+          <div class="faq-answer">
+            You can take up to 5 photos of a physical scorecard or a screenshot from any cricket app. Our backend uses Google Gemini Vision and OCR engines to extract batters, bowlers, runs, and overs into structured digital match records.
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <div class="faq-question">
+            <span>Will I need to reinstall the APK when updates are released?</span>
+            <span class="faq-icon">&darr;</span>
+          </div>
+          <div class="faq-answer">
+            No! CricStats Pro includes EAS Over-The-Air (OTA) updates. When new features or bug fixes are deployed, the app updates automatically in the background when connected to Wi-Fi/data.
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <div class="faq-question">
+            <span>Is my cricket match data private?</span>
+            <span class="faq-icon">&darr;</span>
+          </div>
+          <div class="faq-answer">
+            Yes, your account has completely private data isolation. Other users will not see your uploaded matches, player lists, or custom team stats.
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- QR Code Modal -->
+  <div id="qrModal" class="modal-overlay">
+    <div class="modal-content">
+      <button id="closeModal" class="modal-close">&times;</button>
+      <h3 style="font-size: 1.3rem; margin-bottom: 8px;">Scan to Install on Android</h3>
+      <p style="color: #94A3B8; font-size: 0.9rem;">Point your phone's camera at this QR code to download the APK directly.</p>
+      <div class="qr-box">
+        <img id="qrImage" src="" alt="Download QR Code">
+      </div>
+      <p style="color: #64748B; font-size: 0.8rem;">Works on any Android phone (Version 8.0+)</p>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer>
+    <div class="container footer-inner">
+      <div class="logo-wrapper">
+        <img src="./assets/icon.png" alt="CricStats Pro" style="width: 32px; height: 32px; border-radius: 8px;">
+        <span style="font-weight: 800; font-size: 1.1rem;">CricStats <span style="color: #10B981;">Pro</span></span>
+      </div>
+      <div class="footer-copy">
+        &copy; 2026 CricStats Pro. Built for modern cricket teams & organizers.
+      </div>
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
