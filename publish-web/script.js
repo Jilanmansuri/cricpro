@@ -2,8 +2,8 @@
 const CONFIG = {
   APP_NAME: "CricStats Pro",
   VERSION: "v1.0.0",
-  // You can paste your direct EAS APK link or GitHub Release download link here:
-  DOWNLOAD_URL: "https://expo.dev/accounts/jilan2410/projects/cricstats-pro/builds/e688cf1b-5609-4dd4-8d08-5b4ca008d50e",
+  // Direct APK download link from Expo EAS build:
+  DOWNLOAD_URL: "https://expo.dev/artifacts/eas/zhxXMf6RKg3WheiHmGvlNnGMH7NsvNzuEwfdUOq3fNY.apk",
   GITHUB_REPO: "https://github.com/Jilanmansuri/cricpro",
   APK_FILE_NAME: "CricStats-Pro-v1.0.0.apk"
 };
@@ -17,11 +17,15 @@ document.addEventListener('DOMContentLoaded', () => {
   const closeModal = document.getElementById('closeModal');
   const qrImage = document.getElementById('qrImage');
 
+  const modalDirectBtn = document.querySelector('.modal-direct-btn');
   if (mainDownloadBtn) {
     mainDownloadBtn.href = CONFIG.DOWNLOAD_URL;
   }
   if (navDownloadBtn) {
     navDownloadBtn.href = CONFIG.DOWNLOAD_URL;
+  }
+  if (modalDirectBtn) {
+    modalDirectBtn.href = CONFIG.DOWNLOAD_URL;
   }
 
   // 2. Dynamic QR Code for Mobile Scanning (directly opens the APK build link)
