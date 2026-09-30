@@ -6,7 +6,6 @@ const VenueSchema = new Schema<IVenue>(
     name: {
       type: String,
       required: [true, 'Venue name is required'],
-      unique: true,
       trim: true,
       index: true,
     },
@@ -14,10 +13,17 @@ const VenueSchema = new Schema<IVenue>(
       type: String,
       default: '',
     },
+    createdBy: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+      index: true,
+    },
   },
   {
     timestamps: true,
   }
 );
+
+VenueSchema.index({ name: 1, createdBy: 1 });
 
 export const Venue = model<IVenue>('Venue', VenueSchema);

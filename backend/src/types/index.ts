@@ -61,6 +61,7 @@ export interface IPlayer extends Document {
   iplTeamId?: string;
   aliases: string[];
   profilePic?: string;
+  createdBy?: Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -87,6 +88,7 @@ export interface ITeam extends Document {
     points: number;
     nrr: number;
   };
+  createdBy?: Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -96,6 +98,7 @@ export interface ITournament extends Document {
   startDate: Date;
   endDate: Date;
   organizer: Types.ObjectId;
+  createdBy?: Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -123,6 +126,7 @@ export interface IPointsTable extends Document {
 export interface IVenue extends Document {
   name: string;
   location?: string;
+  createdBy?: Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -148,6 +152,7 @@ export interface IMatch extends Document {
   mvp?: Types.ObjectId;
   scorecardUrl?: string;
   ocrConfidence?: number;
+  createdBy?: Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
 }

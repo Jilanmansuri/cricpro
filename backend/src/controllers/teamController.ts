@@ -20,10 +20,11 @@ export const createTeam = async (req: Request, res: Response): Promise<void> => 
     logoUrl,
     teamId
   } = req.body;
+  const userId = (req as any).user?._id;
 
   try {
     const finalName = officialName || displayName || name;
-    const teamExists = await teamRepository.findByName(finalName);
+    const teamExists = await teamRepository.findByName(finalName, undefined, userId);
     if (teamExists) {
       res.status(400).json({ success: false, message: 'Team with this name already exists' });
       return;
@@ -43,6 +44,7 @@ export const createTeam = async (req: Request, res: Response): Promise<void> => 
       logoUrl: logoUrl || logo || '',
       isActive: true,
       name: finalName,
+      createdBy: userId
     });
 
     res.status(201).json({
@@ -62,9 +64,13 @@ export const getTeams = async (req: Request, res: Response): Promise<void> => {
   const league = req.query.league as string;
   const country = req.query.country as string;
   const isActive = req.query.isActive as string;
+  const userId = (req as any).user?._id;
 
   try {
     const query: any = {};
+    if (userId) {
+      query.createdBy = userId;
+    }
 
     if (search) {
       query.$or = [
@@ -142,6 +148,7 @@ export const getTeamByTeamId = async (req: Request, res: Response): Promise<void
 export const resolveTeam = async (req: Request, res: Response): Promise<void> => {
   try {
     const { teamName, leagueContext } = req.body;
+    const userId = (req as any).user?._id;
     if (!teamName) {
       res.status(400).json({ success: false, message: 'teamName is required for resolution' });
       return;
@@ -149,7 +156,9 @@ export const resolveTeam = async (req: Request, res: Response): Promise<void> =>
 
     const resolution = await teamMatchingService.resolveTeamMaster(
       teamName,
-      leagueContext ? { league: leagueContext } : undefined
+      leagueContext ? { league: leagueContext } : undefined,
+      undefined,
+      userId
     );
 
     res.json({

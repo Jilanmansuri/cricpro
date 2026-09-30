@@ -5,7 +5,8 @@ const matchService = new MatchService();
 
 export const saveManualMatch = async (req: Request, res: Response): Promise<void> => {
   try {
-    const match = await matchService.saveMatch(req.body);
+    const userId = (req as any).user?._id;
+    const match = await matchService.saveMatch({ ...req.body, userId });
     res.status(201).json({
       success: true,
       message: 'Match stats saved successfully and career engines updated',

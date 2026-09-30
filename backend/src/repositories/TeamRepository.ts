@@ -8,38 +8,46 @@ export class TeamRepository extends BaseRepository<ITeam> {
     super(Team);
   }
 
-  async findByName(name: string, session?: ClientSession): Promise<ITeam | null> {
+  async findByName(name: string, session?: ClientSession, userId?: any): Promise<ITeam | null> {
     if (!name || !name.trim()) return null;
-    return await this.model.findOne({
+    const filter: any = {
       $or: [
         { name: { $regex: new RegExp(`^${name.trim()}$`, 'i') } },
         { officialName: { $regex: new RegExp(`^${name.trim()}$`, 'i') } },
         { displayName: { $regex: new RegExp(`^${name.trim()}$`, 'i') } },
         { shortName: { $regex: new RegExp(`^${name.trim()}$`, 'i') } },
       ]
-    }).session(session || null).exec();
+    };
+    if (userId) filter.createdBy = userId;
+    return await this.model.findOne(filter).session(session || null).exec();
   }
 
-  async findByTeamId(teamId: string, session?: ClientSession): Promise<ITeam | null> {
+  async findByTeamId(teamId: string, session?: ClientSession, userId?: any): Promise<ITeam | null> {
     if (!teamId || !teamId.trim()) return null;
-    return await this.model.findOne({
+    const filter: any = {
       teamId: { $regex: new RegExp(`^${teamId.trim()}$`, 'i') }
-    }).session(session || null).exec();
+    };
+    if (userId) filter.createdBy = userId;
+    return await this.model.findOne(filter).session(session || null).exec();
   }
 
-  async findByAbbreviation(abbr: string, session?: ClientSession): Promise<ITeam | null> {
+  async findByAbbreviation(abbr: string, session?: ClientSession, userId?: any): Promise<ITeam | null> {
     if (!abbr || !abbr.trim()) return null;
-    return await this.model.findOne({
+    const filter: any = {
       abbreviation: { $regex: new RegExp(`^${abbr.trim()}$`, 'i') }
-    }).session(session || null).exec();
+    };
+    if (userId) filter.createdBy = userId;
+    return await this.model.findOne(filter).session(session || null).exec();
   }
 
-  async findByAlias(alias: string, session?: ClientSession): Promise<ITeam | null> {
+  async findByAlias(alias: string, session?: ClientSession, userId?: any): Promise<ITeam | null> {
     if (!alias || !alias.trim()) return null;
     const clean = alias.trim().toLowerCase();
-    return await this.model.findOne({
+    const filter: any = {
       aliases: clean
-    }).session(session || null).exec();
+    };
+    if (userId) filter.createdBy = userId;
+    return await this.model.findOne(filter).session(session || null).exec();
   }
 
   async upsertMasterTeam(teamData: Partial<ITeam>, session?: ClientSession): Promise<ITeam> {

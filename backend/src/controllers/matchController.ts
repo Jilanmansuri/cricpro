@@ -10,10 +10,12 @@ const matchService = new MatchService();
 export const getMatches = async (req: Request, res: Response): Promise<void> => {
   const page = parseInt(req.query.page as string) || 1;
   const limit = parseInt(req.query.limit as string) || 10;
+  const userId = (req as any).user?._id;
 
   try {
-    const total = await matchRepository.count({});
-    const matches = await matchRepository.find({}, {
+    const filter = userId ? { createdBy: userId } : {};
+    const total = await matchRepository.count(filter);
+    const matches = await matchRepository.find(filter, {
       page,
       limit,
       sort: { date: -1 },
@@ -62,7 +64,8 @@ export const getMatchById = async (req: Request, res: Response): Promise<void> =
 
 export const checkDuplicateMatch = async (req: Request, res: Response): Promise<void> => {
   try {
-    const result = await matchService.checkDuplicateMatch(req.body);
+    const userId = (req as any).user?._id;
+    const result = await matchService.checkDuplicateMatch({ ...req.body, userId });
     res.json({
       success: true,
       isDuplicate: result.isDuplicate,
@@ -183,14 +186,19 @@ export const uploadScorecard = async (req: Request, res: Response): Promise<void
     // Resolve Teams against Team Master
     const { TeamMatchingService } = await import('../services/TeamMatchingService');
     const teamMatchingService = new TeamMatchingService();
+    const userId = (req as any).user?._id;
 
     const teamAResolution = await teamMatchingService.resolveTeamMaster(
       extractedScorecard.match.teamA,
-      { league: extractedScorecard.match.competition || extractedScorecard.match.format }
+      { league: extractedScorecard.match.competition || extractedScorecard.match.format },
+      undefined,
+      userId
     );
     const teamBResolution = await teamMatchingService.resolveTeamMaster(
       extractedScorecard.match.teamB,
-      { league: extractedScorecard.match.competition || extractedScorecard.match.format }
+      { league: extractedScorecard.match.competition || extractedScorecard.match.format },
+      undefined,
+      userId
     );
 
     // Normalize for both frontend and backend consumption

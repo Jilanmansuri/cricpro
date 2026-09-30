@@ -8,9 +8,11 @@ export class PlayerRepository extends BaseRepository<IPlayer> {
     super(Player);
   }
 
-  async findByNameExact(name: string, session?: ClientSession): Promise<IPlayer | null> {
-    return await this.model.findOne({
+  async findByNameExact(name: string, session?: ClientSession, userId?: any): Promise<IPlayer | null> {
+    const filter: any = {
       name: { $regex: new RegExp(`^${name}$`, 'i') }
-    }).session(session || null).exec();
+    };
+    if (userId) filter.createdBy = userId;
+    return await this.model.findOne(filter).session(session || null).exec();
   }
 }

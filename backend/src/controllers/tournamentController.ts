@@ -30,9 +30,11 @@ export const createTournament = async (req: AuthRequest, res: Response): Promise
   }
 };
 
-export const getTournaments = async (_req: Request, res: Response): Promise<void> => {
+export const getTournaments = async (req: Request, res: Response): Promise<void> => {
   try {
-    const tournaments = await tournamentRepository.find({}, { sort: { startDate: -1 } });
+    const userId = (req as AuthRequest).user?._id;
+    const filter = userId ? { organizer: userId } : {};
+    const tournaments = await tournamentRepository.find(filter, { sort: { startDate: -1 } });
     res.json({
       success: true,
       data: tournaments

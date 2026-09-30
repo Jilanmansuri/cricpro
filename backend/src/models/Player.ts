@@ -41,10 +41,17 @@ const PlayerSchema = new Schema<IPlayer>(
       type: String,
       default: '',
     },
+    createdBy: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+      index: true,
+    },
   },
   {
     timestamps: true,
   }
 );
+
+PlayerSchema.index({ name: 1, createdBy: 1 });
 
 export const Player = model<IPlayer>('Player', PlayerSchema);

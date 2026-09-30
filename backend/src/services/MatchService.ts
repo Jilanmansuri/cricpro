@@ -115,10 +115,11 @@ export class MatchService {
     date?: string;
     teamAName: string;
     teamBName: string;
+    userId?: any;
   }): Promise<{ isDuplicate: boolean; match: IMatch | null }> {
-    const { date, teamAName, teamBName } = payload;
-    const teamA = await this.teamMatchingService.findMatchingTeam(teamAName);
-    const teamB = await this.teamMatchingService.findMatchingTeam(teamBName);
+    const { date, teamAName, teamBName, userId } = payload;
+    const teamA = await this.teamMatchingService.findMatchingTeam(teamAName, undefined, userId);
+    const teamB = await this.teamMatchingService.findMatchingTeam(teamBName, undefined, userId);
 
     if (!teamA || !teamB) {
       return { isDuplicate: false, match: null };
@@ -130,6 +131,10 @@ export class MatchService {
         { teamA: teamB._id, teamB: teamA._id }
       ]
     };
+
+    if (userId) {
+      query.createdBy = userId;
+    }
 
     if (date) {
       const matchDate = new Date(date);
@@ -210,6 +215,7 @@ export class MatchService {
 
   public async saveMatch(payload: any): Promise<IMatch> {
     try {
+      const userId = payload.userId || payload.createdBy;
       const matchInfo = payload.matchInfo || payload.match || {};
       const {
         date,
@@ -230,9 +236,9 @@ export class MatchService {
       const targetVenueName = (venueName || rawVenue || '').trim();
       let venue = null;
       if (targetVenueName) {
-        venue = await this.venueRepository.findByName(targetVenueName);
+        venue = await this.venueRepository.findByName(targetVenueName, undefined, userId);
         if (!venue) {
-          venue = await this.venueRepository.create({ name: targetVenueName });
+          venue = await this.venueRepository.create({ name: targetVenueName, createdBy: userId });
         }
       }
 
@@ -249,7 +255,7 @@ export class MatchService {
           teamA = await this.teamRepository.findById(team1Id);
         }
         if (!teamA) {
-          teamA = await this.teamRepository.findByTeamId(team1Id);
+          teamA = await this.teamRepository.findByTeamId(team1Id, undefined, userId);
         }
       }
 
@@ -258,7 +264,7 @@ export class MatchService {
           teamB = await this.teamRepository.findById(team2Id);
         }
         if (!teamB) {
-          teamB = await this.teamRepository.findByTeamId(team2Id);
+          teamB = await this.teamRepository.findByTeamId(team2Id, undefined, userId);
         }
       }
 
@@ -266,11 +272,11 @@ export class MatchService {
       const finalTeamBName = (opponentTeam || rawTeamB || 'Team 2').trim();
 
       if (!teamA) {
-        teamA = await this.teamMatchingService.findOrCreateTeam(finalTeamAName);
+        teamA = await this.teamMatchingService.findOrCreateTeam(finalTeamAName, undefined, userId);
       }
 
       if (!teamB) {
-        teamB = await this.teamMatchingService.findOrCreateTeam(finalTeamBName);
+        teamB = await this.teamMatchingService.findOrCreateTeam(finalTeamBName, undefined, userId);
       }
 
       // 3. Normalize Innings & Scorecard Data
@@ -352,7 +358,7 @@ export class MatchService {
       // 4. Resolve MVP player if present (only associate if it matches an existing player, do not create non-Indian players)
       let mvpPlayerId: Types.ObjectId | undefined = undefined;
       if (rawMvp && typeof rawMvp === 'string' && rawMvp.trim()) {
-        const matchedMvp = await this.playerMatchingService.findMatchingPlayer(rawMvp.trim());
+        const matchedMvp = await this.playerMatchingService.findMatchingPlayer(rawMvp.trim(), undefined, userId);
         if (matchedMvp) {
           mvpPlayerId = matchedMvp._id as Types.ObjectId;
         }
@@ -362,7 +368,8 @@ export class MatchService {
       const duplicateCheck = await this.checkDuplicateMatch({
         date,
         teamAName: teamA.name,
-        teamBName: teamB.name
+        teamBName: teamB.name,
+        userId
       });
 
       let match: any;
@@ -376,6 +383,7 @@ export class MatchService {
         if (venue) match.venueId = venue._id;
         if (mvpPlayerId) match.mvp = mvpPlayerId;
         if (ocrConfidence) match.ocrConfidence = Number(ocrConfidence);
+        if (userId && !match.createdBy) match.createdBy = userId;
         await match.save();
 
         // Delete old playerMatchStats for this match before re-inserting
@@ -394,7 +402,8 @@ export class MatchService {
           result: result || undefined,
           mvp: mvpPlayerId,
           scorecardUrl: payload.scorecardUrl || undefined,
-          ocrConfidence: Number(ocrConfidence) || 1.0
+          ocrConfidence: Number(ocrConfidence) || 1.0,
+          createdBy: userId ? new Types.ObjectId(userId) : undefined
         });
       }
 
@@ -521,7 +530,7 @@ export class MatchService {
           const player = await this.playerMatchingService.findOrCreatePlayer(entry.name, {
             country: 'India',
             nationalTeamId: 'INT_IND'
-          });
+          }, undefined, userId);
           affectedPlayerIds.push(player._id as Types.ObjectId);
 
           if (!teamDoc.players.some((id: any) => id.toString() === player._id.toString())) {

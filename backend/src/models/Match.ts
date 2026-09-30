@@ -55,6 +55,11 @@ const MatchSchema = new Schema<IMatch>(
       type: Number,
       default: 1.0,
     },
+    createdBy: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+      index: true,
+    },
   },
   {
     timestamps: true,

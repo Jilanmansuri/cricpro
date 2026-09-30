@@ -13,9 +13,13 @@ export const getPlayers = async (req: Request, res: Response): Promise<void> => 
   const page = parseInt(req.query.page as string) || 1;
   const limit = parseInt(req.query.limit as string) || 10;
   const search = req.query.search as string;
+  const userId = (req as any).user?._id;
 
   try {
     const query: any = {};
+    if (userId) {
+      query.createdBy = userId;
+    }
     if (search) {
       query.name = { $regex: search, $options: 'i' };
     }
@@ -45,16 +49,19 @@ export const getPlayers = async (req: Request, res: Response): Promise<void> => 
 export const createPlayer = async (req: Request, res: Response): Promise<void> => {
   try {
     const { name } = req.body;
+    const userId = (req as any).user?._id;
     if (!name) {
       res.status(400).json({ success: false, message: 'Player name is required' });
       return;
     }
-    const existing = await playerRepository.findOne({ name: { $regex: `^${name}$`, $options: 'i' } });
+    const filter: any = { name: { $regex: `^${name}$`, $options: 'i' } };
+    if (userId) filter.createdBy = userId;
+    const existing = await playerRepository.findOne(filter);
     if (existing) {
       res.status(400).json({ success: false, message: 'Player already exists' });
       return;
     }
-    const player = await playerRepository.create({ name });
+    const player = await playerRepository.create({ name, createdBy: userId });
     res.status(201).json({ success: true, data: player });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
@@ -346,14 +353,20 @@ function resolvePlayerTeam(
 export const getLeaderboard = async (req: Request, res: Response): Promise<void> => {
   try {
     const division = ((req.query.division as string) || 'all').toLowerCase();
+    const userId = (req as any).user?._id;
     const { Team } = await import('../models/Team');
     const { PlayerMatchStats } = await import('../models/PlayerMatchStats');
     const { Player } = await import('../models/Player');
 
-    const allTeams = await Team.find({}).lean();
+    const userTeamFilter: any = userId ? { createdBy: userId } : {};
+    const allTeams = await Team.find(userTeamFilter).lean();
     const teamMap = new Map(allTeams.map(t => [t._id.toString(), t]));
     const teamByCodeMap = new Map<string, any>(allTeams.filter(t => !!t.teamId).map(t => [t.teamId as string, t]));
     const playerToTeamMap = new Map<string, any>();
+
+    const userPlayerFilter: any = userId ? { createdBy: userId } : {};
+    const userPlayers = await Player.find(userPlayerFilter).select('_id');
+    const userPlayerIds = userPlayers.map(p => p._id);
 
     for (const t of allTeams) {
       if (t.players && Array.isArray(t.players)) {
@@ -366,13 +379,17 @@ export const getLeaderboard = async (req: Request, res: Response): Promise<void>
     }
 
     if (division === 'all') {
+      const baseFilter: any = { 'batting.runs': { $gt: 0 } };
+      if (userId) baseFilter.playerId = { $in: userPlayerIds };
       const topBatsmenDocs = await careerStatsRepository.find(
-        { 'batting.runs': { $gt: 0 } },
+        baseFilter,
         { sort: { 'batting.runs': -1 }, limit: 200, populate: 'playerId' }
       );
       
+      const bowlFilter: any = { 'bowling.wickets': { $gt: 0 } };
+      if (userId) bowlFilter.playerId = { $in: userPlayerIds };
       const topBowlersDocs = await careerStatsRepository.find(
-        { 'bowling.wickets': { $gt: 0 } },
+        bowlFilter,
         { sort: { 'bowling.wickets': -1 }, limit: 200, populate: 'playerId' }
       );
 
@@ -423,13 +440,19 @@ export const getLeaderboard = async (req: Request, res: Response): Promise<void>
         ]
       };
     }
+    if (userId) {
+      teamFilter.createdBy = userId;
+    }
 
     const matchingTeams = await Team.find(teamFilter).select('_id');
     const matchingTeamIds = matchingTeams.map(t => t._id);
 
+    const matchStatsFilter: any = { teamId: { $in: matchingTeamIds } };
+    if (userId) matchStatsFilter.playerId = { $in: userPlayerIds };
+
     // Aggregate Batting Stats for this division
     const battingAgg = await PlayerMatchStats.aggregate([
-      { $match: { teamId: { $in: matchingTeamIds } } },
+      { $match: matchStatsFilter },
       {
         $group: {
           _id: '$playerId',
@@ -482,7 +505,7 @@ export const getLeaderboard = async (req: Request, res: Response): Promise<void>
 
     // Aggregate Bowling Stats for this division
     const bowlingAgg = await PlayerMatchStats.aggregate([
-      { $match: { teamId: { $in: matchingTeamIds } } },
+      { $match: matchStatsFilter },
       {
         $group: {
           _id: '$playerId',

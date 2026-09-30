@@ -5,7 +5,6 @@ const TeamSchema = new Schema<ITeam>(
   {
     teamId: {
       type: String,
-      unique: true,
       sparse: true,
       trim: true,
       index: true,
@@ -70,7 +69,6 @@ const TeamSchema = new Schema<ITeam>(
     name: {
       type: String,
       required: [true, 'Team name is required'],
-      unique: true,
       trim: true,
       index: true,
     },
@@ -87,11 +85,18 @@ const TeamSchema = new Schema<ITeam>(
       points: { type: Number, default: 0 },
       nrr: { type: Number, default: 0 },
     },
+    createdBy: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+      index: true,
+    },
   },
   {
     timestamps: true,
   }
 );
+
+TeamSchema.index({ name: 1, createdBy: 1 });
 
 // Backward-compatibility & consistency pre-validate hook
 TeamSchema.pre('validate', function (next) {

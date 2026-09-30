@@ -77,29 +77,34 @@ export class PlayerMatchingService {
     return false;
   }
 
-  public async findMatchingPlayer(rawName: string, session?: mongoose.ClientSession): Promise<IPlayer | null> {
+  public async findMatchingPlayer(rawName: string, session?: mongoose.ClientSession, userId?: any): Promise<IPlayer | null> {
     const name = rawName.trim();
     if (!name) return null;
     const lowerName = name.toLowerCase();
 
     // 1. Exact case-insensitive match
-    let matchedPlayer = await this.playerRepository.findOne({
+    const filter: any = {
       name: { $regex: new RegExp(`^${name}$`, 'i') }
-    }, undefined, session);
+    };
+    if (userId) filter.createdBy = userId;
+    let matchedPlayer = await this.playerRepository.findOne(filter, undefined, session);
     if (matchedPlayer) return matchedPlayer;
 
     // 2. Direct lookup in aliases
     const aliasEntry = await this.aliasRepository.findOne({ alias: lowerName }, undefined, session);
     if (aliasEntry) {
       matchedPlayer = await this.playerRepository.findById(aliasEntry.playerId, undefined, session);
-      if (matchedPlayer) return matchedPlayer;
-      // If alias points to a non-existent player, delete orphan alias so it doesn't block resolution
-      await this.aliasRepository.delete(aliasEntry._id, session).catch(() => {});
+      if (matchedPlayer && (!userId || (matchedPlayer as any).createdBy?.toString() === userId.toString())) {
+        return matchedPlayer;
+      }
+      if (!matchedPlayer) {
+        // If alias points to a non-existent player, delete orphan alias so it doesn't block resolution
+        await this.aliasRepository.delete(aliasEntry._id, session).catch(() => {});
+      }
     }
 
     // 3. Search database for strict abbreviation or very high fuzzy match (typo only)
-    // NOTE: Soundex matching was removed because it falsely merged different players (e.g., S Dube and S Yadav share soundex S310)
-    const allPlayers = await this.playerRepository.find({}, { session });
+    const allPlayers = await this.playerRepository.find(userId ? { createdBy: userId } : {}, { session });
 
     for (const player of allPlayers) {
       const playerName = player.name;
@@ -139,14 +144,15 @@ export class PlayerMatchingService {
   public async findOrCreatePlayer(
     name: string,
     metadata?: { country?: string; nationalTeamId?: string; iplTeamId?: string; fullName?: string },
-    session?: mongoose.ClientSession
+    session?: mongoose.ClientSession,
+    userId?: any
   ): Promise<IPlayer> {
     const trimmedName = name.trim();
     if (!trimmedName) {
       throw new Error('Player name cannot be empty');
     }
 
-    let player = await this.findMatchingPlayer(trimmedName, session);
+    let player = await this.findMatchingPlayer(trimmedName, session, userId);
     if (!player) {
       player = await this.playerRepository.create({
         name: trimmedName,
@@ -155,6 +161,7 @@ export class PlayerMatchingService {
         nationalTeamId: metadata?.nationalTeamId || 'INT_IND',
         iplTeamId: metadata?.iplTeamId || '',
         aliases: [trimmedName],
+        createdBy: userId,
       }, session);
 
       await this.aliasRepository.create({

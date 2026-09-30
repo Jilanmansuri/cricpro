@@ -112,7 +112,8 @@ export class TeamMatchingService {
   public async resolveTeamMaster(
     rawName: string,
     context?: { league?: string; competition?: string },
-    session?: mongoose.ClientSession
+    session?: mongoose.ClientSession,
+    userId?: any
   ): Promise<TeamResolutionResult> {
     if (!rawName || !rawName.trim()) {
       return {
@@ -130,7 +131,7 @@ export class TeamMatchingService {
 
     // 1. Exact direct matches in Database
     // 1a. teamId match
-    const byTeamId = await this.teamRepository.findByTeamId(rawTrimmed, session);
+    const byTeamId = await this.teamRepository.findByTeamId(rawTrimmed, session, userId);
     if (byTeamId) {
       return {
         resolved: true,
@@ -142,7 +143,7 @@ export class TeamMatchingService {
     }
 
     // 1b. Abbreviation match
-    const byAbbr = await this.teamRepository.findByAbbreviation(rawTrimmed, session);
+    const byAbbr = await this.teamRepository.findByAbbreviation(rawTrimmed, session, userId);
     if (byAbbr) {
       return {
         resolved: true,
@@ -154,7 +155,7 @@ export class TeamMatchingService {
     }
 
     // 1c. Name or Official Name or Display Name match
-    const byName = await this.teamRepository.findByName(rawTrimmed, session);
+    const byName = await this.teamRepository.findByName(rawTrimmed, session, userId);
     if (byName) {
       return {
         resolved: true,
@@ -166,7 +167,7 @@ export class TeamMatchingService {
     }
 
     // 1d. Alias array match in DB
-    const byAlias = await this.teamRepository.findByAlias(normalizedInput, session);
+    const byAlias = await this.teamRepository.findByAlias(normalizedInput, session, userId);
     if (byAlias) {
       return {
         resolved: true,
@@ -178,7 +179,8 @@ export class TeamMatchingService {
     }
 
     // 2. Scan all existing teams from Team Master for deep matching
-    const allTeams = await this.teamRepository.find({}, { session });
+    const teamFilter = userId ? { createdBy: userId } : {};
+    const allTeams = await this.teamRepository.find(teamFilter, { session });
     const candidatesMap = new Map<string, TeamCandidate>();
 
     const addCandidate = (team: ITeam, score: number, reason: string) => {
@@ -289,17 +291,17 @@ export class TeamMatchingService {
   /**
    * Backwards compatible findMatchingTeam
    */
-  public async findMatchingTeam(rawName: string, session?: mongoose.ClientSession): Promise<ITeam | null> {
-    const result = await this.resolveTeamMaster(rawName, undefined, session);
+  public async findMatchingTeam(rawName: string, session?: mongoose.ClientSession, userId?: any): Promise<ITeam | null> {
+    const result = await this.resolveTeamMaster(rawName, undefined, session, userId);
     return result.team;
   }
 
   /**
    * Resolves against Team Master; if genuinely new and confirmed, creates a Master record
    */
-  public async findOrCreateTeam(name: string, session?: mongoose.ClientSession): Promise<ITeam> {
+  public async findOrCreateTeam(name: string, session?: mongoose.ClientSession, userId?: any): Promise<ITeam> {
     const trimmed = name.trim();
-    const resolution = await this.resolveTeamMaster(trimmed, undefined, session);
+    const resolution = await this.resolveTeamMaster(trimmed, undefined, session, userId);
 
     if (resolution.team && resolution.confidence >= 0.80) {
       return resolution.team;
@@ -319,6 +321,7 @@ export class TeamMatchingService {
       logoUrl: '',
       isActive: true,
       players: [],
+      createdBy: userId,
       stats: {
         matches: 0,
         wins: 0,

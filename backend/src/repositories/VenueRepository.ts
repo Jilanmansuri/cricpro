@@ -8,9 +8,11 @@ export class VenueRepository extends BaseRepository<IVenue> {
     super(Venue);
   }
 
-  async findByName(name: string, session?: ClientSession): Promise<IVenue | null> {
-    return await this.model.findOne({
+  async findByName(name: string, session?: ClientSession, userId?: any): Promise<IVenue | null> {
+    const filter: any = {
       name: { $regex: new RegExp(`^${name}$`, 'i') }
-    }).session(session || null).exec();
+    };
+    if (userId) filter.createdBy = userId;
+    return await this.model.findOne(filter).session(session || null).exec();
   }
 }

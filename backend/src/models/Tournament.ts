@@ -21,6 +21,11 @@ const TournamentSchema = new Schema<ITournament>(
       ref: 'User',
       required: true,
     },
+    createdBy: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+      index: true,
+    },
   },
   {
     timestamps: true,
