@@ -13,6 +13,8 @@ import Svg, { Path } from 'react-native-svg';
 import { useRouter } from 'expo-router';
 import { ErrorAlertModal } from '../../../components/ErrorAlertModal';
 import { parseApiError, AppErrorInfo } from '../../../utils/errorHelper';
+import StadiumPicker from '../../../components/StadiumPicker';
+import { POPULAR_STADIUM_CHIPS } from '../../../constants/stadiums';
 
 const TrashIcon = ({ color }: { color: string }) => (
   <Svg width="24" height="24" viewBox="0 0 24 24" fill="none">
@@ -960,10 +962,12 @@ export default function ManualMatchEntry() {
               )}
             </View>
 
-            <View style={styles.inputGroup}>
-              <Text style={[styles.label, { color: colors.textMuted }]}>Venue</Text>
-              <TextInput style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={matchInfo.venueName} onChangeText={t => setMatchInfo({...matchInfo, venueName: t})} />
-            </View>
+            <StadiumPicker
+              label="Venue / Stadium"
+              value={matchInfo.venueName}
+              onChange={(venue) => setMatchInfo({ ...matchInfo, venueName: venue })}
+              placeholder="e.g. Narendra Modi Stadium, Ahmedabad"
+            />
             <View style={styles.rowInputs}>
               <View style={[styles.inputGroup, { flex: 1 }]}>
                 <Text style={[styles.label, { color: colors.textMuted }]}>Match Type</Text>
@@ -1575,6 +1579,32 @@ export default function ManualMatchEntry() {
                       {field.label}
                     </Text>
                   </View>
+                  {field.key === 'venueName' && (
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8, marginTop: 4 }}>
+                      {POPULAR_STADIUM_CHIPS.slice(0, 8).map((chip) => {
+                        const isSelected = field.value === chip.fullName;
+                        return (
+                          <TouchableOpacity
+                            key={chip.shortName}
+                            style={{
+                              paddingHorizontal: 8,
+                              paddingVertical: 4,
+                              backgroundColor: isSelected ? colors.primary + '25' : colors.surfaceLighter,
+                              borderColor: isSelected ? colors.primary : colors.border,
+                              borderWidth: 1,
+                              borderRadius: 12,
+                              marginRight: 6,
+                            }}
+                            onPress={() => handleUpdateMissingField(field.key, chip.fullName)}
+                          >
+                            <Text style={{ fontSize: 11, fontWeight: isSelected ? '700' : '500', color: isSelected ? colors.primary : colors.text }}>
+                              {isSelected ? '✓ ' : ''}{chip.shortName}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </ScrollView>
+                  )}
                   <TextInput
                     style={[styles.missingInput, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
                     placeholder={field.placeholder}
