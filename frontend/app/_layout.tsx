@@ -6,6 +6,7 @@ import { useSettingsStore } from '../store/settingsStore';
 import { ThemeProvider, useTheme } from '../components/Theme';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { prewarmBackend } from '../services/api';
+import * as Updates from 'expo-updates';
 
 const NavigationLayout = () => {
   const { isAuthenticated, isLoading, restoreSession } = useAuthStore();
@@ -21,6 +22,18 @@ const NavigationLayout = () => {
     restoreSession();
     // Non-blocking Render cloud wake-up ping
     prewarmBackend();
+
+    // Check for EAS OTA updates in production and apply seamlessly
+    if (!__DEV__) {
+      Updates.checkForUpdateAsync()
+        .then(async (res) => {
+          if (res.isAvailable) {
+            await Updates.fetchUpdateAsync();
+            await Updates.reloadAsync();
+          }
+        })
+        .catch(() => {});
+    }
 
     // Keep backend warm every 2.5 minutes while app is active
     const keepAliveTimer = setInterval(() => {

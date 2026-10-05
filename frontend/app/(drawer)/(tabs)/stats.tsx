@@ -85,7 +85,12 @@ export default function StatsLeaderboardTab() {
   };
 
   const handlePlayerPress = (item: any) => {
-    const pId = item.playerId?._id || (typeof item.playerId === 'string' ? item.playerId : null) || item._id;
+    const pId =
+      item.playerProfileId ||
+      item.playerId?._id ||
+      (typeof item.playerId === 'string' ? item.playerId : null) ||
+      (item.playerId && typeof item.playerId === 'object' && item.playerId.toString && item.playerId.toString() !== '[object Object]' ? item.playerId.toString() : null) ||
+      item._id;
     if (pId) {
       router.push({ pathname: '/player-career', params: { id: pId.toString() } });
     }

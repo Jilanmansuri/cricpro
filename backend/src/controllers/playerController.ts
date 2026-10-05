@@ -70,8 +70,20 @@ export const createPlayer = async (req: Request, res: Response): Promise<void> =
 
 export const getPlayerCareer = async (req: Request, res: Response): Promise<void> => {
   try {
-    const playerId = new Types.ObjectId(req.params.id);
-    const player = await playerRepository.findById(playerId);
+    const rawId = req.params.id;
+    let playerId = new Types.ObjectId(rawId);
+    let player = await playerRepository.findById(playerId);
+
+    // Fallback: If id is a CareerStats document ID rather than Player ID
+    if (!player) {
+      const careerDoc = await careerStatsRepository.findById(playerId);
+      if (careerDoc && careerDoc.playerId) {
+        player = await playerRepository.findById(careerDoc.playerId);
+        if (player) {
+          playerId = careerDoc.playerId as Types.ObjectId;
+        }
+      }
+    }
 
     if (!player) {
       res.status(404).json({ success: false, message: 'Player not found' });
@@ -100,7 +112,17 @@ export const getPlayerCareer = async (req: Request, res: Response): Promise<void
 
 export const getPlayerHistory = async (req: Request, res: Response): Promise<void> => {
   try {
-    const playerId = new Types.ObjectId(req.params.id);
+    const rawId = req.params.id;
+    let playerId = new Types.ObjectId(rawId);
+
+    // Fallback: If id is a CareerStats document ID rather than Player ID
+    const directPlayer = await playerRepository.findById(playerId);
+    if (!directPlayer) {
+      const careerDoc = await careerStatsRepository.findById(playerId);
+      if (careerDoc && careerDoc.playerId) {
+        playerId = careerDoc.playerId as Types.ObjectId;
+      }
+    }
 
     const statsList = await playerMatchStatsRepository.find(
       { playerId },
@@ -396,8 +418,11 @@ export const getLeaderboard = async (req: Request, res: Response): Promise<void>
       const topBatsmen = topBatsmenDocs.map((item: any) => {
         const pDoc = item.playerId;
         const teamInfo = resolvePlayerTeam(pDoc, 'all', null, teamMap, teamByCodeMap, playerToTeamMap);
+        const playerObj = pDoc ? { _id: pDoc._id, name: pDoc.name, country: pDoc.country, nationalTeamId: pDoc.nationalTeamId, iplTeamId: pDoc.iplTeamId } : { _id: item.playerId || item._id, name: item.playerName || 'Player' };
         return {
           ...item.toObject ? item.toObject() : item,
+          playerId: playerObj,
+          playerProfileId: playerObj._id,
           team: teamInfo
         };
       });
@@ -405,8 +430,11 @@ export const getLeaderboard = async (req: Request, res: Response): Promise<void>
       const topBowlers = topBowlersDocs.map((item: any) => {
         const pDoc = item.playerId;
         const teamInfo = resolvePlayerTeam(pDoc, 'all', null, teamMap, teamByCodeMap, playerToTeamMap);
+        const playerObj = pDoc ? { _id: pDoc._id, name: pDoc.name, country: pDoc.country, nationalTeamId: pDoc.nationalTeamId, iplTeamId: pDoc.iplTeamId } : { _id: item.playerId || item._id, name: item.playerName || 'Player' };
         return {
           ...item.toObject ? item.toObject() : item,
+          playerId: playerObj,
+          playerProfileId: playerObj._id,
           team: teamInfo
         };
       });
@@ -421,8 +449,11 @@ export const getLeaderboard = async (req: Request, res: Response): Promise<void>
       const topMvps = topMvpsDocs.map((item: any) => {
         const pDoc = item.playerId;
         const teamInfo = resolvePlayerTeam(pDoc, 'all', null, teamMap, teamByCodeMap, playerToTeamMap);
+        const playerObj = pDoc ? { _id: pDoc._id, name: pDoc.name, country: pDoc.country, nationalTeamId: pDoc.nationalTeamId, iplTeamId: pDoc.iplTeamId } : { _id: item.playerId || item._id, name: item.playerName || 'Player' };
         return {
           ...item.toObject ? item.toObject() : item,
+          playerId: playerObj,
+          playerProfileId: playerObj._id,
           team: teamInfo
         };
       });
@@ -601,8 +632,11 @@ export const getLeaderboard = async (req: Request, res: Response): Promise<void>
     const topMvps = topMvpCareerDocs.map((item: any) => {
       const pDoc = item.playerId;
       const teamInfo = resolvePlayerTeam(pDoc, division, null, teamMap, teamByCodeMap, playerToTeamMap);
+      const playerObj = pDoc ? { _id: pDoc._id, name: pDoc.name, country: pDoc.country, nationalTeamId: pDoc.nationalTeamId, iplTeamId: pDoc.iplTeamId } : { _id: item.playerId || item._id, name: item.playerName || 'Player' };
       return {
         ...item.toObject ? item.toObject() : item,
+        playerId: playerObj,
+        playerProfileId: playerObj._id,
         team: teamInfo
       };
     });
