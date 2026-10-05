@@ -10,15 +10,15 @@ import TeamLogo from '../../../components/TeamLogo';
 export default function StatsLeaderboardTab() {
   const router = useRouter();
   const { colors, isDarkMode } = useTheme();
-  const [activeTab, setActiveTab] = useState<'batting' | 'bowling'>('batting');
+  const [activeTab, setActiveTab] = useState<'batting' | 'bowling' | 'mvp'>('batting');
   const [selectedDivision, setSelectedDivision] = useState<'all' | 'international' | 'ipl'>('all');
   const [isLoading, setIsLoading] = useState(true);
-  const [leaderboard, setLeaderboard] = useState<{ topBatsmen: any[], topBowlers: any[] }>({ topBatsmen: [], topBowlers: [] });
+  const [leaderboard, setLeaderboard] = useState<{ topBatsmen: any[]; topBowlers: any[]; topMvps?: any[] }>({ topBatsmen: [], topBowlers: [], topMvps: [] });
   const [battingSort, setBattingSort] = useState('Runs');
   const [bowlingSort, setBowlingSort] = useState('Wickets');
   
-  const battingFilters = ['Runs', 'Highest Score', 'Average', 'Strike Rate', '100s', '50s', 'Sixes', 'Fours'];
-  const bowlingFilters = ['Wickets', 'Economy', 'Average', 'Maidens'];
+  const battingFilters = ['Runs', 'Highest Score', 'Average', 'Strike Rate', '100s', '50s', 'Sixes', 'Fours', 'MVPs'];
+  const bowlingFilters = ['Wickets', 'Economy', 'Average', 'Maidens', 'MVPs'];
 
   const fetchLeaderboard = async (division = selectedDivision) => {
     setIsLoading(true);
@@ -125,16 +125,21 @@ export default function StatsLeaderboardTab() {
                     </Text>
                   </View>
                 ) : null}
+                {(item.mvps || 0) > 0 ? (
+                  <View style={[styles.mvpMiniBadge, { backgroundColor: '#F59E0B20', borderColor: '#F59E0B55' }]}>
+                    <Text style={styles.mvpMiniBadgeText}>👑 {item.mvps} {item.mvps === 1 ? 'MVP' : 'MVPs'}</Text>
+                  </View>
+                ) : null}
               </View>
               <Text style={[styles.subText, { color: colors.textMuted }]}>
                 Runs: <Text style={{ color: colors.text, fontWeight: '700' }}>{stats.runs}</Text> | HS: <Text style={{ color: colors.primary, fontWeight: '700' }}>{stats.highestScore || 0}</Text> | SR: {strikeRate}
               </Text>
               <Text style={[styles.subText, { color: colors.textMuted, fontSize: 10, marginTop: 2 }]}>
-                Avg: {average} | 100s: {stats.hundreds || 0} | 50s: {stats.fifties || 0} | 4s: {stats.fours} | 6s: {stats.sixes}
+                Avg: {average} | 100s: {stats.hundreds || 0} | 50s: {stats.fifties || 0} | 4s: {stats.fours} | 6s: {stats.sixes} {(item.mvps || 0) > 0 ? `| 👑 ${item.mvps} MVP` : ''}
               </Text>
             </View>
             <View style={styles.statsRight}>
-              <Text style={[styles.mainStat, { color: colors.text }]}>
+              <Text style={[styles.mainStat, battingSort === 'MVPs' ? { color: '#F59E0B' } : { color: colors.text }]}>
                 {battingSort === 'Average' ? average :
                  battingSort === 'Strike Rate' ? strikeRate :
                  battingSort === 'Highest Score' ? (stats.highestScore || 0) :
@@ -142,10 +147,11 @@ export default function StatsLeaderboardTab() {
                  battingSort === 'Fours' ? stats.fours :
                  battingSort === '50s' ? stats.fifties :
                  battingSort === '100s' ? stats.hundreds :
+                 battingSort === 'MVPs' ? (item.mvps || 0) :
                  stats.runs}
               </Text>
               <Text style={[styles.statLabel, { color: colors.textMuted }]}>
-                {battingSort === 'Highest Score' ? 'High Score (HS)' : battingSort === 'Runs' ? 'Total Runs' : battingSort}
+                {battingSort === 'Highest Score' ? 'High Score (HS)' : battingSort === 'Runs' ? 'Total Runs' : battingSort === 'MVPs' ? 'MVPs Won' : battingSort}
               </Text>
             </View>
             <Text style={[styles.chevron, { color: colors.textMuted }]}>›</Text>
@@ -188,18 +194,83 @@ export default function StatsLeaderboardTab() {
                     </Text>
                   </View>
                 ) : null}
+                {(item.mvps || 0) > 0 ? (
+                  <View style={[styles.mvpMiniBadge, { backgroundColor: '#F59E0B20', borderColor: '#F59E0B55' }]}>
+                    <Text style={styles.mvpMiniBadgeText}>👑 {item.mvps} {item.mvps === 1 ? 'MVP' : 'MVPs'}</Text>
+                  </View>
+                ) : null}
               </View>
-              <Text style={[styles.subText, { color: colors.textMuted }]}>Econ: {economy} | Avg: {average}</Text>
+              <Text style={[styles.subText, { color: colors.textMuted }]}>Econ: {economy} | Avg: {average} {(item.mvps || 0) > 0 ? `| 👑 ${item.mvps} MVP` : ''}</Text>
               <Text style={[styles.subText, { color: colors.textMuted, fontSize: 10, marginTop: 2 }]}>Overs: {stats.overs} | Runs: {stats.runsConceded}</Text>
             </View>
             <View style={styles.statsRight}>
-              <Text style={[styles.mainStat, { color: colors.text }]}>
+              <Text style={[styles.mainStat, bowlingSort === 'MVPs' ? { color: '#F59E0B' } : { color: colors.text }]}>
                 {bowlingSort === 'Economy' ? economy :
                  bowlingSort === 'Average' ? average :
                  bowlingSort === 'Maidens' ? (stats.maidens || 0) :
+                 bowlingSort === 'MVPs' ? (item.mvps || 0) :
                  stats.wickets}
               </Text>
-              <Text style={[styles.statLabel, { color: colors.textMuted }]}>{bowlingSort}</Text>
+              <Text style={[styles.statLabel, { color: colors.textMuted }]}>{bowlingSort === 'MVPs' ? 'MVPs Won' : bowlingSort}</Text>
+            </View>
+            <Text style={[styles.chevron, { color: colors.textMuted }]}>›</Text>
+          </View>
+        </Card>
+      </TouchableOpacity>
+    );
+  };
+
+  const renderMvpItem = ({ item, index }: any) => {
+    const player = item.playerId || { name: item.playerName || 'Unknown Player' };
+    const batStats = item.batting || {};
+    const bowlStats = item.bowling || {};
+    const team = resolveDisplayTeam(player, item.team, selectedDivision);
+    const mvpCount = item.mvps || 0;
+    const rankMedal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${index + 1}`;
+
+    return (
+      <TouchableOpacity activeOpacity={0.7} onPress={() => handlePlayerPress(item)}>
+        <Card style={[styles.card, index < 3 && { borderColor: index === 0 ? '#F59E0B99' : index === 1 ? '#94A3B899' : '#D9770699' }]}>
+          <View style={styles.row}>
+            <Text style={[styles.rank, { color: index === 0 ? '#F59E0B' : colors.primary, fontSize: index < 3 ? 16 : 14 }]}>
+              {rankMedal}
+            </Text>
+            <Avatar name={player.name} size={42} style={styles.avatar} />
+            <View style={styles.info}>
+              <View style={styles.nameAndTeamRow}>
+                <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>{player.name}</Text>
+                {team ? (
+                  <View style={[styles.teamBadge, { backgroundColor: colors.surfaceLighter || 'rgba(255,255,255,0.06)', borderColor: colors.border }]}>
+                    <TeamLogo
+                      shortName={team.shortName}
+                      teamName={team.name}
+                      teamId={team.teamId}
+                      playerName={player.name}
+                      country={player.country}
+                      logoUrl={team.logo}
+                      fallbackEmoji={team.flag}
+                      size={16}
+                    />
+                    <Text style={[styles.teamBadgeText, { color: team.color || colors.text }]}>
+                      {team.shortName || team.name}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
+              <Text style={[styles.subText, { color: colors.textMuted }]}>
+                Matches: <Text style={{ color: colors.text, fontWeight: '700' }}>{batStats.matches || 0}</Text> | Runs: <Text style={{ color: colors.primary, fontWeight: '700' }}>{batStats.runs || 0}</Text> | Wkts: {bowlStats.wickets || 0}
+              </Text>
+              <Text style={[styles.subText, { color: '#F59E0B', fontSize: 11, marginTop: 2, fontWeight: '700' }]}>
+                👑 {mvpCount} {mvpCount === 1 ? 'Player of the Match Award' : 'Player of the Match Awards'}
+              </Text>
+            </View>
+            <View style={styles.statsRight}>
+              <Text style={[styles.mainStat, { color: '#F59E0B', fontSize: 24, fontWeight: '900' }]}>
+                👑 {mvpCount}
+              </Text>
+              <Text style={[styles.statLabel, { color: colors.textMuted }]}>
+                MVPs Won
+              </Text>
             </View>
             <Text style={[styles.chevron, { color: colors.textMuted }]}>›</Text>
           </View>
@@ -210,6 +281,13 @@ export default function StatsLeaderboardTab() {
 
 
   const getSortedData = () => {
+    if (activeTab === 'mvp') {
+      const mvpList = leaderboard.topMvps && leaderboard.topMvps.length > 0
+        ? [...leaderboard.topMvps]
+        : [...leaderboard.topBatsmen].filter(p => (p.mvps || 0) > 0);
+      return mvpList.sort((a, b) => (b.mvps || 0) - (a.mvps || 0));
+    }
+
     if (activeTab === 'batting') {
       let data = [...leaderboard.topBatsmen];
       return data.sort((a, b) => {
@@ -234,6 +312,7 @@ export default function StatsLeaderboardTab() {
           case 'Fours': return statsB.fours - statsA.fours;
           case '50s': return statsB.fifties - statsA.fifties;
           case '100s': return statsB.hundreds - statsA.hundreds;
+          case 'MVPs': return (b.mvps || 0) - (a.mvps || 0);
           default: return statsB.runs - statsA.runs;
         }
       });
@@ -251,9 +330,10 @@ export default function StatsLeaderboardTab() {
 
         switch(bowlingSort) {
           case 'Wickets': return statsB.wickets - statsA.wickets;
-          case 'Economy': return econA - econB; // Lower is better
-          case 'Average': return avgA - avgB; // Lower is better
+          case 'Economy': return econA - econB;
+          case 'Average': return avgA - avgB;
           case 'Maidens': return (statsB.maidens || 0) - (statsA.maidens || 0);
+          case 'MVPs': return (b.mvps || 0) - (a.mvps || 0);
           default: return statsB.wickets - statsA.wickets;
         }
       });
@@ -309,7 +389,7 @@ export default function StatsLeaderboardTab() {
           ]}
           onPress={() => setActiveTab('batting')}
         >
-          <Text style={[styles.tabBtnText, { color: activeTab === 'batting' ? '#fff' : colors.text }]}>🏏 Top Batsmen</Text>
+          <Text style={[styles.tabBtnText, { color: activeTab === 'batting' ? '#fff' : colors.text }]}>🏏 Batting</Text>
         </TouchableOpacity>
         <TouchableOpacity 
           style={[
@@ -319,31 +399,49 @@ export default function StatsLeaderboardTab() {
           ]}
           onPress={() => setActiveTab('bowling')}
         >
-          <Text style={[styles.tabBtnText, { color: activeTab === 'bowling' ? '#fff' : colors.text }]}>🎯 Top Bowlers</Text>
+          <Text style={[styles.tabBtnText, { color: activeTab === 'bowling' ? '#fff' : colors.text }]}>🎯 Bowling</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={[
+            styles.tabBtn,
+            { backgroundColor: colors.surface, borderColor: colors.border },
+            activeTab === 'mvp' && { backgroundColor: '#F59E0B', borderColor: '#F59E0B' }
+          ]}
+          onPress={() => setActiveTab('mvp')}
+        >
+          <Text style={[styles.tabBtnText, { color: activeTab === 'mvp' ? '#fff' : colors.text }]}>👑 MVPs</Text>
         </TouchableOpacity>
       </View>
 
-      <View style={styles.filtersContainer}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filtersScroll}>
-          {(activeTab === 'batting' ? battingFilters : bowlingFilters).map(filter => (
-            <TouchableOpacity 
-              key={filter} 
-              style={[
-                styles.filterPill, 
-                { backgroundColor: colors.surface, borderColor: colors.border },
-                (activeTab === 'batting' ? battingSort : bowlingSort) === filter && { backgroundColor: colors.primary, borderColor: colors.primary }
-              ]}
-              onPress={() => activeTab === 'batting' ? setBattingSort(filter) : setBowlingSort(filter)}
-            >
-              <Text style={[
-                styles.filterText, 
-                { color: colors.textMuted },
-                (activeTab === 'batting' ? battingSort : bowlingSort) === filter && { color: '#fff', fontWeight: 'bold' }
-              ]}>{filter}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </View>
+      {activeTab !== 'mvp' ? (
+        <View style={styles.filtersContainer}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filtersScroll}>
+            {(activeTab === 'batting' ? battingFilters : bowlingFilters).map(filter => (
+              <TouchableOpacity 
+                key={filter} 
+                style={[
+                  styles.filterPill, 
+                  { backgroundColor: colors.surface, borderColor: colors.border },
+                  (activeTab === 'batting' ? battingSort : bowlingSort) === filter && { backgroundColor: colors.primary, borderColor: colors.primary }
+                ]}
+                onPress={() => activeTab === 'batting' ? setBattingSort(filter) : setBowlingSort(filter)}
+              >
+                <Text style={[
+                  styles.filterText, 
+                  { color: colors.textMuted },
+                  (activeTab === 'batting' ? battingSort : bowlingSort) === filter && { color: '#fff', fontWeight: 'bold' }
+                ]}>{filter}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      ) : (
+        <View style={{ paddingVertical: 8, paddingHorizontal: 4 }}>
+          <Text style={{ color: '#F59E0B', fontSize: 12, fontWeight: '700' }}>
+            👑 Ranked by most Player of the Match awards
+          </Text>
+        </View>
+      )}
     </View>
   );
 
@@ -354,7 +452,7 @@ export default function StatsLeaderboardTab() {
         keyExtractor={(item: any, idx: number) => (item._id ? `${item._id}-${idx}` : (item.playerId?._id ? `${item.playerId._id}-${idx}` : String(idx)))}
         ListHeaderComponent={renderHeader}
         contentContainerStyle={styles.list}
-        renderItem={activeTab === 'batting' ? renderBattingItem : renderBowlingItem}
+        renderItem={activeTab === 'batting' ? renderBattingItem : activeTab === 'bowling' ? renderBowlingItem : renderMvpItem}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
           isLoading ? (
@@ -366,7 +464,9 @@ export default function StatsLeaderboardTab() {
             </View>
           ) : (
             <View style={styles.empty}>
-              <Text style={{ color: colors.textMuted, fontSize: 14 }}>No {activeTab} stats recorded yet.</Text>
+              <Text style={{ color: colors.textMuted, fontSize: 14 }}>
+                {activeTab === 'mvp' ? 'No MVP awards recorded yet.' : `No ${activeTab} stats recorded yet.`}
+              </Text>
             </View>
           )
         }
@@ -507,6 +607,17 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     borderWidth: 1,
     gap: 3,
+  },
+  mvpMiniBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  mvpMiniBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#F59E0B',
   },
   teamLogoImg: {
     width: 14,

@@ -411,12 +411,29 @@ export const getLeaderboard = async (req: Request, res: Response): Promise<void>
         };
       });
 
+      const mvpFilter: any = { mvps: { $gt: 0 } };
+      if (userId) mvpFilter.playerId = { $in: userPlayerIds };
+      const topMvpsDocs = await careerStatsRepository.find(
+        mvpFilter,
+        { sort: { mvps: -1, 'batting.runs': -1 }, limit: 200, populate: 'playerId' }
+      );
+
+      const topMvps = topMvpsDocs.map((item: any) => {
+        const pDoc = item.playerId;
+        const teamInfo = resolvePlayerTeam(pDoc, 'all', null, teamMap, teamByCodeMap, playerToTeamMap);
+        return {
+          ...item.toObject ? item.toObject() : item,
+          team: teamInfo
+        };
+      });
+
       res.json({
         success: true,
         data: {
           division: 'all',
           topBatsmen,
-          topBowlers
+          topBowlers,
+          topMvps
         }
       });
       return;
@@ -527,6 +544,10 @@ export const getLeaderboard = async (req: Request, res: Response): Promise<void>
     const playersList = await Player.find({ _id: { $in: playerIds } }).select('_id name fullName country nationalTeamId iplTeamId');
     const playerMap = new Map(playersList.map(p => [p._id.toString(), p]));
 
+    const { CareerStats } = await import('../models/CareerStats');
+    const careerDocs = await CareerStats.find({ playerId: { $in: playerIds } }).select('playerId mvps').lean();
+    const mvpMap = new Map(careerDocs.map((c: any) => [c.playerId.toString(), c.mvps || 0]));
+
     const topBatsmen = battingAgg.map(b => {
       const pDoc = playerMap.get(b._id?.toString());
       const teamInfo = resolvePlayerTeam(pDoc, division, b.lastTeamId, teamMap, teamByCodeMap, playerToTeamMap);
@@ -536,6 +557,7 @@ export const getLeaderboard = async (req: Request, res: Response): Promise<void>
         playerId: pDoc ? { _id: pDoc._id, name: pDoc.name } : { _id: b._id, name: b.playerName || 'Player' },
         playerName: pDoc?.name || b.playerName,
         team: teamInfo,
+        mvps: mvpMap.get(b._id?.toString()) || 0,
         batting: {
           matches: b.matches,
           runs: b.runs,
@@ -559,6 +581,7 @@ export const getLeaderboard = async (req: Request, res: Response): Promise<void>
         playerId: pDoc ? { _id: pDoc._id, name: pDoc.name } : { _id: bw._id, name: bw.playerName || 'Player' },
         playerName: pDoc?.name || bw.playerName,
         team: teamInfo,
+        mvps: mvpMap.get(bw._id?.toString()) || 0,
         bowling: {
           overs: bw.overs,
           maidens: bw.maidens,
@@ -568,12 +591,29 @@ export const getLeaderboard = async (req: Request, res: Response): Promise<void>
       };
     });
 
+    const topMvpFilter: any = { mvps: { $gt: 0 } };
+    if (userPlayerIds.length > 0) topMvpFilter.playerId = { $in: userPlayerIds };
+    const topMvpCareerDocs = await CareerStats.find(topMvpFilter)
+      .sort({ mvps: -1, 'batting.runs': -1 })
+      .limit(100)
+      .populate('playerId');
+
+    const topMvps = topMvpCareerDocs.map((item: any) => {
+      const pDoc = item.playerId;
+      const teamInfo = resolvePlayerTeam(pDoc, division, null, teamMap, teamByCodeMap, playerToTeamMap);
+      return {
+        ...item.toObject ? item.toObject() : item,
+        team: teamInfo
+      };
+    });
+
     res.json({
       success: true,
       data: {
         division,
         topBatsmen,
-        topBowlers
+        topBowlers,
+        topMvps
       }
     });
   } catch (error: any) {
