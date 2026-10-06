@@ -269,101 +269,103 @@ export default function StatsLeaderboardTab() {
     }
   };
 
-  const renderHeader = () => (
-    <View style={styles.headerContainer}>
-      {/* Real Cricket Style Division / Tournament Selector */}
-      <View style={[styles.divisionCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-        <View style={styles.divisionHeaderRow}>
-          <Text style={[styles.divisionTitle, { color: colors.text }]}>🏆 Cricket Division</Text>
-          <Text style={[styles.divisionBadge, { color: colors.primary, backgroundColor: colors.primary + '18' }]}>
-            {selectedDivision === 'all' ? 'All Competitions' : selectedDivision === 'international' ? 'ICC International' : 'IPL Franchise'}
-          </Text>
-        </View>
-        <View style={styles.divisionBtnRow}>
-          {[
-            { key: 'all', label: 'All', icon: '🌐' },
-            { key: 'international', label: 'International', icon: '🇮🇳' },
-            { key: 'ipl', label: 'IPL', icon: '🏏' }
-          ].map(d => (
-            <TouchableOpacity
-              key={d.key}
-              style={[
-                styles.divisionBtn,
-                { backgroundColor: colors.background, borderColor: colors.border },
-                selectedDivision === d.key && { backgroundColor: colors.primary, borderColor: colors.primary }
-              ]}
-              onPress={() => setSelectedDivision(d.key as any)}
-            >
-              <Text style={{ fontSize: 13, marginRight: 4 }}>{d.icon}</Text>
-              <Text
-                style={[
-                  styles.divisionBtnText,
-                  { color: selectedDivision === d.key ? '#fff' : colors.text },
-                  selectedDivision === d.key && { fontWeight: '800' }
-                ]}
-              >
-                {d.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
-
-      <View style={styles.tabSwitcher}>
-        <TouchableOpacity 
-          style={[
-            styles.tabBtn,
-            { backgroundColor: colors.surface, borderColor: colors.border },
-            activeTab === 'batting' && { backgroundColor: colors.primary, borderColor: colors.primary }
-          ]}
-          onPress={() => setActiveTab('batting')}
-        >
-          <Text style={[styles.tabBtnText, { color: activeTab === 'batting' ? '#fff' : colors.text }]}>🏏 Top Batsmen</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={[
-            styles.tabBtn,
-            { backgroundColor: colors.surface, borderColor: colors.border },
-            activeTab === 'bowling' && { backgroundColor: colors.primary, borderColor: colors.primary }
-          ]}
-          onPress={() => setActiveTab('bowling')}
-        >
-          <Text style={[styles.tabBtnText, { color: activeTab === 'bowling' ? '#fff' : colors.text }]}>🎯 Top Bowlers</Text>
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.filtersContainer}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filtersScroll}>
-          {(activeTab === 'batting' ? battingFilters : bowlingFilters).map(filter => (
-            <TouchableOpacity 
-              key={filter} 
-              style={[
-                styles.filterPill, 
-                { backgroundColor: colors.surface, borderColor: colors.border },
-                (activeTab === 'batting' ? battingSort : bowlingSort) === filter && { backgroundColor: colors.primary, borderColor: colors.primary }
-              ]}
-              onPress={() => activeTab === 'batting' ? setBattingSort(filter) : setBowlingSort(filter)}
-            >
-              <Text style={[
-                styles.filterText, 
-                { color: colors.textMuted },
-                (activeTab === 'batting' ? battingSort : bowlingSort) === filter && { color: '#fff', fontWeight: 'bold' }
-              ]}>
-                {filter}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </View>
-    </View>
-  );
-
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
+      {/* Header controls outside FlatList so horizontal filter scroll never resets on click */}
+      <View style={styles.headerContainer}>
+        <View style={styles.topSectionPadding}>
+          {/* Real Cricket Style Division / Tournament Selector */}
+          <View style={[styles.divisionCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <View style={styles.divisionHeaderRow}>
+              <Text style={[styles.divisionTitle, { color: colors.text }]}>🏆 Cricket Division</Text>
+              <Text style={[styles.divisionBadge, { color: colors.primary, backgroundColor: colors.primary + '18' }]}>
+                {selectedDivision === 'all' ? 'All Competitions' : selectedDivision === 'international' ? 'ICC International' : 'IPL Franchise'}
+              </Text>
+            </View>
+            <View style={styles.divisionBtnRow}>
+              {[
+                { key: 'all', label: 'All', icon: '🌐' },
+                { key: 'international', label: 'International', icon: '🇮🇳' },
+                { key: 'ipl', label: 'IPL', icon: '🏏' }
+              ].map(d => (
+                <TouchableOpacity
+                  key={d.key}
+                  style={[
+                    styles.divisionBtn,
+                    { backgroundColor: colors.background, borderColor: colors.border },
+                    selectedDivision === d.key && { backgroundColor: colors.primary, borderColor: colors.primary }
+                  ]}
+                  onPress={() => setSelectedDivision(d.key as any)}
+                >
+                  <Text style={{ fontSize: 13, marginRight: 4 }}>{d.icon}</Text>
+                  <Text
+                    style={[
+                      styles.divisionBtnText,
+                      { color: selectedDivision === d.key ? '#fff' : colors.text },
+                      selectedDivision === d.key && { fontWeight: '800' }
+                    ]}
+                  >
+                    {d.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          {/* Tab Switcher */}
+          <View style={styles.tabSwitcher}>
+            <TouchableOpacity 
+              style={[
+                styles.tabBtn,
+                { backgroundColor: colors.surface, borderColor: colors.border },
+                activeTab === 'batting' && { backgroundColor: colors.primary, borderColor: colors.primary }
+              ]}
+              onPress={() => setActiveTab('batting')}
+            >
+              <Text style={[styles.tabBtnText, { color: activeTab === 'batting' ? '#fff' : colors.text }]}>🏏 Top Batsmen</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[
+                styles.tabBtn,
+                { backgroundColor: colors.surface, borderColor: colors.border },
+                activeTab === 'bowling' && { backgroundColor: colors.primary, borderColor: colors.primary }
+              ]}
+              onPress={() => setActiveTab('bowling')}
+            >
+              <Text style={[styles.tabBtnText, { color: activeTab === 'bowling' ? '#fff' : colors.text }]}>🎯 Top Bowlers</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Filter Pills */}
+        <View style={styles.filtersContainer}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filtersScroll}>
+            {(activeTab === 'batting' ? battingFilters : bowlingFilters).map(filter => (
+              <TouchableOpacity 
+                key={filter} 
+                style={[
+                  styles.filterPill, 
+                  { backgroundColor: colors.surface, borderColor: colors.border },
+                  (activeTab === 'batting' ? battingSort : bowlingSort) === filter && { backgroundColor: colors.primary, borderColor: colors.primary }
+                ]}
+                onPress={() => activeTab === 'batting' ? setBattingSort(filter) : setBowlingSort(filter)}
+              >
+                <Text style={[
+                  styles.filterText, 
+                  { color: colors.textMuted },
+                  (activeTab === 'batting' ? battingSort : bowlingSort) === filter && { color: '#fff', fontWeight: 'bold' }
+                ]}>
+                  {filter}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      </View>
+
       <FlatList
         data={isLoading ? [] : getSortedData()}
         keyExtractor={(item: any, idx: number) => (item._id ? `${item._id}-${idx}` : (item.playerId?._id ? `${item.playerId._id}-${idx}` : String(idx)))}
-        ListHeaderComponent={renderHeader}
         contentContainerStyle={styles.list}
         renderItem={activeTab === 'batting' ? renderBattingItem : renderBowlingItem}
         showsVerticalScrollIndicator={false}
@@ -393,7 +395,10 @@ const styles = StyleSheet.create({
     flex: 1
   },
   headerContainer: {
-    marginBottom: 8,
+    marginBottom: 4,
+  },
+  topSectionPadding: {
+    paddingHorizontal: 16,
   },
   divisionCard: {
     marginHorizontal: 0,
@@ -460,7 +465,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   filtersScroll: {
-    paddingHorizontal: 0,
+    paddingHorizontal: 16,
     gap: 8,
   },
   filterPill: {
@@ -480,6 +485,7 @@ const styles = StyleSheet.create({
   },
   list: {
     paddingHorizontal: 16,
+    paddingTop: 4,
     paddingBottom: 140,
     gap: 10,
   },
