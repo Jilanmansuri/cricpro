@@ -545,6 +545,24 @@ export const getLeaderboard = async (req: Request, res: Response): Promise<void>
                 0
               ]
             }
+          },
+          fastestFifty: {
+            $min: {
+              $cond: [
+                { $gt: ['$batting.fastestFiftyBalls', 0] },
+                '$batting.fastestFiftyBalls',
+                '$$REMOVE'
+              ]
+            }
+          },
+          fastestHundred: {
+            $min: {
+              $cond: [
+                { $gt: ['$batting.fastestHundredBalls', 0] },
+                '$batting.fastestHundredBalls',
+                '$$REMOVE'
+              ]
+            }
           }
         }
       },
@@ -600,7 +618,9 @@ export const getLeaderboard = async (req: Request, res: Response): Promise<void>
           fifties: b.fifties,
           hundreds: b.hundreds,
           highestScore: b.highestScore,
-          notOuts: b.notOuts
+          notOuts: b.notOuts,
+          fastestFifty: b.fastestFifty || null,
+          fastestHundred: b.fastestHundred || null
         }
       };
     });

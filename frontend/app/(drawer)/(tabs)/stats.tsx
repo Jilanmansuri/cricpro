@@ -17,7 +17,7 @@ export default function StatsLeaderboardTab() {
   const [battingSort, setBattingSort] = useState('Runs');
   const [bowlingSort, setBowlingSort] = useState('Wickets');
   
-  const battingFilters = ['Runs', 'Highest Score', 'Average', 'Strike Rate', '100s', '50s', 'Sixes', 'Fours', 'MVPs'];
+  const battingFilters = ['Runs', 'Highest Score', 'Average', 'Strike Rate', '100s', '50s', 'Fastest 50', 'Fastest 100', 'Sixes', 'Fours', 'MVPs'];
   const bowlingFilters = ['Wickets', 'Economy', 'Average', 'Maidens', 'MVPs'];
 
   const fetchLeaderboard = async (division = selectedDivision) => {
@@ -135,11 +135,13 @@ export default function StatsLeaderboardTab() {
                 Runs: <Text style={{ color: colors.text, fontWeight: '700' }}>{stats.runs}</Text> | HS: <Text style={{ color: colors.primary, fontWeight: '700' }}>{stats.highestScore || 0}</Text> | SR: {strikeRate}
               </Text>
               <Text style={[styles.subText, { color: colors.textMuted, fontSize: 10, marginTop: 2 }]}>
-                Avg: {average} | 100s: {stats.hundreds || 0} | 50s: {stats.fifties || 0} | 4s: {stats.fours} | 6s: {stats.sixes}
+                Avg: {average} | 100s: {stats.hundreds || 0} | 50s: {stats.fifties || 0}
+                {stats.fastestFifty ? ` | F50: ${stats.fastestFifty}b` : ''}
+                {stats.fastestHundred ? ` | F100: ${stats.fastestHundred}b` : ''}
               </Text>
             </View>
             <View style={styles.statsRight}>
-              <Text style={[styles.mainStat, battingSort === 'MVPs' ? { color: '#F59E0B' } : { color: colors.text }]}>
+              <Text style={[styles.mainStat, (battingSort === 'MVPs' || battingSort === 'Fastest 50' || battingSort === 'Fastest 100') ? { color: '#F59E0B' } : { color: colors.text }]}>
                 {battingSort === 'Average' ? average :
                  battingSort === 'Strike Rate' ? strikeRate :
                  battingSort === 'Highest Score' ? (stats.highestScore || 0) :
@@ -147,11 +149,17 @@ export default function StatsLeaderboardTab() {
                  battingSort === 'Fours' ? stats.fours :
                  battingSort === '50s' ? stats.fifties :
                  battingSort === '100s' ? stats.hundreds :
+                 battingSort === 'Fastest 50' ? (stats.fastestFifty ? `${stats.fastestFifty}b` : '—') :
+                 battingSort === 'Fastest 100' ? (stats.fastestHundred ? `${stats.fastestHundred}b` : '—') :
                  battingSort === 'MVPs' ? (item.mvps || 0) :
                  stats.runs}
               </Text>
               <Text style={[styles.statLabel, { color: colors.textMuted }]}>
-                {battingSort === 'Highest Score' ? 'High Score (HS)' : battingSort === 'Runs' ? 'Total Runs' : battingSort === 'MVPs' ? 'MVPs Won' : battingSort}
+                {battingSort === 'Highest Score' ? 'High Score (HS)' :
+                 battingSort === 'Runs' ? 'Total Runs' :
+                 battingSort === 'Fastest 50' ? 'Fastest 50 (Balls)' :
+                 battingSort === 'Fastest 100' ? 'Fastest 100 (Balls)' :
+                 battingSort === 'MVPs' ? 'MVPs Won' : battingSort}
               </Text>
             </View>
             <Text style={[styles.chevron, { color: colors.textMuted }]}>›</Text>
@@ -241,6 +249,18 @@ export default function StatsLeaderboardTab() {
           case 'Fours': return statsB.fours - statsA.fours;
           case '50s': return statsB.fifties - statsA.fifties;
           case '100s': return statsB.hundreds - statsA.hundreds;
+          case 'Fastest 50': {
+            const valA = statsA.fastestFifty && statsA.fastestFifty > 0 ? statsA.fastestFifty : 999999;
+            const valB = statsB.fastestFifty && statsB.fastestFifty > 0 ? statsB.fastestFifty : 999999;
+            if (valA !== valB) return valA - valB;
+            return (statsB.fifties || 0) - (statsA.fifties || 0);
+          }
+          case 'Fastest 100': {
+            const valA = statsA.fastestHundred && statsA.fastestHundred > 0 ? statsA.fastestHundred : 999999;
+            const valB = statsB.fastestHundred && statsB.fastestHundred > 0 ? statsB.fastestHundred : 999999;
+            if (valA !== valB) return valA - valB;
+            return (statsB.hundreds || 0) - (statsA.hundreds || 0);
+          }
           case 'MVPs': return (b.mvps || 0) - (a.mvps || 0) || ((statsB.runs || 0) - (statsA.runs || 0));
           default: return statsB.runs - statsA.runs;
         }
