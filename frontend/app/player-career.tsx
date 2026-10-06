@@ -36,6 +36,7 @@ export default function PlayerCareerScreen() {
   const [history, setHistory] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedFormat, setSelectedFormat] = useState<FormatFilter>('ALL');
+  const [milestonesCategory, setMilestonesCategory] = useState<'batting' | 'bowling'>('batting');
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -45,7 +46,14 @@ export default function PlayerCareerScreen() {
           getPlayerHistory(id),
         ]);
 
-        if (careerRes.success) setPlayerData(careerRes.data);
+        if (careerRes.success) {
+          setPlayerData(careerRes.data);
+          const batRuns = careerRes.data?.career?.batting?.runs || 0;
+          const bowlWkts = careerRes.data?.career?.bowling?.wickets || 0;
+          if (bowlWkts > 5 && batRuns < 20) {
+            setMilestonesCategory('bowling');
+          }
+        }
         if (historyRes.success) setHistory(historyRes.data);
       } catch (err) {
         console.error('Failed to load profile details:', err);
@@ -215,18 +223,26 @@ export default function PlayerCareerScreen() {
     };
   }, [playerData, filteredHistory, selectedFormat]);
 
-  // Achievement Badges derivation
-  const badges: AchievementBadge[] = useMemo(() => {
-    if (!playerData?.career) return [];
+  // Achievement Badges derivation - Separate 🏏 Batting and 🎳 Bowling milestones
+  const { battingBadges, bowlingBadges } = useMemo(() => {
+    if (!playerData?.career) return { battingBadges: [], bowlingBadges: [] };
     const c = playerData.career;
     const bat = c.batting || {};
     const bowl = c.bowling || {};
-    const fld = c.fielding || {};
 
     const outs = Math.max(0, (bat.matches || 0) - (bat.notOuts || 0));
+    const avg = outs > 0 ? bat.runs / outs : (bat.runs || 0);
     const sr = bat.balls > 0 ? (bat.runs / bat.balls) * 100 : 0;
 
-    return [
+    const bowlOvers = bowl.overs || 0;
+    const bowlRuns = bowl.runsConceded || 0;
+    const bowlEcon = bowlOvers > 0 ? bowlRuns / bowlOvers : 0;
+    const bowlWkts = bowl.wickets || 0;
+    const bowlBestW = bowl.bestBowling?.wickets || 0;
+    const bowlBestR = bowl.bestBowling?.runs || 0;
+    const ballsPerWkt = bowlWkts > 0 && bowlOvers > 0 ? (bowlOvers * 6) / bowlWkts : 999;
+
+    const batting: AchievementBadge[] = [
       {
         id: 'mvp_king',
         icon: '👑',
@@ -243,19 +259,19 @@ export default function PlayerCareerScreen() {
         desc: 'Scored a majestic 100 in an innings',
         unlocked: (bat.hundreds || 0) > 0,
         color: '#10B981',
-        progress: `${bat.hundreds || 0} Centuries`,
+        progress: `${bat.hundreds || 0} Hundreds`,
       },
       {
-        id: 'fifty_machine',
-        icon: '🎖️',
-        title: 'Half-Century Machine',
+        id: 'fifty_factory',
+        icon: '🏭',
+        title: 'Fifty Factory',
         desc: 'Scored 50+ runs in a match',
         unlocked: (bat.fifties || 0) > 0,
         color: '#38BDF8',
         progress: `${bat.fifties || 0} Fifties`,
       },
       {
-        id: 'fire_striker',
+        id: 'power_striker',
         icon: '⚡',
         title: 'Power Striker',
         desc: 'Career Strike Rate 150+ (min 15 balls)',
@@ -264,16 +280,7 @@ export default function PlayerCareerScreen() {
         progress: `SR: ${sr.toFixed(1)}`,
       },
       {
-        id: 'deadly_spell',
-        icon: '🎯',
-        title: 'Deadly Spell',
-        desc: 'Took 3 or more wickets in an innings',
-        unlocked: (bowl.bestBowling?.wickets || 0) >= 3,
-        color: '#8B5CF6',
-        progress: `BBI: ${bowl.bestBowling?.wickets || 0}/${bowl.bestBowling?.runs || 0}`,
-      },
-      {
-        id: 'sixer_king',
+        id: 'sixer_monarch',
         icon: '💥',
         title: 'Sixer Monarch',
         desc: 'Cracked 5 or more career sixes',
@@ -282,24 +289,146 @@ export default function PlayerCareerScreen() {
         progress: `${bat.sixes || 0} Sixes`,
       },
       {
-        id: 'iron_wall',
+        id: 'the_finisher',
         icon: '🛡️',
         title: 'The Finisher',
-        desc: 'Remained not-out 2 or more times',
+        desc: 'Remained not out 2 or more times',
         unlocked: (bat.notOuts || 0) >= 2,
         color: '#14B8A6',
         progress: `${bat.notOuts || 0} Not Outs`,
       },
       {
-        id: 'golden_gloves',
-        icon: '🧤',
-        title: 'Safe Hands',
-        desc: 'Completed 2+ catches or stumpings',
-        unlocked: ((fld.catches || 0) + (fld.stumpings || 0)) >= 2,
+        id: 'mr_consistent',
+        icon: '📈',
+        title: 'Mr. Consistent',
+        desc: 'Batting average of 35.0+ in career',
+        unlocked: avg >= 35 && (bat.matches || 0) >= 2,
+        color: '#6366F1',
+        progress: `Avg: ${avg.toFixed(1)}`,
+      },
+      {
+        id: 'boundary_beast',
+        icon: '🦁',
+        title: 'Boundary Beast',
+        desc: 'Smashed 15 or more career fours',
+        unlocked: (bat.fours || 0) >= 15,
         color: '#EAB308',
-        progress: `${(fld.catches || 0) + (fld.stumpings || 0)} Dismissals`,
+        progress: `${bat.fours || 0} Fours`,
+      },
+      {
+        id: 'run_machine',
+        icon: '🏃',
+        title: 'Run Machine',
+        desc: 'Scored 100 or more career runs',
+        unlocked: (bat.runs || 0) >= 100,
+        color: '#06B6D4',
+        progress: `${bat.runs || 0} Runs`,
+      },
+      {
+        id: 'explosive',
+        icon: '🧨',
+        title: 'Explosive',
+        desc: 'High score 30+ with 140+ strike rate',
+        unlocked: (bat.highestScore || 0) >= 30 && sr >= 140,
+        color: '#EF4444',
+        progress: `HS: ${bat.highestScore || 0}`,
       },
     ];
+
+    const bowling: AchievementBadge[] = [
+      {
+        id: 'hattrick_hero',
+        icon: '🎩',
+        title: 'Hat-trick Hero',
+        desc: 'Took 3 or more wickets in an innings',
+        unlocked: bowlBestW >= 3,
+        color: '#8B5CF6',
+        progress: `BBI: ${bowlBestW}/${bowlBestR}`,
+      },
+      {
+        id: 'five_star_bowler',
+        icon: '⭐',
+        title: 'Five-Star Bowler',
+        desc: 'Elite haul of 4+ wickets in an innings',
+        unlocked: bowlBestW >= 4 || bowlWkts >= 15,
+        color: '#F59E0B',
+        progress: `BBI: ${bowlBestW}/${bowlBestR}`,
+      },
+      {
+        id: 'wicket_king',
+        icon: '👑',
+        title: 'Wicket King',
+        desc: 'Scalped 10 or more career wickets',
+        unlocked: bowlWkts >= 10,
+        color: '#EC4899',
+        progress: `${bowlWkts} Wickets`,
+      },
+      {
+        id: 'strike_machine',
+        icon: '⚡',
+        title: 'Strike Machine',
+        desc: 'Takes a wicket every 18 balls or fewer',
+        unlocked: bowlWkts >= 3 && ballsPerWkt <= 18,
+        color: '#3B82F6',
+        progress: `${ballsPerWkt < 999 ? ballsPerWkt.toFixed(1) : 0} balls/wkt`,
+      },
+      {
+        id: 'economy_king',
+        icon: '🔒',
+        title: 'Economy King',
+        desc: 'Maintained economy under 7.5 (min 4 ov)',
+        unlocked: bowlOvers >= 4 && bowlEcon <= 7.5 && bowlEcon > 0,
+        color: '#10B981',
+        progress: `Econ: ${bowlEcon.toFixed(2)}`,
+      },
+      {
+        id: 'death_destroyer',
+        icon: '☠️',
+        title: 'Death Destroyer',
+        desc: 'Clinched 4+ career wickets with wins',
+        unlocked: bowlWkts >= 4 && (c.wins || 0) >= 1,
+        color: '#DC2626',
+        progress: `${bowlWkts} Wickets`,
+      },
+      {
+        id: 'dot_ball_king',
+        icon: '🛑',
+        title: 'Dot Ball King',
+        desc: 'Bowled 1+ maiden overs or tight spells',
+        unlocked: (bowl.maidens || 0) >= 1 || (bowlOvers >= 3 && bowlEcon <= 6.0 && bowlEcon > 0),
+        color: '#06B6D4',
+        progress: `${bowl.maidens || 0} Maidens`,
+      },
+      {
+        id: 'bowling_beast',
+        icon: '🦁',
+        title: 'Bowling Beast',
+        desc: 'Snared 5 or more career wickets',
+        unlocked: bowlWkts >= 5,
+        color: '#F97316',
+        progress: `${bowlWkts} Wickets`,
+      },
+      {
+        id: 'spell_master',
+        icon: '🎯',
+        title: 'Spell Master',
+        desc: 'Delivered spell of 3+ wkts under 30 runs',
+        unlocked: bowlBestW >= 3 && bowlBestR <= 30,
+        color: '#A855F7',
+        progress: `BBI: ${bowlBestW}/${bowlBestR}`,
+      },
+      {
+        id: 'yorker_king',
+        icon: '🚀',
+        title: 'Yorker King',
+        desc: 'Bowled 8 or more disciplined overs',
+        unlocked: bowlOvers >= 8 || (bowlWkts >= 4 && bowlOvers >= 4),
+        color: '#14B8A6',
+        progress: `${bowlOvers} Overs`,
+      },
+    ];
+
+    return { battingBadges: batting, bowlingBadges: bowling };
   }, [playerData]);
 
   if (isLoading) {
@@ -477,8 +606,49 @@ export default function PlayerCareerScreen() {
         <View style={styles.sectionHeaderRow}>
           <Text style={[styles.sectionHeading, { color: colors.text }]}>🏆 Career Milestones & Badges</Text>
           <Text style={[styles.sectionBadgeCount, { color: colors.primary, backgroundColor: colors.primary + '20' }]}>
-            {badges.filter((b) => b.unlocked).length}/{badges.length} Unlocked
+            {(milestonesCategory === 'batting' ? battingBadges : bowlingBadges).filter((b) => b.unlocked).length}/10 Unlocked
           </Text>
+        </View>
+
+        {/* Milestone Category Switcher: 🏏 Batting / 🎳 Bowling */}
+        <View style={styles.milestoneCategoryRow}>
+          <TouchableOpacity
+            style={[
+              styles.milestoneCategoryBtn,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+              milestonesCategory === 'batting' && { backgroundColor: colors.primary, borderColor: colors.primary }
+            ]}
+            onPress={() => setMilestonesCategory('batting')}
+          >
+            <Text
+              style={[
+                styles.milestoneCategoryBtnText,
+                { color: milestonesCategory === 'batting' ? '#fff' : colors.textMuted },
+                milestonesCategory === 'batting' && { fontWeight: '800' }
+              ]}
+            >
+              🏏 Batting ({battingBadges.filter((b) => b.unlocked).length}/{battingBadges.length})
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.milestoneCategoryBtn,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+              milestonesCategory === 'bowling' && { backgroundColor: colors.primary, borderColor: colors.primary }
+            ]}
+            onPress={() => setMilestonesCategory('bowling')}
+          >
+            <Text
+              style={[
+                styles.milestoneCategoryBtnText,
+                { color: milestonesCategory === 'bowling' ? '#fff' : colors.textMuted },
+                milestonesCategory === 'bowling' && { fontWeight: '800' }
+              ]}
+            >
+              🎳 Bowling ({bowlingBadges.filter((b) => b.unlocked).length}/{bowlingBadges.length})
+            </Text>
+          </TouchableOpacity>
         </View>
 
         <ScrollView
@@ -486,7 +656,7 @@ export default function PlayerCareerScreen() {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.badgesScroll}
         >
-          {badges.map((badge) => (
+          {(milestonesCategory === 'batting' ? battingBadges : bowlingBadges).map((badge) => (
             <View
               key={badge.id}
               style={[
@@ -982,6 +1152,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 8,
+  },
+  milestoneCategoryRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 12,
+  },
+  milestoneCategoryBtn: {
+    flex: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  milestoneCategoryBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
   },
   badgesScroll: {
     paddingVertical: 4,
