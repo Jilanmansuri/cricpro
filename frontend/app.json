@@ -21,6 +21,15 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#000000"
       },
+      "splash": {
+        "image": "./assets/splash.png",
+        "resizeMode": "contain",
+        "backgroundColor": "#121212",
+        "dark": {
+          "image": "./assets/splash.png",
+          "backgroundColor": "#121212"
+        }
+      },
       "package": "com.jilan2410.cricstatspro"
     },
     "web": {
@@ -33,7 +42,18 @@
       "expo-image",
       "expo-secure-store",
       "expo-sharing",
-      "expo-splash-screen",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#121212",
+          "image": "./assets/splash.png",
+          "dark": {
+            "image": "./assets/splash.png",
+            "backgroundColor": "#121212"
+          },
+          "imageWidth": 200
+        }
+      ],
       "expo-status-bar",
       "expo-web-browser"
     ],

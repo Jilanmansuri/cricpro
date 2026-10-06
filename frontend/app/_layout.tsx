@@ -7,6 +7,9 @@ import { ThemeProvider, useTheme } from '../components/Theme';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { prewarmBackend } from '../services/api';
 import * as Updates from 'expo-updates';
+import * as SplashScreen from 'expo-splash-screen';
+
+SplashScreen.preventAutoHideAsync().catch(() => {});
 
 const NavigationLayout = () => {
   const { isAuthenticated, isLoading, restoreSession } = useAuthStore();
@@ -56,6 +59,9 @@ const NavigationLayout = () => {
   useEffect(() => {
     // Wait until root navigation state is mounted AND both settings & session are fully loaded
     if (!rootNavigationState?.key || isLoading || !isSettingsLoaded) return;
+
+    // Smoothly hide native CricPro splash screen once ready
+    SplashScreen.hideAsync().catch(() => {});
 
     const inAuthGroup = segments[0] === '(auth)';
     const inDrawerGroup = segments[0] === '(drawer)';
