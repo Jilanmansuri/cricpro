@@ -7,28 +7,97 @@ import api from '../../../services/api';
 import { useFocusEffect, useRouter } from 'expo-router';
 import TeamLogo from '../../../components/TeamLogo';
 
+const KNOWN_FULL_NAMES: Record<string, string> = {
+  'a sharma': 'Abhishek Sharma',
+  's samson': 'Sanju Samson',
+  's gill': 'Shubman Gill',
+  's yadav': 'Suryakumar Yadav',
+  'r gaikwad': 'Ruturaj Gaikwad',
+  'h pandya': 'Hardik Pandya',
+  'a patel': 'Axar Patel',
+  'arshdeep': 'Arshdeep Singh',
+  'j bumrah': 'Jasprit Bumrah',
+  'm siraj': 'Mohammed Siraj',
+  'r pant': 'Rishabh Pant',
+  'v kohli': 'Virat Kohli',
+  'rohit': 'Rohit Sharma',
+  'r sharma': 'Rohit Sharma',
+  'y jaiswal': 'Yashasvi Jaiswal',
+  's dube': 'Shivam Dube',
+  'k rahul': 'KL Rahul',
+  'kl rahul': 'KL Rahul',
+  'r jadeja': 'Ravindra Jadeja',
+  'k pandya': 'Krunal Pandya',
+  'r ashwin': 'Ravichandran Ashwin',
+  'kuldeep': 'Kuldeep Yadav',
+  'y chahal': 'Yuzvendra Chahal',
+  'm shami': 'Mohammed Shami',
+  'b kumar': 'Bhuvneshwar Kumar',
+  'd chahar': 'Deepak Chahar',
+  'r rinku': 'Rinku Singh',
+  'rinku': 'Rinku Singh',
+  's iyer': 'Shreyas Iyer',
+  'v iyer': 'Venkatesh Iyer',
+  'w sundar': 'Washington Sundar',
+  'q de kock': 'Quinton de Kock',
+  'h klaasen': 'Heinrich Klaasen',
+  'd miller': 'David Miller',
+  'k rabada': 'Kagiso Rabada',
+  'a nortje': 'Anrich Nortje',
+  't stubbs': 'Tristan Stubbs',
+  'm jansen': 'Marco Jansen',
+  'g coetzee': 'Gerald Coetzee',
+  't bavuma': 'Temba Bavuma',
+  'a markram': 'Aiden Markram',
+  'k maharaj': 'Keshav Maharaj',
+  'l ngidi': 'Lungi Ngidi',
+};
+
+function getDisplayPlayerName(player: any): string {
+  if (!player) return 'Player';
+  if (player.fullName && typeof player.fullName === 'string' && player.fullName.trim().length > 0) {
+    return player.fullName;
+  }
+  const rawName = player.name || '';
+  const key = rawName.trim().toLowerCase();
+  if (KNOWN_FULL_NAMES[key]) return KNOWN_FULL_NAMES[key];
+  for (const [k, v] of Object.entries(KNOWN_FULL_NAMES)) {
+    if (key.includes(k) || k.includes(key)) return v;
+  }
+  return rawName;
+}
+
 export default function StatsLeaderboardTab() {
   const router = useRouter();
   const { colors, isDarkMode } = useTheme();
-  const [activeTab, setActiveTab] = useState<'batting' | 'bowling'>('batting');
+  const [activeTab, setActiveTab] = useState<'batting' | 'bowling' | 'records'>('batting');
   const [selectedDivision, setSelectedDivision] = useState<'all' | 'international' | 'ipl'>('all');
   const [isLoading, setIsLoading] = useState(true);
   const [leaderboard, setLeaderboard] = useState<{ topBatsmen: any[]; topBowlers: any[]; topMvps?: any[] }>({ topBatsmen: [], topBowlers: [], topMvps: [] });
+  const [records, setRecords] = useState<{ batting: any[]; bowling: any[]; team: any[] }>({ batting: [], bowling: [], team: [] });
+  const [recordsCategory, setRecordsCategory] = useState<'all' | 'batting' | 'bowling' | 'team'>('all');
+
   const [battingSort, setBattingSort] = useState('Runs');
   const [bowlingSort, setBowlingSort] = useState('Wickets');
   
   const battingFilters = ['Runs', 'Highest Score', 'Average', 'Strike Rate', '100s', '50s', 'Fastest 50', 'Fastest 100', 'Sixes', 'Fours', 'MVPs'];
   const bowlingFilters = ['Wickets', 'Economy', 'Average', 'Maidens', 'MVPs'];
 
-  const fetchLeaderboard = async (division = selectedDivision) => {
+  const fetchAllStats = async (division = selectedDivision) => {
     setIsLoading(true);
     try {
-      const res = await api.get(`/players/leaderboard?division=${division}`);
-      if (res.data.success) {
-        setLeaderboard(res.data.data);
+      const [lbRes, recRes] = await Promise.allSettled([
+        api.get(`/players/leaderboard?division=${division}`),
+        api.get(`/players/records?division=${division}`)
+      ]);
+      if (lbRes.status === 'fulfilled' && lbRes.value?.data?.success) {
+        setLeaderboard(lbRes.value.data.data);
+      }
+      if (recRes.status === 'fulfilled' && recRes.value?.data?.success) {
+        setRecords(recRes.value.data.data);
       }
     } catch (err) {
-      console.error('Error fetching leaderboard:', err);
+      console.error('Error fetching stats and records:', err);
     } finally {
       setIsLoading(false);
     }
@@ -36,7 +105,7 @@ export default function StatsLeaderboardTab() {
 
   useFocusEffect(
     useCallback(() => {
-      fetchLeaderboard(selectedDivision);
+      fetchAllStats(selectedDivision);
     }, [selectedDivision])
   );
 
@@ -86,11 +155,12 @@ export default function StatsLeaderboardTab() {
 
   const handlePlayerPress = (item: any) => {
     const pId =
-      item.playerProfileId ||
-      item.playerId?._id ||
-      (typeof item.playerId === 'string' ? item.playerId : null) ||
-      (item.playerId && typeof item.playerId === 'object' && item.playerId.toString && item.playerId.toString() !== '[object Object]' ? item.playerId.toString() : null) ||
-      item._id;
+      item?.playerProfileId ||
+      item?.playerId?._id ||
+      item?._id ||
+      item?.id ||
+      (typeof item?.playerId === 'string' ? item.playerId : null) ||
+      (item?.playerId && typeof item.playerId === 'object' && item.playerId.toString && item.playerId.toString() !== '[object Object]' ? item.playerId.toString() : null);
     if (pId) {
       router.push({ pathname: '/player-career', params: { id: pId.toString() } });
     }
@@ -103,23 +173,24 @@ export default function StatsLeaderboardTab() {
     const strikeRate = stats.balls > 0 ? ((stats.runs / stats.balls) * 100).toFixed(1) : '0.0';
     const outs = stats.matches - (stats.notOuts || 0);
     const average = outs > 0 ? (stats.runs / outs).toFixed(1) : stats.runs.toString();
+    const displayName = getDisplayPlayerName(player);
 
     return (
       <TouchableOpacity activeOpacity={0.7} onPress={() => handlePlayerPress(item)}>
         <Card style={styles.card}>
           <View style={styles.row}>
             <Text style={[styles.rank, { color: colors.primary }]}>#{index + 1}</Text>
-            <Avatar name={player.name} size={42} style={styles.avatar} />
+            <Avatar name={displayName} size={42} style={styles.avatar} />
             <View style={styles.info}>
               <View style={styles.nameAndTeamRow}>
-                <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>{player.name}</Text>
+                <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>{displayName}</Text>
                 {team ? (
                   <View style={[styles.teamBadge, { backgroundColor: colors.surfaceLighter || 'rgba(255,255,255,0.06)', borderColor: colors.border }]}>
                     <TeamLogo
                       shortName={team.shortName}
                       teamName={team.name}
                       teamId={team.teamId}
-                      playerName={player.name}
+                      playerName={displayName}
                       country={player.country}
                       logoUrl={team.logo}
                       fallbackEmoji={team.flag}
@@ -175,23 +246,24 @@ export default function StatsLeaderboardTab() {
     const team = resolveDisplayTeam(player, item.team, selectedDivision);
     const economy = stats.overs > 0 ? (stats.runsConceded / stats.overs).toFixed(2) : '0.00';
     const average = stats.wickets > 0 ? (stats.runsConceded / stats.wickets).toFixed(1) : '0.0';
+    const displayName = getDisplayPlayerName(player);
     
     return (
       <TouchableOpacity activeOpacity={0.7} onPress={() => handlePlayerPress(item)}>
         <Card style={styles.card}>
           <View style={styles.row}>
             <Text style={[styles.rank, { color: colors.primary }]}>#{index + 1}</Text>
-            <Avatar name={player.name} size={42} style={styles.avatar} />
+            <Avatar name={displayName} size={42} style={styles.avatar} />
             <View style={styles.info}>
               <View style={styles.nameAndTeamRow}>
-                <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>{player.name}</Text>
+                <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>{displayName}</Text>
                 {team ? (
                   <View style={[styles.teamBadge, { backgroundColor: colors.surfaceLighter || 'rgba(255,255,255,0.06)', borderColor: colors.border }]}>
                     <TeamLogo
                       shortName={team.shortName}
                       teamName={team.name}
                       teamId={team.teamId}
-                      playerName={player.name}
+                      playerName={displayName}
                       country={player.country}
                       logoUrl={team.logo}
                       fallbackEmoji={team.flag}
@@ -223,6 +295,137 @@ export default function StatsLeaderboardTab() {
     );
   };
 
+  const renderRecordCard = ({ item }: { item: any }) => {
+    const isPlayerRecord = !!item.player;
+    const displayName = isPlayerRecord ? getDisplayPlayerName(item.player) : null;
+    const formattedDate = item.date
+      ? new Date(item.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+      : null;
+
+    return (
+      <TouchableOpacity
+        activeOpacity={isPlayerRecord ? 0.7 : 1}
+        onPress={() => isPlayerRecord && handlePlayerPress(item.player)}
+        disabled={!isPlayerRecord}
+      >
+        <Card
+          style={[
+            styles.recordCard,
+            {
+              borderColor: isDarkMode ? 'rgba(245, 158, 11, 0.28)' : 'rgba(245, 158, 11, 0.4)',
+              backgroundColor: isDarkMode ? '#141824' : '#FFFFFF',
+            },
+          ]}
+        >
+          {/* Record Header: Badge & Date */}
+          <View style={styles.recordHeaderRow}>
+            <View style={styles.recordTagContainer}>
+              <Text style={styles.recordBadgeText}>{item.badge || '🏆 RECORD'}</Text>
+            </View>
+            <Text style={[styles.recordDateText, { color: colors.textMuted }]}>
+              {formattedDate ? `📅 ${formattedDate}` : '⭐ All-Time Record'}
+            </Text>
+          </View>
+
+          {/* Record Title */}
+          <Text style={[styles.recordTitle, { color: colors.text }]}>{item.title}</Text>
+
+          {/* Hero Stat Box */}
+          <View
+            style={[
+              styles.recordStatBox,
+              {
+                backgroundColor: isDarkMode ? 'rgba(245, 158, 11, 0.08)' : 'rgba(245, 158, 11, 0.1)',
+                borderColor: 'rgba(245, 158, 11, 0.25)',
+              },
+            ]}
+          >
+            <Text style={styles.recordHeroValue}>{item.statValue}</Text>
+            <Text style={[styles.recordHeroLabel, { color: colors.textMuted }]}>{item.statLabel}</Text>
+          </View>
+
+          {/* Record Holder Row */}
+          <View style={styles.recordHolderRow}>
+            {isPlayerRecord && (
+              <Avatar name={displayName || item.player.name} size={40} style={{ marginRight: 10 }} />
+            )}
+
+            <View style={{ flex: 1 }}>
+              <View style={styles.recordHolderNameRow}>
+                {isPlayerRecord && (
+                  <Text style={[styles.recordHolderName, { color: colors.text }]} numberOfLines={1}>
+                    {displayName}
+                  </Text>
+                )}
+
+                {item.team ? (
+                  <View
+                    style={[
+                      styles.teamBadge,
+                      {
+                        backgroundColor: colors.surfaceLighter || 'rgba(255,255,255,0.06)',
+                        borderColor: colors.border,
+                      },
+                    ]}
+                  >
+                    <TeamLogo
+                      shortName={item.team.shortName}
+                      teamName={item.team.name}
+                      teamId={item.team.teamId}
+                      playerName={displayName || ''}
+                      logoUrl={item.team.logo}
+                      fallbackEmoji={item.team.flag}
+                      size={16}
+                    />
+                    <Text style={[styles.teamBadgeText, { color: item.team.color || colors.text }]}>
+                      {item.team.shortName || item.team.name}
+                    </Text>
+                  </View>
+                ) : null}
+
+                {item.opponent ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: colors.textMuted }}>vs</Text>
+                    <View
+                      style={[
+                        styles.teamBadge,
+                        {
+                          backgroundColor: colors.surfaceLighter || 'rgba(255,255,255,0.06)',
+                          borderColor: colors.border,
+                        },
+                      ]}
+                    >
+                      <TeamLogo
+                        shortName={item.opponent.shortName}
+                        teamName={item.opponent.name}
+                        teamId={item.opponent.teamId}
+                        logoUrl={item.opponent.logo}
+                        fallbackEmoji={item.opponent.flag}
+                        size={16}
+                      />
+                      <Text style={[styles.teamBadgeText, { color: item.opponent.color || colors.text }]}>
+                        {item.opponent.shortName || item.opponent.name}
+                      </Text>
+                    </View>
+                  </View>
+                ) : null}
+              </View>
+
+              {item.details ? (
+                <Text style={[styles.recordDetailsText, { color: colors.textMuted }]} numberOfLines={2}>
+                  {item.details}
+                </Text>
+              ) : null}
+            </View>
+
+            {isPlayerRecord && (
+              <Text style={[styles.chevron, { color: colors.textMuted }]}>›</Text>
+            )}
+          </View>
+        </Card>
+      </TouchableOpacity>
+    );
+  };
 
   const getSortedData = () => {
     if (activeTab === 'batting') {
@@ -289,6 +492,17 @@ export default function StatsLeaderboardTab() {
     }
   };
 
+  const getRecordsData = () => {
+    if (recordsCategory === 'batting') return records.batting || [];
+    if (recordsCategory === 'bowling') return records.bowling || [];
+    if (recordsCategory === 'team') return records.team || [];
+    return [
+      ...(records.batting || []),
+      ...(records.bowling || []),
+      ...(records.team || []),
+    ];
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header controls outside FlatList so horizontal filter scroll never resets on click */}
@@ -332,7 +546,7 @@ export default function StatsLeaderboardTab() {
             </View>
           </View>
 
-          {/* Tab Switcher */}
+          {/* 3-Tab Switcher */}
           <View style={styles.tabSwitcher}>
             <TouchableOpacity 
               style={[
@@ -342,7 +556,7 @@ export default function StatsLeaderboardTab() {
               ]}
               onPress={() => setActiveTab('batting')}
             >
-              <Text style={[styles.tabBtnText, { color: activeTab === 'batting' ? '#fff' : colors.text }]}>🏏 Top Batsmen</Text>
+              <Text style={[styles.tabBtnText, { color: activeTab === 'batting' ? '#fff' : colors.text }]}>🏏 Batsmen</Text>
             </TouchableOpacity>
             <TouchableOpacity 
               style={[
@@ -352,7 +566,17 @@ export default function StatsLeaderboardTab() {
               ]}
               onPress={() => setActiveTab('bowling')}
             >
-              <Text style={[styles.tabBtnText, { color: activeTab === 'bowling' ? '#fff' : colors.text }]}>🎯 Top Bowlers</Text>
+              <Text style={[styles.tabBtnText, { color: activeTab === 'bowling' ? '#fff' : colors.text }]}>🎯 Bowlers</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[
+                styles.tabBtn,
+                { backgroundColor: colors.surface, borderColor: colors.border },
+                activeTab === 'records' && { backgroundColor: '#F59E0B', borderColor: '#F59E0B' }
+              ]}
+              onPress={() => setActiveTab('records')}
+            >
+              <Text style={[styles.tabBtnText, { color: activeTab === 'records' ? '#000' : colors.text, fontWeight: activeTab === 'records' ? '900' : '700' }]}>🏆 Records</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -360,47 +584,78 @@ export default function StatsLeaderboardTab() {
         {/* Filter Pills */}
         <View style={styles.filtersContainer}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filtersScroll}>
-            {(activeTab === 'batting' ? battingFilters : bowlingFilters).map(filter => (
-              <TouchableOpacity 
-                key={filter} 
-                style={[
-                  styles.filterPill, 
-                  { backgroundColor: colors.surface, borderColor: colors.border },
-                  (activeTab === 'batting' ? battingSort : bowlingSort) === filter && { backgroundColor: colors.primary, borderColor: colors.primary }
-                ]}
-                onPress={() => activeTab === 'batting' ? setBattingSort(filter) : setBowlingSort(filter)}
-              >
-                <Text style={[
-                  styles.filterText, 
-                  { color: colors.textMuted },
-                  (activeTab === 'batting' ? battingSort : bowlingSort) === filter && { color: '#fff', fontWeight: 'bold' }
-                ]}>
-                  {filter}
-                </Text>
-              </TouchableOpacity>
-            ))}
+            {activeTab === 'records' ? (
+              [
+                { key: 'all', label: 'All Records' },
+                { key: 'batting', label: '🏏 Batting' },
+                { key: 'bowling', label: '🎯 Bowling' },
+                { key: 'team', label: '🏰 Team & Match' },
+              ].map(cat => (
+                <TouchableOpacity
+                  key={cat.key}
+                  style={[
+                    styles.filterPill,
+                    { backgroundColor: colors.surface, borderColor: colors.border },
+                    recordsCategory === cat.key && { backgroundColor: '#F59E0B', borderColor: '#F59E0B' }
+                  ]}
+                  onPress={() => setRecordsCategory(cat.key as any)}
+                >
+                  <Text
+                    style={[
+                      styles.filterText,
+                      { color: colors.textMuted },
+                      recordsCategory === cat.key && { color: '#000', fontWeight: '800' }
+                    ]}
+                  >
+                    {cat.label}
+                  </Text>
+                </TouchableOpacity>
+              ))
+            ) : (
+              (activeTab === 'batting' ? battingFilters : bowlingFilters).map(filter => (
+                <TouchableOpacity 
+                  key={filter} 
+                  style={[
+                    styles.filterPill, 
+                    { backgroundColor: colors.surface, borderColor: colors.border },
+                    (activeTab === 'batting' ? battingSort : bowlingSort) === filter && { backgroundColor: colors.primary, borderColor: colors.primary }
+                  ]}
+                  onPress={() => activeTab === 'batting' ? setBattingSort(filter) : setBowlingSort(filter)}
+                >
+                  <Text style={[
+                    styles.filterText, 
+                    { color: colors.textMuted },
+                    (activeTab === 'batting' ? battingSort : bowlingSort) === filter && { color: '#fff', fontWeight: 'bold' }
+                  ]}>
+                    {filter}
+                  </Text>
+                </TouchableOpacity>
+              ))
+            )}
           </ScrollView>
         </View>
       </View>
 
       <FlatList
-        data={isLoading ? [] : getSortedData()}
-        keyExtractor={(item: any, idx: number) => (item._id ? `${item._id}-${idx}` : (item.playerId?._id ? `${item.playerId._id}-${idx}` : String(idx)))}
+        data={isLoading ? [] : (activeTab === 'records' ? getRecordsData() : getSortedData())}
+        keyExtractor={(item: any, idx: number) => (item.id ? `${item.id}-${idx}` : (item._id ? `${item._id}-${idx}` : (item.playerId?._id ? `${item.playerId._id}-${idx}` : String(idx))))}
         contentContainerStyle={styles.list}
-        renderItem={activeTab === 'batting' ? renderBattingItem : renderBowlingItem}
+        renderItem={activeTab === 'records' ? renderRecordCard : (activeTab === 'batting' ? renderBattingItem : renderBowlingItem)}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
           isLoading ? (
             <View style={styles.loader}>
-              <ActivityIndicator size="large" color={colors.primary} />
+              <ActivityIndicator size="large" color={activeTab === 'records' ? '#F59E0B' : colors.primary} />
               <Text style={{ color: colors.textMuted, marginTop: 12, fontSize: 13, fontWeight: '600' }}>
-                Loading stats...
+                {activeTab === 'records' ? 'Loading all-time cricket records...' : 'Loading stats...'}
               </Text>
             </View>
           ) : (
             <View style={styles.empty}>
               <Text style={{ color: colors.textMuted, fontSize: 14 }}>
-                No {activeTab} stats recorded yet.
+                {activeTab === 'records'
+                  ? 'No records established yet in this division.'
+                  : `No ${activeTab} stats recorded yet.`}
               </Text>
             </View>
           )
@@ -455,30 +710,30 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 8,
+    paddingVertical: 7,
     borderRadius: 8,
     borderWidth: 1,
   },
   divisionBtnText: {
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   tabSwitcher: {
     flexDirection: 'row',
-    paddingVertical: 6,
-    paddingHorizontal: 0,
-    gap: 10,
+    marginTop: 4,
+    marginBottom: 4,
+    gap: 8,
   },
   tabBtn: {
     flex: 1,
-    paddingVertical: 10,
+    paddingVertical: 9,
     alignItems: 'center',
     borderRadius: 10,
     borderWidth: 1,
   },
   tabBtnText: {
     fontWeight: '700',
-    fontSize: 14,
+    fontSize: 13,
   },
   filtersContainer: {
     paddingVertical: 6,
@@ -547,25 +802,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     gap: 3,
   },
-  mvpMiniBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 1.5,
-    borderRadius: 6,
-    borderWidth: 1,
-  },
-  mvpMiniBadgeText: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#F59E0B',
-  },
-  teamLogoImg: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-  },
-  teamFlagEmoji: {
-    fontSize: 12,
-  },
   teamBadgeText: {
     fontSize: 10,
     fontWeight: '800',
@@ -596,5 +832,81 @@ const styles = StyleSheet.create({
   empty: {
     alignItems: 'center',
     paddingVertical: 60,
+  },
+  // Records Specific Styles
+  recordCard: {
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1.2,
+  },
+  recordHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  recordTagContainer: {
+    backgroundColor: 'rgba(245, 158, 11, 0.16)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  recordBadgeText: {
+    color: '#F59E0B',
+    fontSize: 10.5,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
+  recordDateText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  recordTitle: {
+    fontSize: 16,
+    fontWeight: '900',
+    letterSpacing: 0.2,
+    marginBottom: 10,
+  },
+  recordStatBox: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginBottom: 12,
+  },
+  recordHeroValue: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#F59E0B',
+    letterSpacing: 0.3,
+  },
+  recordHeroLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
+  recordHolderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  recordHolderNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flexWrap: 'wrap',
+    marginBottom: 4,
+  },
+  recordHolderName: {
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  recordDetailsText: {
+    fontSize: 11.5,
+    fontWeight: '500',
+    lineHeight: 16,
   },
 });

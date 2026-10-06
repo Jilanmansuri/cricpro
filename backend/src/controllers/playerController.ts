@@ -676,3 +676,701 @@ export const getLeaderboard = async (req: Request, res: Response): Promise<void>
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+export const getCricketRecords = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const division = ((req.query.division as string) || 'all').toLowerCase();
+    const userId = (req as any).user?._id;
+
+    const { Team } = await import('../models/Team');
+    const { PlayerMatchStats } = await import('../models/PlayerMatchStats');
+    const { Player } = await import('../models/Player');
+    const { CareerStats } = await import('../models/CareerStats');
+    const { Match } = await import('../models/Match');
+
+    // Load Teams
+    const userTeamFilter: any = userId ? { createdBy: userId } : {};
+    const allTeams = await Team.find(userTeamFilter).lean();
+    const teamMap = new Map(allTeams.map(t => [t._id.toString(), t]));
+    const teamByCodeMap = new Map<string, any>(allTeams.filter(t => !!t.teamId).map(t => [t.teamId as string, t]));
+    const playerToTeamMap = new Map<string, any>();
+
+    for (const t of allTeams) {
+      if (t.players && Array.isArray(t.players)) {
+        for (const p of t.players) {
+          if (!playerToTeamMap.has(p.toString())) {
+            playerToTeamMap.set(p.toString(), formatTeamInfo(t));
+          }
+        }
+      }
+    }
+
+    // Load Players
+    const userPlayerFilter: any = userId ? { createdBy: userId } : {};
+    const userPlayers = await Player.find(userPlayerFilter).select('_id name fullName country nationalTeamId iplTeamId').lean();
+    const userPlayerMap = new Map(userPlayers.map(p => [p._id.toString(), p]));
+    const userPlayerIds = userPlayers.map(p => p._id);
+
+    // Division filter on teams
+    let matchingTeamIds: any[] = [];
+    if (division === 'international') {
+      matchingTeamIds = allTeams.filter(t => t.teamId === 'INT_IND' || (t.name && /^india$/i.test(t.name))).map(t => t._id);
+    } else if (division === 'ipl') {
+      matchingTeamIds = allTeams.filter(t => (t.league && /^IPL$/i.test(t.league)) || t.teamType === 'franchise' || (t.teamId && /^IPL_/i.test(t.teamId))).map(t => t._id);
+    } else {
+      matchingTeamIds = allTeams.map(t => t._id);
+    }
+
+    const matchStatsFilter: any = {};
+    if (userId && userPlayerIds.length > 0) {
+      matchStatsFilter.playerId = { $in: userPlayerIds };
+    }
+    if (division !== 'all' && matchingTeamIds.length > 0) {
+      matchStatsFilter.teamId = { $in: matchingTeamIds };
+    }
+
+    const formatPlayerDisplay = (pDoc: any, fallbackName?: string) => {
+      const name = pDoc?.name || fallbackName || 'Player';
+      const fullName = pDoc?.fullName || name;
+      return {
+        _id: pDoc?._id || null,
+        name,
+        fullName
+      };
+    };
+
+    const resolveMatchOpponent = (matchDoc: any, playerTeamId: any) => {
+      if (!matchDoc) return null;
+      const teamAId = matchDoc.teamA?._id?.toString() || matchDoc.teamA?.toString();
+      const teamBId = matchDoc.teamB?._id?.toString() || matchDoc.teamB?.toString();
+      const pTeamIdStr = playerTeamId?.toString();
+
+      const oppId = pTeamIdStr === teamAId ? teamBId : teamAId;
+      if (oppId && teamMap.has(oppId)) {
+        return formatTeamInfo(teamMap.get(oppId));
+      }
+      return null;
+    };
+
+    // ==========================================
+    // 1. INDIVIDUAL BATTING RECORDS (INNINGS)
+    // ==========================================
+    const battingRecords: any[] = [];
+
+    // 1.1 Highest Individual Score
+    const highestScoreDoc = await PlayerMatchStats.findOne({
+      ...matchStatsFilter,
+      'batting.runs': { $gt: 0 }
+    })
+      .sort({ 'batting.runs': -1, 'batting.balls': 1 })
+      .populate('matchId')
+      .populate('playerId')
+      .lean();
+
+    if (highestScoreDoc) {
+      const pDoc = userPlayerMap.get(highestScoreDoc.playerId?._id?.toString()) || highestScoreDoc.playerId;
+      const teamInfo = resolvePlayerTeam(pDoc, division, highestScoreDoc.teamId, teamMap, teamByCodeMap, playerToTeamMap);
+      const oppInfo = resolveMatchOpponent(highestScoreDoc.matchId, highestScoreDoc.teamId);
+      const isNotOut = ['not_out', 'not out'].includes((highestScoreDoc.batting?.outStatus || '').toLowerCase());
+      const bRuns = highestScoreDoc.batting?.runs || 0;
+      const bBalls = highestScoreDoc.batting?.balls || 0;
+      const b4s = highestScoreDoc.batting?.fours || 0;
+      const b6s = highestScoreDoc.batting?.sixes || 0;
+      const bSR = bBalls > 0 ? ((bRuns / bBalls) * 100).toFixed(1) : '0.0';
+
+      battingRecords.push({
+        id: 'highest_score',
+        title: 'Highest Individual Score',
+        category: 'Inning Knockout',
+        badge: '👑 ALL-TIME BEST',
+        statValue: `${bRuns}${isNotOut ? '*' : ''} Runs`,
+        statLabel: `${bBalls} Balls Faced`,
+        player: formatPlayerDisplay(pDoc, highestScoreDoc.playerName),
+        team: teamInfo,
+        opponent: oppInfo,
+        details: `${b4s} Fours · ${b6s} Sixes · SR ${bSR}`,
+        date: (highestScoreDoc.matchId as any)?.date || highestScoreDoc.createdAt
+      });
+    }
+
+    // 1.2 Fastest 50
+    const fastestFiftyDoc = await PlayerMatchStats.findOne({
+      ...matchStatsFilter,
+      'batting.fastestFiftyBalls': { $gt: 0 }
+    })
+      .sort({ 'batting.fastestFiftyBalls': 1, 'batting.runs': -1 })
+      .populate('matchId')
+      .populate('playerId')
+      .lean();
+
+    if (fastestFiftyDoc) {
+      const pDoc = userPlayerMap.get(fastestFiftyDoc.playerId?._id?.toString()) || fastestFiftyDoc.playerId;
+      const teamInfo = resolvePlayerTeam(pDoc, division, fastestFiftyDoc.teamId, teamMap, teamByCodeMap, playerToTeamMap);
+      const oppInfo = resolveMatchOpponent(fastestFiftyDoc.matchId, fastestFiftyDoc.teamId);
+      const bBalls = fastestFiftyDoc.batting?.fastestFiftyBalls;
+      const totalRuns = fastestFiftyDoc.batting?.runs || 50;
+
+      battingRecords.push({
+        id: 'fastest_fifty',
+        title: 'Fastest Half-Century (50)',
+        category: 'Milestone Blitz',
+        badge: '⚡ LIGHTNING',
+        statValue: `${bBalls} Balls`,
+        statLabel: 'Reached 50 in',
+        player: formatPlayerDisplay(pDoc, fastestFiftyDoc.playerName),
+        team: teamInfo,
+        opponent: oppInfo,
+        details: `${totalRuns} runs in match knock`,
+        date: (fastestFiftyDoc.matchId as any)?.date || fastestFiftyDoc.createdAt
+      });
+    }
+
+    // 1.3 Fastest 100
+    const fastestHundredDoc = await PlayerMatchStats.findOne({
+      ...matchStatsFilter,
+      'batting.fastestHundredBalls': { $gt: 0 }
+    })
+      .sort({ 'batting.fastestHundredBalls': 1, 'batting.runs': -1 })
+      .populate('matchId')
+      .populate('playerId')
+      .lean();
+
+    if (fastestHundredDoc) {
+      const pDoc = userPlayerMap.get(fastestHundredDoc.playerId?._id?.toString()) || fastestHundredDoc.playerId;
+      const teamInfo = resolvePlayerTeam(pDoc, division, fastestHundredDoc.teamId, teamMap, teamByCodeMap, playerToTeamMap);
+      const oppInfo = resolveMatchOpponent(fastestHundredDoc.matchId, fastestHundredDoc.teamId);
+      const bBalls = fastestHundredDoc.batting?.fastestHundredBalls;
+      const totalRuns = fastestHundredDoc.batting?.runs || 100;
+
+      battingRecords.push({
+        id: 'fastest_hundred',
+        title: 'Fastest Century (100)',
+        category: 'Milestone Blitz',
+        badge: '🚀 CENTURY BLITZ',
+        statValue: `${bBalls} Balls`,
+        statLabel: 'Reached 100 in',
+        player: formatPlayerDisplay(pDoc, fastestHundredDoc.playerName),
+        team: teamInfo,
+        opponent: oppInfo,
+        details: `${totalRuns} total runs in knock`,
+        date: (fastestHundredDoc.matchId as any)?.date || fastestHundredDoc.createdAt
+      });
+    }
+
+    // 1.4 Most Sixes in an Inning
+    const mostSixesDoc = await PlayerMatchStats.findOne({
+      ...matchStatsFilter,
+      'batting.sixes': { $gt: 0 }
+    })
+      .sort({ 'batting.sixes': -1, 'batting.runs': -1 })
+      .populate('matchId')
+      .populate('playerId')
+      .lean();
+
+    if (mostSixesDoc) {
+      const pDoc = userPlayerMap.get(mostSixesDoc.playerId?._id?.toString()) || mostSixesDoc.playerId;
+      const teamInfo = resolvePlayerTeam(pDoc, division, mostSixesDoc.teamId, teamMap, teamByCodeMap, playerToTeamMap);
+      const oppInfo = resolveMatchOpponent(mostSixesDoc.matchId, mostSixesDoc.teamId);
+      const sixes = mostSixesDoc.batting?.sixes || 0;
+      const runs = mostSixesDoc.batting?.runs || 0;
+
+      battingRecords.push({
+        id: 'most_sixes_inning',
+        title: 'Most Sixes in an Inning',
+        category: 'Power Hitting',
+        badge: '💥 MAXIMUMS',
+        statValue: `${sixes} Sixes`,
+        statLabel: `${sixes * 6} Runs from Sixes alone`,
+        player: formatPlayerDisplay(pDoc, mostSixesDoc.playerName),
+        team: teamInfo,
+        opponent: oppInfo,
+        details: `${runs} runs scored in total`,
+        date: (mostSixesDoc.matchId as any)?.date || mostSixesDoc.createdAt
+      });
+    }
+
+    // 1.5 Most Fours in an Inning
+    const mostFoursDoc = await PlayerMatchStats.findOne({
+      ...matchStatsFilter,
+      'batting.fours': { $gt: 0 }
+    })
+      .sort({ 'batting.fours': -1, 'batting.runs': -1 })
+      .populate('matchId')
+      .populate('playerId')
+      .lean();
+
+    if (mostFoursDoc) {
+      const pDoc = userPlayerMap.get(mostFoursDoc.playerId?._id?.toString()) || mostFoursDoc.playerId;
+      const teamInfo = resolvePlayerTeam(pDoc, division, mostFoursDoc.teamId, teamMap, teamByCodeMap, playerToTeamMap);
+      const oppInfo = resolveMatchOpponent(mostFoursDoc.matchId, mostFoursDoc.teamId);
+      const fours = mostFoursDoc.batting?.fours || 0;
+      const runs = mostFoursDoc.batting?.runs || 0;
+
+      battingRecords.push({
+        id: 'most_fours_inning',
+        title: 'Most Fours in an Inning',
+        category: 'Boundary Precision',
+        badge: '🏏 BOUNDARIES',
+        statValue: `${fours} Fours`,
+        statLabel: `${fours * 4} Runs from Boundaries`,
+        player: formatPlayerDisplay(pDoc, mostFoursDoc.playerName),
+        team: teamInfo,
+        opponent: oppInfo,
+        details: `${runs} runs scored in total`,
+        date: (mostFoursDoc.matchId as any)?.date || mostFoursDoc.createdAt
+      });
+    }
+
+    // 1.6 Highest Inning Strike Rate (min 20 runs, min 5 balls)
+    const highSRDocs = await PlayerMatchStats.find({
+      ...matchStatsFilter,
+      'batting.runs': { $gte: 20 },
+      'batting.balls': { $gte: 5 }
+    })
+      .populate('matchId')
+      .populate('playerId')
+      .lean();
+
+    let bestSRDoc: any = null;
+    let maxSR = 0;
+    for (const doc of highSRDocs) {
+      const bRuns = doc.batting?.runs || 0;
+      const bBalls = doc.batting?.balls || 0;
+      if (bBalls > 0) {
+        const sr = (bRuns / bBalls) * 100;
+        if (sr > maxSR) {
+          maxSR = sr;
+          bestSRDoc = doc;
+        }
+      }
+    }
+
+    if (bestSRDoc) {
+      const pDoc = userPlayerMap.get(bestSRDoc.playerId?._id?.toString()) || bestSRDoc.playerId;
+      const teamInfo = resolvePlayerTeam(pDoc, division, bestSRDoc.teamId, teamMap, teamByCodeMap, playerToTeamMap);
+      const oppInfo = resolveMatchOpponent(bestSRDoc.matchId, bestSRDoc.teamId);
+      const bRuns = bestSRDoc.batting?.runs || 0;
+      const bBalls = bestSRDoc.batting?.balls || 0;
+
+      battingRecords.push({
+        id: 'highest_strike_rate',
+        title: 'Highest Inning Strike Rate',
+        category: 'Firepower Knock',
+        badge: '🔥 FIREPOWER',
+        statValue: `${maxSR.toFixed(1)} SR`,
+        statLabel: `${bRuns} Runs off ${bBalls} Balls`,
+        player: formatPlayerDisplay(pDoc, bestSRDoc.playerName),
+        team: teamInfo,
+        opponent: oppInfo,
+        details: `Min 20 runs scored in match`,
+        date: (bestSRDoc.matchId as any)?.date || bestSRDoc.createdAt
+      });
+    }
+
+    // 1.7 Career Leading Run Scorer
+    const careerRunLeader = await CareerStats.findOne({
+      ...(userPlayerIds.length > 0 ? { playerId: { $in: userPlayerIds } } : {}),
+      'batting.runs': { $gt: 0 }
+    })
+      .sort({ 'batting.runs': -1 })
+      .populate('playerId')
+      .lean();
+
+    if (careerRunLeader) {
+      const pDoc = careerRunLeader.playerId;
+      const teamInfo = resolvePlayerTeam(pDoc, division, null, teamMap, teamByCodeMap, playerToTeamMap);
+      const cRuns = careerRunLeader.batting?.runs || 0;
+      const cMatches = careerRunLeader.batting?.matches || 0;
+      const c100s = careerRunLeader.batting?.hundreds || 0;
+      const c50s = careerRunLeader.batting?.fifties || 0;
+
+      battingRecords.push({
+        id: 'career_runs_leader',
+        title: 'All-Time Leading Run Scorer',
+        category: 'Career Hall of Fame',
+        badge: '🏆 LEGEND',
+        statValue: `${cRuns.toLocaleString()} Runs`,
+        statLabel: `In ${cMatches} Matches`,
+        player: formatPlayerDisplay(pDoc, (careerRunLeader as any).playerName),
+        team: teamInfo,
+        opponent: null,
+        details: `${c100s}x 100s · ${c50s}x 50s registered`,
+        date: null
+      });
+    }
+
+    // 1.8 Most Career Centuries
+    const most100sDoc = await CareerStats.findOne({
+      ...(userPlayerIds.length > 0 ? { playerId: { $in: userPlayerIds } } : {}),
+      'batting.hundreds': { $gt: 0 }
+    })
+      .sort({ 'batting.hundreds': -1, 'batting.runs': -1 })
+      .populate('playerId')
+      .lean();
+
+    if (most100sDoc) {
+      const pDoc = most100sDoc.playerId;
+      const teamInfo = resolvePlayerTeam(pDoc, division, null, teamMap, teamByCodeMap, playerToTeamMap);
+      const c100s = most100sDoc.batting?.hundreds || 0;
+      const cRuns = most100sDoc.batting?.runs || 0;
+
+      battingRecords.push({
+        id: 'career_most_hundreds',
+        title: 'Most Career Centuries (100s)',
+        category: 'Career Milestone',
+        badge: '💯 TON MASTER',
+        statValue: `${c100s} Century${c100s > 1 ? 's' : ''}`,
+        statLabel: `${cRuns} Career Runs`,
+        player: formatPlayerDisplay(pDoc, (most100sDoc as any).playerName),
+        team: teamInfo,
+        opponent: null,
+        details: `Most tons scored in competition`,
+        date: null
+      });
+    }
+
+    // ==========================================
+    // 2. INDIVIDUAL BOWLING RECORDS
+    // ==========================================
+    const bowlingRecords: any[] = [];
+
+    // 2.1 Best Bowling Figures in a Match
+    const bestBowlingDoc = await PlayerMatchStats.findOne({
+      ...matchStatsFilter,
+      'bowling.wickets': { $gt: 0 }
+    })
+      .sort({ 'bowling.wickets': -1, 'bowling.runsConceded': 1 })
+      .populate('matchId')
+      .populate('playerId')
+      .lean();
+
+    if (bestBowlingDoc) {
+      const pDoc = userPlayerMap.get(bestBowlingDoc.playerId?._id?.toString()) || bestBowlingDoc.playerId;
+      const teamInfo = resolvePlayerTeam(pDoc, division, bestBowlingDoc.teamId, teamMap, teamByCodeMap, playerToTeamMap);
+      const oppInfo = resolveMatchOpponent(bestBowlingDoc.matchId, bestBowlingDoc.teamId);
+      const wkts = bestBowlingDoc.bowling?.wickets || 0;
+      const rCon = bestBowlingDoc.bowling?.runsConceded || 0;
+      const overs = bestBowlingDoc.bowling?.overs || 0;
+      const maidens = bestBowlingDoc.bowling?.maidens || 0;
+      const econ = overs > 0 ? (rCon / overs).toFixed(2) : '0.00';
+
+      bowlingRecords.push({
+        id: 'best_bowling_figures',
+        title: 'Best Bowling Figures in a Match',
+        category: 'Match Spell',
+        badge: '🎯 LETHAL SPELL',
+        statValue: `${wkts}/${rCon}`,
+        statLabel: `in ${overs} Overs`,
+        player: formatPlayerDisplay(pDoc, bestBowlingDoc.playerName),
+        team: teamInfo,
+        opponent: oppInfo,
+        details: `${maidens} Maiden(s) · Econ ${econ}`,
+        date: (bestBowlingDoc.matchId as any)?.date || bestBowlingDoc.createdAt
+      });
+    }
+
+    // 2.2 Most Maidens in a Match
+    const mostMaidensDoc = await PlayerMatchStats.findOne({
+      ...matchStatsFilter,
+      'bowling.maidens': { $gt: 0 }
+    })
+      .sort({ 'bowling.maidens': -1, 'bowling.wickets': -1 })
+      .populate('matchId')
+      .populate('playerId')
+      .lean();
+
+    if (mostMaidensDoc) {
+      const pDoc = userPlayerMap.get(mostMaidensDoc.playerId?._id?.toString()) || mostMaidensDoc.playerId;
+      const teamInfo = resolvePlayerTeam(pDoc, division, mostMaidensDoc.teamId, teamMap, teamByCodeMap, playerToTeamMap);
+      const oppInfo = resolveMatchOpponent(mostMaidensDoc.matchId, mostMaidensDoc.teamId);
+      const maidens = mostMaidensDoc.bowling?.maidens || 0;
+      const wkts = mostMaidensDoc.bowling?.wickets || 0;
+      const rCon = mostMaidensDoc.bowling?.runsConceded || 0;
+      const overs = mostMaidensDoc.bowling?.overs || 0;
+
+      bowlingRecords.push({
+        id: 'most_maidens_match',
+        title: 'Most Maidens in a Match',
+        category: 'Bowling Control',
+        badge: '🧱 THE WALL',
+        statValue: `${maidens} Maiden${maidens > 1 ? 's' : ''}`,
+        statLabel: `${overs} Overs Bowled`,
+        player: formatPlayerDisplay(pDoc, mostMaidensDoc.playerName),
+        team: teamInfo,
+        opponent: oppInfo,
+        details: `${wkts}/${rCon} figures`,
+        date: (mostMaidensDoc.matchId as any)?.date || mostMaidensDoc.createdAt
+      });
+    }
+
+    // 2.3 Career Leading Wicket Taker
+    const careerWicketLeader = await CareerStats.findOne({
+      ...(userPlayerIds.length > 0 ? { playerId: { $in: userPlayerIds } } : {}),
+      'bowling.wickets': { $gt: 0 }
+    })
+      .sort({ 'bowling.wickets': -1, 'bowling.runsConceded': 1 })
+      .populate('playerId')
+      .lean();
+
+    if (careerWicketLeader) {
+      const pDoc = careerWicketLeader.playerId;
+      const teamInfo = resolvePlayerTeam(pDoc, division, null, teamMap, teamByCodeMap, playerToTeamMap);
+      const cWkts = careerWicketLeader.bowling?.wickets || 0;
+      const cOvers = careerWicketLeader.bowling?.overs || 0;
+      const cRunsCon = careerWicketLeader.bowling?.runsConceded || 0;
+      const cEcon = cOvers > 0 ? (cRunsCon / cOvers).toFixed(2) : '0.00';
+
+      bowlingRecords.push({
+        id: 'career_wickets_leader',
+        title: 'All-Time Leading Wicket Taker',
+        category: 'Career Hall of Fame',
+        badge: '🌪️ WICKET HUNTER',
+        statValue: `${cWkts} Wickets`,
+        statLabel: `in ${cOvers} Overs`,
+        player: formatPlayerDisplay(pDoc, (careerWicketLeader as any).playerName),
+        team: teamInfo,
+        opponent: null,
+        details: `Economy: ${cEcon} · Conceded ${cRunsCon} runs`,
+        date: null
+      });
+    }
+
+    // 2.4 Best Career Economy Rate (min 6 overs)
+    const econDocs = await CareerStats.find({
+      ...(userPlayerIds.length > 0 ? { playerId: { $in: userPlayerIds } } : {}),
+      'bowling.overs': { $gte: 6 }
+    })
+      .populate('playerId')
+      .lean();
+
+    let bestEconDoc: any = null;
+    let minEcon = 999999;
+    for (const c of econDocs) {
+      const overs = c.bowling?.overs || 0;
+      const runs = c.bowling?.runsConceded || 0;
+      if (overs >= 6) {
+        const econ = runs / overs;
+        if (econ < minEcon) {
+          minEcon = econ;
+          bestEconDoc = c;
+        }
+      }
+    }
+
+    if (bestEconDoc) {
+      const pDoc = bestEconDoc.playerId;
+      const teamInfo = resolvePlayerTeam(pDoc, division, null, teamMap, teamByCodeMap, playerToTeamMap);
+      const overs = bestEconDoc.bowling?.overs || 0;
+      const runs = bestEconDoc.bowling?.runsConceded || 0;
+      const wkts = bestEconDoc.bowling?.wickets || 0;
+
+      bowlingRecords.push({
+        id: 'best_career_economy',
+        title: 'Best Career Economy Rate',
+        category: 'Economy Maestro',
+        badge: '🔒 TIGHT SPELL',
+        statValue: `${minEcon.toFixed(2)} Econ`,
+        statLabel: `Min 6 Overs Bowled`,
+        player: formatPlayerDisplay(pDoc, (bestEconDoc as any).playerName),
+        team: teamInfo,
+        opponent: null,
+        details: `${wkts} wickets taken · ${runs} runs conceded in ${overs} ov`,
+        date: null
+      });
+    }
+
+    // ==========================================
+    // 3. TEAM & MATCH MILESTONES
+    // ==========================================
+    const teamRecords: any[] = [];
+
+    // Query matches for team records
+    const matchFilter: any = {};
+    if (userId) matchFilter.createdBy = userId;
+    if (division !== 'all' && matchingTeamIds.length > 0) {
+      matchFilter.$or = [
+        { teamA: { $in: matchingTeamIds } },
+        { teamB: { $in: matchingTeamIds } }
+      ];
+    }
+
+    const allMatches = await Match.find(matchFilter)
+      .populate('teamA')
+      .populate('teamB')
+      .populate('mvp')
+      .sort({ date: -1 })
+      .lean();
+
+    // 3.1 Highest Team Total
+    let highestTotalMatch: any = null;
+    let highestTotalScore = 0;
+    let highestTotalTeam: any = null;
+    let highestTotalOpponent: any = null;
+    let highestTotalWickets = 0;
+    let highestTotalOvers = 0;
+
+    for (const m of allMatches) {
+      const aRuns = Number(m.teamAScore?.runs) || 0;
+      const bRuns = Number(m.teamBScore?.runs) || 0;
+
+      if (aRuns > highestTotalScore) {
+        highestTotalScore = aRuns;
+        highestTotalMatch = m;
+        highestTotalTeam = formatTeamInfo(m.teamA);
+        highestTotalOpponent = formatTeamInfo(m.teamB);
+        highestTotalWickets = Number(m.teamAScore?.wickets) || 0;
+        highestTotalOvers = Number(m.teamAScore?.overs) || m.overs || 20;
+      }
+      if (bRuns > highestTotalScore) {
+        highestTotalScore = bRuns;
+        highestTotalMatch = m;
+        highestTotalTeam = formatTeamInfo(m.teamB);
+        highestTotalOpponent = formatTeamInfo(m.teamA);
+        highestTotalWickets = Number(m.teamBScore?.wickets) || 0;
+        highestTotalOvers = Number(m.teamBScore?.overs) || m.overs || 20;
+      }
+    }
+
+    if (highestTotalMatch && highestTotalScore > 0) {
+      const rpo = highestTotalOvers > 0 ? (highestTotalScore / highestTotalOvers).toFixed(2) : '0.00';
+      teamRecords.push({
+        id: 'highest_team_total',
+        title: 'Highest Team Total',
+        category: 'Team Dominance',
+        badge: '🏰 GARGANTUAN',
+        statValue: `${highestTotalScore}/${highestTotalWickets}`,
+        statLabel: `in ${highestTotalOvers} Overs`,
+        team: highestTotalTeam,
+        opponent: highestTotalOpponent,
+        details: `Run Rate: ${rpo} RPO · ${highestTotalMatch.result || 'Match Completed'}`,
+        date: highestTotalMatch.date || highestTotalMatch.createdAt
+      });
+    }
+
+    // 3.2 Biggest Margin of Victory (by Runs)
+    let maxRunMargin = 0;
+    let maxRunMarginMatch: any = null;
+    let maxRunMarginTeam: any = null;
+    let maxRunMarginOpp: any = null;
+
+    // 3.3 Biggest Margin of Victory (by Wickets)
+    let maxWktMargin = 0;
+    let maxWktMarginMatch: any = null;
+    let maxWktMarginTeam: any = null;
+    let maxWktMarginOpp: any = null;
+
+    for (const m of allMatches) {
+      const resStr = (m.result || '').toLowerCase();
+      // Runs match
+      const runMatch = resStr.match(/won\s+by\s+(\d+)\s+runs?/i);
+      if (runMatch && runMatch[1]) {
+        const margin = parseInt(runMatch[1], 10);
+        if (margin > maxRunMargin) {
+          maxRunMargin = margin;
+          maxRunMarginMatch = m;
+          const aRuns = Number(m.teamAScore?.runs) || 0;
+          const bRuns = Number(m.teamBScore?.runs) || 0;
+          if (aRuns > bRuns) {
+            maxRunMarginTeam = formatTeamInfo(m.teamA);
+            maxRunMarginOpp = formatTeamInfo(m.teamB);
+          } else {
+            maxRunMarginTeam = formatTeamInfo(m.teamB);
+            maxRunMarginOpp = formatTeamInfo(m.teamA);
+          }
+        }
+      }
+
+      // Wickets match
+      const wktMatch = resStr.match(/won\s+by\s+(\d+)\s+wickets?/i);
+      if (wktMatch && wktMatch[1]) {
+        const margin = parseInt(wktMatch[1], 10);
+        if (margin > maxWktMargin) {
+          maxWktMargin = margin;
+          maxWktMarginMatch = m;
+          const aWkts = Number(m.teamAScore?.wickets) || 0;
+          const bWkts = Number(m.teamBScore?.wickets) || 0;
+          // usually the team that lost fewer wickets won
+          if (aWkts < bWkts) {
+            maxRunMarginTeam = formatTeamInfo(m.teamA);
+            maxRunMarginOpp = formatTeamInfo(m.teamB);
+          } else {
+            maxWktMarginTeam = formatTeamInfo(m.teamB);
+            maxWktMarginOpp = formatTeamInfo(m.teamA);
+          }
+        }
+      }
+    }
+
+    if (maxRunMarginMatch && maxRunMargin > 0) {
+      teamRecords.push({
+        id: 'biggest_win_runs',
+        title: 'Biggest Victory (by Runs)',
+        category: 'Crushing Margin',
+        badge: '🏆 CRUSHING WIN',
+        statValue: `Won by ${maxRunMargin} Runs`,
+        statLabel: 'Run Difference',
+        team: maxRunMarginTeam,
+        opponent: maxRunMarginOpp,
+        details: maxRunMarginMatch.result,
+        date: maxRunMarginMatch.date || maxRunMarginMatch.createdAt
+      });
+    }
+
+    if (maxWktMarginMatch && maxWktMargin > 0) {
+      teamRecords.push({
+        id: 'biggest_win_wickets',
+        title: 'Biggest Victory (by Wickets)',
+        category: 'Clinical Chase',
+        badge: '🏹 CLINICAL CHASE',
+        statValue: `Won by ${maxWktMargin} Wickets`,
+        statLabel: 'Wicket Margin',
+        team: maxWktMarginTeam,
+        opponent: maxWktMarginOpp,
+        details: maxWktMarginMatch.result,
+        date: maxWktMarginMatch.date || maxWktMarginMatch.createdAt
+      });
+    }
+
+    // 3.4 Most MVPs (Player of the Match)
+    const mostMvpsCareerDoc = await CareerStats.findOne({
+      ...(userPlayerIds.length > 0 ? { playerId: { $in: userPlayerIds } } : {}),
+      mvps: { $gt: 0 }
+    })
+      .sort({ mvps: -1, 'batting.runs': -1 })
+      .populate('playerId')
+      .lean();
+
+    if (mostMvpsCareerDoc) {
+      const pDoc = mostMvpsCareerDoc.playerId;
+      const teamInfo = resolvePlayerTeam(pDoc, division, null, teamMap, teamByCodeMap, playerToTeamMap);
+      const totalMvps = mostMvpsCareerDoc.mvps || 0;
+
+      teamRecords.push({
+        id: 'most_mvp_awards',
+        title: 'Most Player of the Match Awards',
+        category: 'Hall of Fame MVP',
+        badge: '⭐ GOLDEN MVP',
+        statValue: `${totalMvps} MVPs Won`,
+        statLabel: 'Match Awards',
+        player: formatPlayerDisplay(pDoc, (mostMvpsCareerDoc as any).playerName),
+        team: teamInfo,
+        opponent: null,
+        details: `Most decisive match winner in history`,
+        date: null
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        division,
+        batting: battingRecords,
+        bowling: bowlingRecords,
+        team: teamRecords
+      }
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
