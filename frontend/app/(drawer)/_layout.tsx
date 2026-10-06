@@ -119,6 +119,13 @@ export default function DrawerLayout() {
           </TouchableOpacity>
 
           <TouchableOpacity
+            style={[styles.menuItem, pathname.includes('teams') && { backgroundColor: colors.surfaceLighter }]}
+            onPress={() => handleNavigate('/(drawer)/teams')}
+          >
+            <Text style={[styles.menuText, { color: pathname.includes('teams') ? colors.primary : colors.text }]}>Teams Management</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
             style={[styles.menuItem, pathname.includes('notifications') && { backgroundColor: colors.surfaceLighter }]}
             onPress={() => handleNavigate('/(drawer)/notifications')}
           >

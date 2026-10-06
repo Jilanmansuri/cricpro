@@ -24,9 +24,12 @@ const UploadIcon = ({ color }: { color?: any }) => (
   </Svg>
 );
 
-const TeamsIcon = ({ color }: { color?: any }) => (
+const CompareIcon = ({ color }: { color?: any }) => (
   <Svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-    <Path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 8 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z" fill={color} />
+    <Path
+      d="M19.78 4.22a.75.75 0 0 0-1.06 0l-5.47 5.47-1.41-1.41 5.47-5.47a.75.75 0 0 0-1.06-1.06L10.79 7.22 8.67 5.1a2.25 2.25 0 0 0-3.18 0l-.71.71a2.25 2.25 0 0 0 0 3.18l2.12 2.12-5.47 5.47a.75.75 0 0 0 0 1.06l1.06 1.06a.75.75 0 0 0 1.06 0l5.47-5.47 1.41 1.41-5.47 5.47a.75.75 0 0 0 1.06 1.06l5.47-5.47 2.12 2.12a2.25 2.25 0 0 0 3.18 0l.71-.71a2.25 2.25 0 0 0 0-3.18l-2.12-2.12 5.47-5.47a.75.75 0 0 0 0-1.06l-1.06-1.06z"
+      fill={color}
+    />
   </Svg>
 );
 
@@ -136,11 +139,11 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="teams"
+        name="compare"
         options={{
-          title: 'Teams Standings',
-          tabBarLabel: 'Teams',
-          tabBarIcon: ({ color }) => <TeamsIcon color={color} />,
+          title: 'Player Comparison',
+          tabBarLabel: 'Compare',
+          tabBarIcon: ({ color }) => <CompareIcon color={color} />,
         }}
       />
       <Tabs.Screen

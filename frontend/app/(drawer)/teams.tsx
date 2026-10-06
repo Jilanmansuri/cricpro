@@ -1,17 +1,33 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, TextInput, TouchableOpacity, Alert, Modal } from 'react-native';
+import { View, Text, StyleSheet, FlatList, ActivityIndicator, TextInput, TouchableOpacity, Alert, Modal, Platform } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { useTheme } from '../../../components/Theme';
-import { Input } from '../../../components/Input';
-import { Button } from '../../../components/Button';
-import Card from '../../../components/Card';
-import Avatar from '../../../components/Avatar';
-import TeamLogo from '../../../components/TeamLogo';
-import api from '../../../services/api';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTheme } from '../../components/Theme';
+import { useDrawerStore } from '../../store/drawerStore';
+import { Input } from '../../components/Input';
+import { Button } from '../../components/Button';
+import Card from '../../components/Card';
+import TeamLogo from '../../components/TeamLogo';
+import api from '../../services/api';
+import Svg, { Path } from 'react-native-svg';
 
-export default function TeamsTab() {
-  const { colors } = useTheme();
+const HamburgerIcon = ({ color }: { color: string }) => (
+  <Svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+    <Path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z" fill={color} />
+  </Svg>
+);
+
+const BackIcon = ({ color }: { color: string }) => (
+  <Svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+    <Path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z" fill={color} />
+  </Svg>
+);
+
+export default function TeamsDrawerScreen() {
+  const { colors, isDarkMode } = useTheme();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const openDrawer = useDrawerStore((state) => state.openDrawer);
 
   const [isLoading, setIsLoading] = useState(true);
   const [teams, setTeams] = useState<any[]>([]);
@@ -53,7 +69,7 @@ export default function TeamsTab() {
         Alert.alert('Success', 'Team created successfully!');
         setNewTeamName('');
         setCreateModalVisible(false);
-        fetchTeams(search); // Refresh list
+        fetchTeams(search);
       } else {
         throw new Error(res.data.message || 'Creation failed');
       }
@@ -66,6 +82,26 @@ export default function TeamsTab() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
+      {/* Top Header Bar */}
+      <View style={[styles.headerBar, { backgroundColor: colors.surface, borderBottomColor: colors.border, paddingTop: Math.max(insets.top, 12) + 6 }]}>
+        <TouchableOpacity
+          onPress={() => router.replace('/(drawer)/(tabs)')}
+          style={styles.headerBtn}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <BackIcon color={colors.text} />
+        </TouchableOpacity>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>Teams Management</Text>
+        <TouchableOpacity
+          onPress={openDrawer}
+          style={styles.headerBtn}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <HamburgerIcon color={colors.text} />
+        </TouchableOpacity>
+      </View>
+
+      {/* Search & Create Row */}
       <View style={styles.topRow}>
         <View style={[styles.searchContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <TextInput
@@ -126,7 +162,7 @@ export default function TeamsTab() {
         />
       )}
 
-      {/* Create Team Modal overlay */}
+      {/* Create Team Modal */}
       <Modal visible={createModalVisible} transparent animationType="slide" onRequestClose={() => setCreateModalVisible(false)}>
         <View style={styles.modalBackdrop}>
           <Card style={styles.modalCard}>
@@ -163,6 +199,24 @@ export default function TeamsTab() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  headerBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingBottom: 14,
+    borderBottomWidth: 1,
+  },
+  headerBtn: {
+    width: 36,
+    height: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 17,
+    fontWeight: '800',
   },
   topRow: {
     flexDirection: 'row',
@@ -202,7 +256,7 @@ const styles = StyleSheet.create({
   },
   list: {
     paddingHorizontal: 16,
-    paddingBottom: 90,
+    paddingBottom: 40,
     gap: 10,
   },
   card: {
