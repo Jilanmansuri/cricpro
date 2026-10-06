@@ -47,6 +47,52 @@ const SearchIcon = ({ color }: { color: string }) => (
   </Svg>
 );
 
+const KNOWN_FULL_NAMES: Record<string, string> = {
+  'a sharma': 'Abhishek Sharma',
+  's samson': 'Sanju Samson',
+  's gill': 'Shubman Gill',
+  's yadav': 'Suryakumar Yadav',
+  'r gaikwad': 'Ruturaj Gaikwad',
+  'h pandya': 'Hardik Pandya',
+  'a patel': 'Axar Patel',
+  'arshdeep': 'Arshdeep Singh',
+  'j bumrah': 'Jasprit Bumrah',
+  'm siraj': 'Mohammed Siraj',
+  'r sharma': 'Rohit Sharma',
+  'v kohli': 'Virat Kohli',
+  'kl rahul': 'KL Rahul',
+  'r pant': 'Rishabh Pant',
+  'k yadav': 'Kuldeep Yadav',
+  'y chahal': 'Yuzvendra Chahal',
+  's dube': 'Shivam Dube',
+  't head': 'Travis Head',
+  'p cummins': 'Pat Cummins',
+  'm starc': 'Mitchell Starc',
+  'g maxwell': 'Glenn Maxwell',
+  'd warner': 'David Warner',
+  's smith': 'Steve Smith',
+  'h klaasen': 'Heinrich Klaasen',
+  'q de kock': 'Quinton de Kock',
+  'k rabada': 'Kagiso Rabada',
+  'j buttler': 'Jos Buttler',
+  'b stokes': 'Ben Stokes',
+  'b azam': 'Babar Azam',
+  's afridi': 'Shaheen Afridi',
+};
+
+export const getPlayerFullName = (p: any): string => {
+  if (!p) return '';
+  if (p.fullName && typeof p.fullName === 'string' && p.fullName.trim()) {
+    return p.fullName.trim();
+  }
+  const raw = (p.name || '').trim();
+  const lower = raw.toLowerCase();
+  if (KNOWN_FULL_NAMES[lower]) {
+    return KNOWN_FULL_NAMES[lower];
+  }
+  return raw;
+};
+
 interface PlayerMetric {
   key: string;
   label: string;
@@ -170,12 +216,13 @@ export default function PlayerComparisonTab() {
   const filteredPlayersList = useMemo(() => {
     if (!searchQuery.trim()) return allPlayers;
     const q = searchQuery.toLowerCase();
-    return allPlayers.filter(
-      (p) =>
-        (p.name && p.name.toLowerCase().includes(q)) ||
-        (p.country && p.country.toLowerCase().includes(q)) ||
-        (p.role && p.role.toLowerCase().includes(q))
-    );
+    return allPlayers.filter((p) => {
+      const full = getPlayerFullName(p).toLowerCase();
+      const raw = (p.name || '').toLowerCase();
+      const country = (p.country || '').toLowerCase();
+      const role = (p.role || '').toLowerCase();
+      return full.includes(q) || raw.includes(q) || country.includes(q) || role.includes(q);
+    });
   }, [allPlayers, searchQuery]);
 
   // Compute stats comparison metrics
@@ -412,6 +459,9 @@ export default function PlayerComparisonTab() {
   const p1 = player1Data?.player || allPlayers.find((p) => p._id === player1Id);
   const p2 = player2Data?.player || allPlayers.find((p) => p._id === player2Id);
 
+  const p1Name = getPlayerFullName(p1);
+  const p2Name = getPlayerFullName(p2);
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView
@@ -430,13 +480,13 @@ export default function PlayerComparisonTab() {
             activeOpacity={0.8}
           >
             <View style={styles.avatarWrapper}>
-              <Avatar name={p1?.name || 'Player 1'} size={52} />
+              <Avatar name={p1Name || 'Player 1'} size={52} />
               <View style={[styles.slotBadge, { backgroundColor: '#3B82F6' }]}>
                 <Text style={styles.slotBadgeText}>P1</Text>
               </View>
             </View>
             <Text style={[styles.playerName, { color: colors.text }]} numberOfLines={1}>
-              {p1?.name || 'Select Player 1'}
+              {p1Name || 'Select Player 1'}
             </Text>
             <Text style={[styles.playerRole, { color: colors.textMuted }]} numberOfLines={1}>
               {p1?.role || p1?.country || 'Tap to choose'}
@@ -471,13 +521,13 @@ export default function PlayerComparisonTab() {
             activeOpacity={0.8}
           >
             <View style={styles.avatarWrapper}>
-              <Avatar name={p2?.name || 'Player 2'} size={52} />
+              <Avatar name={p2Name || 'Player 2'} size={52} />
               <View style={[styles.slotBadge, { backgroundColor: '#10B981' }]}>
                 <Text style={styles.slotBadgeText}>P2</Text>
               </View>
             </View>
             <Text style={[styles.playerName, { color: colors.text }]} numberOfLines={1}>
-              {p2?.name || 'Select Player 2'}
+              {p2Name || 'Select Player 2'}
             </Text>
             <Text style={[styles.playerRole, { color: colors.textMuted }]} numberOfLines={1}>
               {p2?.role || p2?.country || 'Tap to choose'}
@@ -497,11 +547,11 @@ export default function PlayerComparisonTab() {
             </View>
 
             <View style={styles.summaryCenter}>
-              <Text style={[styles.summaryHeadline, { color: colors.text }]}>
+              <Text style={[styles.summaryHeadline, { color: colors.text }]} numberOfLines={1}>
                 {wins1 > wins2
-                  ? `${p1?.name?.split(' ')[0] || 'P1'} dominates`
+                  ? `${p1Name} leads`
                   : wins2 > wins1
-                  ? `${p2?.name?.split(' ')[0] || 'P2'} dominates`
+                  ? `${p2Name} leads`
                   : 'Evenly Matched'}
               </Text>
               <Text style={[styles.summarySub, { color: colors.textMuted }]}>
@@ -627,8 +677,8 @@ export default function PlayerComparisonTab() {
               style={[styles.profileBtn, { backgroundColor: colors.surface, borderColor: '#3B82F6' }]}
               onPress={() => router.push({ pathname: '/player-career', params: { id: p1._id } })}
             >
-              <Text style={[styles.profileBtnText, { color: '#3B82F6' }]}>
-                {p1.name?.split(' ')[0]}'s Profile ›
+              <Text style={[styles.profileBtnText, { color: '#3B82F6' }]} numberOfLines={1}>
+                {p1Name} Profile ›
               </Text>
             </TouchableOpacity>
           )}
@@ -638,8 +688,8 @@ export default function PlayerComparisonTab() {
               style={[styles.profileBtn, { backgroundColor: colors.surface, borderColor: '#10B981' }]}
               onPress={() => router.push({ pathname: '/player-career', params: { id: p2._id } })}
             >
-              <Text style={[styles.profileBtnText, { color: '#10B981' }]}>
-                {p2.name?.split(' ')[0]}'s Profile ›
+              <Text style={[styles.profileBtnText, { color: '#10B981' }]} numberOfLines={1}>
+                {p2Name} Profile ›
               </Text>
             </TouchableOpacity>
           )}
@@ -694,6 +744,7 @@ export default function PlayerComparisonTab() {
                 const isSelected =
                   (pickingSlot === 1 && item._id === player1Id) ||
                   (pickingSlot === 2 && item._id === player2Id);
+                const itemFullName = getPlayerFullName(item);
 
                 return (
                   <TouchableOpacity
@@ -704,13 +755,13 @@ export default function PlayerComparisonTab() {
                     ]}
                     onPress={() => handleSelectPlayer(item)}
                   >
-                    <Avatar name={item.name} size={38} />
+                    <Avatar name={itemFullName} size={38} />
                     <View style={styles.playerOptionInfo}>
                       <Text style={[styles.playerOptionName, { color: colors.text }]}>
-                        {item.name}
+                        {itemFullName}
                       </Text>
                       <Text style={[styles.playerOptionSub, { color: colors.textMuted }]}>
-                        {item.country || 'Team'} • {item.role || 'Player'}
+                        {item.name && item.name !== itemFullName ? `${item.name} • ` : ''}{item.country || 'Team'} • {item.role || 'Player'}
                       </Text>
                     </View>
                     {isSelected && (
