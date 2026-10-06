@@ -213,7 +213,9 @@ export const getPlayerHistory = async (req: Request, res: Response): Promise<voi
           sixes: batSixes,
           outStatus,
           strikeRate: batSR,
-          didNotBat: !!stats.batting?.didNotBat
+          didNotBat: !!stats.batting?.didNotBat,
+          fastestFiftyBalls: stats.batting?.fastestFiftyBalls || null,
+          fastestHundredBalls: stats.batting?.fastestHundredBalls || null
         },
         bowling: {
           overs: oversNum,

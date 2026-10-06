@@ -20,6 +20,8 @@ interface BattingItem {
   dismissalType?: string;
   bowler?: string | null;
   fielder?: string | null;
+  fastestFiftyBalls?: number | string | null;
+  fastestHundredBalls?: number | string | null;
 }
 
 interface BowlingItem {
@@ -472,7 +474,9 @@ export class MatchService {
               balls: Number(bat.balls) || 0,
               fours: Number(bat.fours) || 0,
               sixes: Number(bat.sixes) || 0,
-              outStatus: isDnb ? 'DNB' : outStatus
+              outStatus: isDnb ? 'DNB' : outStatus,
+              fastestFiftyBalls: bat.fastestFiftyBalls ? Number(bat.fastestFiftyBalls) : null,
+              fastestHundredBalls: bat.fastestHundredBalls ? Number(bat.fastestHundredBalls) : null
             },
             bowling: {
               didNotBowl: true,

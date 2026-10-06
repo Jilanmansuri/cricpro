@@ -27,6 +27,8 @@ export interface ICareerStats extends Document {
     sixes: number;
     fifties: number;
     hundreds: number;
+    fastestFifty?: number | null;
+    fastestHundred?: number | null;
     ducks: number;
     highestScore: number;
     notOuts: number;
@@ -169,6 +171,8 @@ export interface IPlayerMatchStats extends Document {
     fours: number;
     sixes: number;
     outStatus: string;
+    fastestFiftyBalls?: number | null;
+    fastestHundredBalls?: number | null;
   };
   bowling: {
     didNotBowl: boolean;

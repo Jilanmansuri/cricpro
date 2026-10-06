@@ -49,6 +49,8 @@ export class StatsService {
     let ducks = 0;
     let highestScore = 0;
     let notOuts = 0;
+    let fastestFifty: number | null = null;
+    let fastestHundred: number | null = null;
 
     let oversBowled = 0;
     let maidens = 0;
@@ -81,6 +83,22 @@ export class StatsService {
           hundreds++;
         } else if (r >= 50) {
           fifties++;
+        }
+
+        // Track user-provided fastest 50 (if recorded in match stats)
+        const f50 = stats.batting.fastestFiftyBalls;
+        if (typeof f50 === 'number' && f50 > 0) {
+          if (fastestFifty === null || f50 < fastestFifty) {
+            fastestFifty = f50;
+          }
+        }
+
+        // Track user-provided fastest 100 (if recorded in match stats)
+        const f100 = stats.batting.fastestHundredBalls;
+        if (typeof f100 === 'number' && f100 > 0) {
+          if (fastestHundred === null || f100 < fastestHundred) {
+            fastestHundred = f100;
+          }
         }
 
         if (r === 0 && stats.batting.outStatus !== 'not_out') {
@@ -159,6 +177,8 @@ export class StatsService {
           sixes,
           fifties,
           hundreds,
+          fastestFifty,
+          fastestHundred,
           ducks,
           highestScore,
           notOuts,

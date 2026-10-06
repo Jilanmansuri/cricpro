@@ -22,6 +22,8 @@ const CareerStatsSchema = new Schema<ICareerStats>(
       sixes: { type: Number, default: 0 },
       fifties: { type: Number, default: 0 },
       hundreds: { type: Number, default: 0 },
+      fastestFifty: { type: Number, default: null },
+      fastestHundred: { type: Number, default: null },
       ducks: { type: Number, default: 0 },
       highestScore: { type: Number, default: 0 },
       notOuts: { type: Number, default: 0 },

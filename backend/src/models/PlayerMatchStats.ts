@@ -32,6 +32,8 @@ const PlayerMatchStatsSchema = new Schema<IPlayerMatchStats>(
       fours: { type: Number, default: 0 },
       sixes: { type: Number, default: 0 },
       outStatus: { type: String, default: 'not_out' },
+      fastestFiftyBalls: { type: Number, default: null },
+      fastestHundredBalls: { type: Number, default: null },
     },
     bowling: {
       didNotBowl: { type: Boolean, default: false },

@@ -206,6 +206,8 @@ export default function PlayerCareerScreen() {
         highestScore,
         fifties,
         hundreds,
+        fastestFifty: playerData?.career?.batting?.fastestFifty || null,
+        fastestHundred: playerData?.career?.batting?.fastestHundred || null,
         fours,
         sixes,
         ducks,
@@ -259,7 +261,7 @@ export default function PlayerCareerScreen() {
         desc: 'Scored a majestic 100 in an innings',
         unlocked: (bat.hundreds || 0) > 0,
         color: '#10B981',
-        progress: `${bat.hundreds || 0} Hundreds`,
+        progress: bat.fastestHundred ? `${bat.hundreds || 0} Hundreds (Fastest: ${bat.fastestHundred}b)` : `${bat.hundreds || 0} Hundreds`,
       },
       {
         id: 'fifty_factory',
@@ -268,7 +270,7 @@ export default function PlayerCareerScreen() {
         desc: 'Scored 50+ runs in a match',
         unlocked: (bat.fifties || 0) > 0,
         color: '#38BDF8',
-        progress: `${bat.fifties || 0} Fifties`,
+        progress: bat.fastestFifty ? `${bat.fifties || 0} Fifties (Fastest: ${bat.fastestFifty}b)` : `${bat.fifties || 0} Fifties`,
       },
       {
         id: 'power_striker',
@@ -460,6 +462,8 @@ export default function PlayerCareerScreen() {
       highestScore: 0,
       fifties: 0,
       hundreds: 0,
+      fastestFifty: null,
+      fastestHundred: null,
       fours: 0,
       sixes: 0,
       ducks: 0,
@@ -793,6 +797,24 @@ export default function PlayerCareerScreen() {
           <View style={styles.gridCol}>
             <Text style={[styles.gridVal, { color: colors.text }]}>{batting.ducks || 0}</Text>
             <Text style={[styles.gridLabel, { color: colors.textMuted }]}>Ducks</Text>
+          </View>
+        </View>
+        <View style={[styles.gridRow, { marginTop: 16 }]}>
+          <View style={styles.gridCol}>
+            <Text style={[styles.gridVal, { color: colors.primary }]}>
+              {batting.fastestFifty ? `${batting.fastestFifty}b` : '—'}
+            </Text>
+            <Text style={[styles.gridLabel, { color: colors.textMuted }]}>⚡ Fastest 50</Text>
+          </View>
+          <View style={styles.gridCol}>
+            <Text style={[styles.gridVal, { color: '#10B981' }]}>
+              {batting.fastestHundred ? `${batting.fastestHundred}b` : '—'}
+            </Text>
+            <Text style={[styles.gridLabel, { color: colors.textMuted }]}>💯 Fastest 100</Text>
+          </View>
+          <View style={styles.gridCol}>
+            <Text style={[styles.gridVal, { color: colors.text }]}>{batting.balls || 0}</Text>
+            <Text style={[styles.gridLabel, { color: colors.textMuted }]}>Balls Faced</Text>
           </View>
         </View>
       </Card>

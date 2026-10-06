@@ -1094,6 +1094,38 @@ export default function ManualMatchEntry() {
                             <TextInput style={[styles.input, styles.numberInput, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={b.sixes} onChangeText={t => updateBatsman(b.id, 'sixes', t)} keyboardType="numeric" />
                           </View>
                         </View>
+                        {Number(b.runs) >= 50 && (
+                          <View style={[styles.milestoneInputRow, { backgroundColor: colors.surfaceLighter || 'rgba(255,255,255,0.04)', borderColor: colors.primary + '40' }]}>
+                            <View style={{ flex: 1 }}>
+                              <Text style={{ fontSize: 11, fontWeight: '700', color: colors.primary }}>
+                                ⭐ 50 reached in (balls)? (Optional)
+                              </Text>
+                              <TextInput
+                                style={[styles.input, { height: 36, marginTop: 4, backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]}
+                                value={b.fastestFiftyBalls || ''}
+                                onChangeText={t => updateBatsman(b.id, 'fastestFiftyBalls', t)}
+                                placeholder="e.g. 14 (leave blank if unknown)"
+                                placeholderTextColor={colors.textMuted}
+                                keyboardType="numeric"
+                              />
+                            </View>
+                            {Number(b.runs) >= 100 && (
+                              <View style={{ flex: 1, marginLeft: 8 }}>
+                                <Text style={{ fontSize: 11, fontWeight: '700', color: '#10B981' }}>
+                                  💯 100 in (balls)? (Optional)
+                                </Text>
+                                <TextInput
+                                  style={[styles.input, { height: 36, marginTop: 4, backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]}
+                                  value={b.fastestHundredBalls || ''}
+                                  onChangeText={t => updateBatsman(b.id, 'fastestHundredBalls', t)}
+                                  placeholder="e.g. 38"
+                                  placeholderTextColor={colors.textMuted}
+                                  keyboardType="numeric"
+                                />
+                              </View>
+                            )}
+                          </View>
+                        )}
                       </Card>
                     </Swipeable>
                   ))
@@ -1158,6 +1190,38 @@ export default function ManualMatchEntry() {
                             <TextInput style={[styles.input, styles.numberInput, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={b.sixes} onChangeText={t => updateTeamBBatsman(b.id, 'sixes', t)} keyboardType="numeric" />
                           </View>
                         </View>
+                        {Number(b.runs) >= 50 && (
+                          <View style={[styles.milestoneInputRow, { backgroundColor: colors.surfaceLighter || 'rgba(255,255,255,0.04)', borderColor: colors.primary + '40' }]}>
+                            <View style={{ flex: 1 }}>
+                              <Text style={{ fontSize: 11, fontWeight: '700', color: colors.primary }}>
+                                ⭐ 50 reached in (balls)? (Optional)
+                              </Text>
+                              <TextInput
+                                style={[styles.input, { height: 36, marginTop: 4, backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]}
+                                value={b.fastestFiftyBalls || ''}
+                                onChangeText={t => updateTeamBBatsman(b.id, 'fastestFiftyBalls', t)}
+                                placeholder="e.g. 14 (leave blank if unknown)"
+                                placeholderTextColor={colors.textMuted}
+                                keyboardType="numeric"
+                              />
+                            </View>
+                            {Number(b.runs) >= 100 && (
+                              <View style={{ flex: 1, marginLeft: 8 }}>
+                                <Text style={{ fontSize: 11, fontWeight: '700', color: '#10B981' }}>
+                                  💯 100 in (balls)? (Optional)
+                                </Text>
+                                <TextInput
+                                  style={[styles.input, { height: 36, marginTop: 4, backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]}
+                                  value={b.fastestHundredBalls || ''}
+                                  onChangeText={t => updateTeamBBatsman(b.id, 'fastestHundredBalls', t)}
+                                  placeholder="e.g. 38"
+                                  placeholderTextColor={colors.textMuted}
+                                  keyboardType="numeric"
+                                />
+                              </View>
+                            )}
+                          </View>
+                        )}
                       </Card>
                     </Swipeable>
                   ))
@@ -2017,6 +2081,13 @@ const styles = StyleSheet.create({
   },
   topPerformerBox: {
     flex: 1,
+    padding: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  milestoneInputRow: {
+    flexDirection: 'row',
+    marginTop: 8,
     padding: 10,
     borderRadius: 8,
     borderWidth: 1,
