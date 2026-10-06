@@ -21,6 +21,7 @@ export interface ICareerStats extends Document {
   playerName?: string;
   batting: {
     matches: number;
+    innings?: number;
     runs: number;
     balls: number;
     fours: number;
@@ -34,6 +35,7 @@ export interface ICareerStats extends Document {
     notOuts: number;
   };
   bowling: {
+    innings?: number;
     overs: number;
     maidens: number;
     runsConceded: number;

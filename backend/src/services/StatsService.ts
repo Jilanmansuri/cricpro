@@ -63,8 +63,12 @@ export class StatsService {
     let stumpings = 0;
     let runOuts = 0;
 
+    let battingInnings = 0;
+    let bowlingInnings = 0;
+
     for (const stats of matchStatsList) {
       if (!stats.batting.didNotBat) {
+        battingInnings++;
         const r = stats.batting.runs;
         runs += r;
         balls += stats.batting.balls;
@@ -107,6 +111,7 @@ export class StatsService {
       }
 
       if (!stats.bowling.didNotBowl) {
+        bowlingInnings++;
         oversBowled = this.addOvers(oversBowled, stats.bowling.overs);
         maidens += stats.bowling.maidens;
         runsConceded += stats.bowling.runsConceded;
@@ -171,6 +176,7 @@ export class StatsService {
         playerName: player?.name || '',
         batting: {
           matches: matchesCount,
+          innings: battingInnings,
           runs,
           balls,
           fours,
@@ -184,6 +190,7 @@ export class StatsService {
           notOuts,
         },
         bowling: {
+          innings: bowlingInnings,
           overs: oversBowled,
           maidens,
           runsConceded,

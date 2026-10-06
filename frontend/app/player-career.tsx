@@ -94,12 +94,18 @@ export default function PlayerCareerScreen() {
       const totalBallsBowled = oversToBalls(bw.overs || 0);
       const econ = totalBallsBowled > 0 ? parseFloat((((bw.runsConceded || 0) / totalBallsBowled) * 6).toFixed(2)) : 0;
 
+      const allMatches = b.matches || baseCareer.matches || 0;
+      const allBatInn = b.innings ?? b.matches ?? 0;
+      const allBowlInn = bw.innings ?? 0;
+
       return {
-        matches: b.matches || baseCareer.matches || 0,
+        matches: allMatches,
         wins: baseCareer.wins || 0,
         losses: baseCareer.losses || 0,
         mvps: baseCareer.mvps || 0,
         batting: {
+          matches: allMatches,
+          innings: allBatInn,
           runs: b.runs || 0,
           balls: b.balls || 0,
           avg,
@@ -107,12 +113,16 @@ export default function PlayerCareerScreen() {
           highestScore: b.highestScore || 0,
           fifties: b.fifties || 0,
           hundreds: b.hundreds || 0,
+          fastestFifty: b.fastestFifty || null,
+          fastestHundred: b.fastestHundred || null,
           fours: b.fours || 0,
           sixes: b.sixes || 0,
           ducks: b.ducks || 0,
           notOuts: b.notOuts || 0,
         },
         bowling: {
+          matches: allMatches,
+          innings: allBowlInn,
           wickets: bw.wickets || 0,
           overs: bw.overs || 0,
           econ,
@@ -151,10 +161,20 @@ export default function PlayerCareerScreen() {
     let runOuts = 0;
     let mvps = 0;
 
+    let battingInnings = 0;
+    let bowlingInnings = 0;
+
     filteredHistory.forEach((h) => {
       const bat = h.batting || {};
       const bowl = h.bowling || {};
       const fld = h.fielding || {};
+
+      if (!bat.didNotBat && (bat.balls > 0 || bat.runs > 0 || (bat.outStatus && !bat.outStatus.toLowerCase().includes('did not')))) {
+        battingInnings += 1;
+      }
+      if (!bowl.didNotBowl && (bowl.overs > 0 || bowl.runsConceded > 0 || bowl.wickets > 0)) {
+        bowlingInnings += 1;
+      }
 
       runs += bat.runs || 0;
       balls += bat.balls || 0;
@@ -193,12 +213,18 @@ export default function PlayerCareerScreen() {
     const sr = balls > 0 ? parseFloat(((runs / balls) * 100).toFixed(2)) : 0;
     const econ = overs > 0 ? parseFloat((runsConceded / overs).toFixed(2)) : 0;
 
+    const totalMatches = filteredHistory.length;
+    const totalBattingInnings = battingInnings;
+    const totalBowlingInnings = bowlingInnings;
+
     return {
-      matches: filteredHistory.length,
-      wins: 0,
-      losses: 0,
+      matches: totalMatches,
+      wins: playerData?.career?.wins || 0,
+      losses: playerData?.career?.losses || 0,
       mvps,
       batting: {
+        matches: totalMatches,
+        innings: totalBattingInnings,
         runs,
         balls,
         avg,
@@ -214,6 +240,8 @@ export default function PlayerCareerScreen() {
         notOuts,
       },
       bowling: {
+        matches: totalMatches,
+        innings: totalBowlingInnings,
         wickets,
         overs: parseFloat(overs.toFixed(1)),
         econ,
@@ -455,6 +483,8 @@ export default function PlayerCareerScreen() {
     losses: 0,
     mvps: 0,
     batting: {
+      matches: 0,
+      innings: 0,
       runs: 0,
       balls: 0,
       avg: 0,
@@ -470,6 +500,8 @@ export default function PlayerCareerScreen() {
       notOuts: 0,
     },
     bowling: {
+      matches: 0,
+      innings: 0,
       wickets: 0,
       overs: 0,
       econ: 0,
@@ -558,8 +590,12 @@ export default function PlayerCareerScreen() {
             <Text style={[styles.recordLabel, { color: colors.textMuted }]}>Matches</Text>
           </View>
           <View style={styles.recordStat}>
-            <Text style={[styles.recordValue, { color: colors.primary }]}>{stats.wins || 0}</Text>
-            <Text style={[styles.recordLabel, { color: colors.textMuted }]}>Wins</Text>
+            <Text style={[styles.recordValue, { color: colors.primary }]}>{batting.innings ?? stats.matches ?? 0}</Text>
+            <Text style={[styles.recordLabel, { color: colors.textMuted }]}>Bat Inn</Text>
+          </View>
+          <View style={styles.recordStat}>
+            <Text style={[styles.recordValue, { color: colors.secondary || '#38BDF8' }]}>{bowling.innings ?? 0}</Text>
+            <Text style={[styles.recordLabel, { color: colors.textMuted }]}>Bowl Inn</Text>
           </View>
           <View style={styles.recordStat}>
             <Text style={[styles.recordValue, { color: '#F59E0B' }]}>{stats.mvps || 0}</Text>
@@ -567,8 +603,8 @@ export default function PlayerCareerScreen() {
           </View>
           {winRate !== null && (
             <View style={styles.recordStat}>
-              <Text style={[styles.recordValue, { color: colors.secondary || '#38BDF8' }]}>{winRate}%</Text>
-              <Text style={[styles.recordLabel, { color: colors.textMuted }]}>Win Rate</Text>
+              <Text style={[styles.recordValue, { color: '#10B981' }]}>{winRate}%</Text>
+              <Text style={[styles.recordLabel, { color: colors.textMuted }]}>Win %</Text>
             </View>
           )}
         </View>
@@ -759,9 +795,19 @@ export default function PlayerCareerScreen() {
       <Card style={styles.statsGridCard}>
         <View style={styles.gridRow}>
           <View style={styles.gridCol}>
+            <Text style={[styles.gridVal, { color: colors.primary }]}>{stats.matches || 0}</Text>
+            <Text style={[styles.gridLabel, { color: colors.textMuted }]}>Matches</Text>
+          </View>
+          <View style={styles.gridCol}>
+            <Text style={[styles.gridVal, { color: colors.primary }]}>{batting.innings ?? stats.matches ?? 0}</Text>
+            <Text style={[styles.gridLabel, { color: colors.textMuted }]}>Innings (Inn)</Text>
+          </View>
+          <View style={styles.gridCol}>
             <Text style={[styles.gridVal, { color: colors.text }]}>{batting.runs || 0}</Text>
             <Text style={[styles.gridLabel, { color: colors.textMuted }]}>Runs</Text>
           </View>
+        </View>
+        <View style={[styles.gridRow, { marginTop: 16 }]}>
           <View style={styles.gridCol}>
             <Text style={[styles.gridVal, { color: colors.text }]}>{batting.avg}</Text>
             <Text style={[styles.gridLabel, { color: colors.textMuted }]}>Average</Text>
@@ -770,12 +816,12 @@ export default function PlayerCareerScreen() {
             <Text style={[styles.gridVal, { color: colors.text }]}>{batting.sr}</Text>
             <Text style={[styles.gridLabel, { color: colors.textMuted }]}>Strike Rate</Text>
           </View>
-        </View>
-        <View style={[styles.gridRow, { marginTop: 16 }]}>
           <View style={styles.gridCol}>
             <Text style={[styles.gridVal, { color: colors.text }]}>{batting.highestScore || 0}</Text>
             <Text style={[styles.gridLabel, { color: colors.textMuted }]}>Highest Score</Text>
           </View>
+        </View>
+        <View style={[styles.gridRow, { marginTop: 16 }]}>
           <View style={styles.gridCol}>
             <Text style={[styles.gridVal, { color: colors.text }]}>{batting.fifties || 0}</Text>
             <Text style={[styles.gridLabel, { color: colors.textMuted }]}>50s</Text>
@@ -783,6 +829,10 @@ export default function PlayerCareerScreen() {
           <View style={styles.gridCol}>
             <Text style={[styles.gridVal, { color: colors.text }]}>{batting.hundreds || 0}</Text>
             <Text style={[styles.gridLabel, { color: colors.textMuted }]}>100s</Text>
+          </View>
+          <View style={styles.gridCol}>
+            <Text style={[styles.gridVal, { color: colors.text }]}>{batting.balls || 0}</Text>
+            <Text style={[styles.gridLabel, { color: colors.textMuted }]}>Balls Faced</Text>
           </View>
         </View>
         <View style={[styles.gridRow, { marginTop: 16 }]}>
@@ -813,8 +863,8 @@ export default function PlayerCareerScreen() {
             <Text style={[styles.gridLabel, { color: colors.textMuted }]}>💯 Fastest 100</Text>
           </View>
           <View style={styles.gridCol}>
-            <Text style={[styles.gridVal, { color: colors.text }]}>{batting.balls || 0}</Text>
-            <Text style={[styles.gridLabel, { color: colors.textMuted }]}>Balls Faced</Text>
+            <Text style={[styles.gridVal, { color: colors.text }]}>{batting.notOuts || 0}</Text>
+            <Text style={[styles.gridLabel, { color: colors.textMuted }]}>Not Outs</Text>
           </View>
         </View>
       </Card>
@@ -824,9 +874,19 @@ export default function PlayerCareerScreen() {
       <Card style={styles.statsGridCard}>
         <View style={styles.gridRow}>
           <View style={styles.gridCol}>
+            <Text style={[styles.gridVal, { color: colors.secondary || '#38BDF8' }]}>{stats.matches || 0}</Text>
+            <Text style={[styles.gridLabel, { color: colors.textMuted }]}>Matches</Text>
+          </View>
+          <View style={styles.gridCol}>
+            <Text style={[styles.gridVal, { color: colors.secondary || '#38BDF8' }]}>{bowling.innings ?? 0}</Text>
+            <Text style={[styles.gridLabel, { color: colors.textMuted }]}>Innings (Inn)</Text>
+          </View>
+          <View style={styles.gridCol}>
             <Text style={[styles.gridVal, { color: colors.text }]}>{bowling.wickets || 0}</Text>
             <Text style={[styles.gridLabel, { color: colors.textMuted }]}>Wickets</Text>
           </View>
+        </View>
+        <View style={[styles.gridRow, { marginTop: 16 }]}>
           <View style={styles.gridCol}>
             <Text style={[styles.gridVal, { color: colors.text }]}>{bowling.overs || 0}</Text>
             <Text style={[styles.gridLabel, { color: colors.textMuted }]}>Overs</Text>
@@ -835,14 +895,14 @@ export default function PlayerCareerScreen() {
             <Text style={[styles.gridVal, { color: colors.text }]}>{bowling.econ}</Text>
             <Text style={[styles.gridLabel, { color: colors.textMuted }]}>Economy</Text>
           </View>
-        </View>
-        <View style={[styles.gridRow, { marginTop: 16 }]}>
           <View style={styles.gridCol}>
             <Text style={[styles.gridVal, { color: colors.text }]}>
               {bowling.bestBowling?.wickets || 0}/{bowling.bestBowling?.runs || 0}
             </Text>
             <Text style={[styles.gridLabel, { color: colors.textMuted }]}>Best Bowling</Text>
           </View>
+        </View>
+        <View style={[styles.gridRow, { marginTop: 16 }]}>
           <View style={styles.gridCol}>
             <Text style={[styles.gridVal, { color: colors.text }]}>{bowling.maidens || 0}</Text>
             <Text style={[styles.gridLabel, { color: colors.textMuted }]}>Maidens</Text>
@@ -850,6 +910,12 @@ export default function PlayerCareerScreen() {
           <View style={styles.gridCol}>
             <Text style={[styles.gridVal, { color: colors.text }]}>{bowling.runsConceded || 0}</Text>
             <Text style={[styles.gridLabel, { color: colors.textMuted }]}>Runs Conceded</Text>
+          </View>
+          <View style={styles.gridCol}>
+            <Text style={[styles.gridVal, { color: colors.text }]}>
+              {bowling.wickets > 0 ? (bowling.runsConceded / bowling.wickets).toFixed(1) : '—'}
+            </Text>
+            <Text style={[styles.gridLabel, { color: colors.textMuted }]}>Bowling Avg</Text>
           </View>
         </View>
       </Card>

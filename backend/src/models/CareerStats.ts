@@ -16,6 +16,7 @@ const CareerStatsSchema = new Schema<ICareerStats>(
     },
     batting: {
       matches: { type: Number, default: 0 },
+      innings: { type: Number, default: 0 },
       runs: { type: Number, default: 0 },
       balls: { type: Number, default: 0 },
       fours: { type: Number, default: 0 },
@@ -29,6 +30,7 @@ const CareerStatsSchema = new Schema<ICareerStats>(
       notOuts: { type: Number, default: 0 },
     },
     bowling: {
+      innings: { type: Number, default: 0 },
       overs: { type: Number, default: 0 },
       maidens: { type: Number, default: 0 },
       runsConceded: { type: Number, default: 0 },

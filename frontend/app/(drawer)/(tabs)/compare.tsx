@@ -274,6 +274,26 @@ export default function PlayerComparisonTab() {
     const metrics: PlayerMetric[] = [
       // BATTING
       {
+        key: 'matches',
+        label: 'Matches Played',
+        category: 'batting',
+        val1: c1.matches || b1.matches || 0,
+        val2: c2.matches || b2.matches || 0,
+        display1: String(c1.matches || b1.matches || 0),
+        display2: String(c2.matches || b2.matches || 0),
+        winner: higherWinner(c1.matches || b1.matches || 0, c2.matches || b2.matches || 0),
+      },
+      {
+        key: 'battingInnings',
+        label: 'Batting Innings',
+        category: 'batting',
+        val1: b1.innings ?? b1.matches ?? 0,
+        val2: b2.innings ?? b2.matches ?? 0,
+        display1: String(b1.innings ?? b1.matches ?? 0),
+        display2: String(b2.innings ?? b2.matches ?? 0),
+        winner: higherWinner(b1.innings ?? b1.matches ?? 0, b2.innings ?? b2.matches ?? 0),
+      },
+      {
         key: 'runs',
         label: 'Total Runs',
         category: 'batting',
@@ -340,7 +360,7 @@ export default function PlayerComparisonTab() {
         val1: b1.fastestFifty || 0,
         val2: b2.fastestFifty || 0,
         display1: b1.fastestFifty ? `${b1.fastestFifty}b` : '—',
-        display2: b2.fastestHundred ? `${b2.fastestFifty}b` : '—',
+        display2: b2.fastestFifty ? `${b2.fastestFifty}b` : '—',
         winner: lowerWinner(b1.fastestFifty || 0, b2.fastestFifty || 0),
       },
       {
@@ -376,6 +396,16 @@ export default function PlayerComparisonTab() {
 
       // BOWLING
       {
+        key: 'bowlingInnings',
+        label: 'Bowling Innings',
+        category: 'bowling',
+        val1: bw1.innings ?? 0,
+        val2: bw2.innings ?? 0,
+        display1: String(bw1.innings ?? 0),
+        display2: String(bw2.innings ?? 0),
+        winner: higherWinner(bw1.innings ?? 0, bw2.innings ?? 0),
+      },
+      {
         key: 'wickets',
         label: 'Total Wickets',
         category: 'bowling',
@@ -384,6 +414,16 @@ export default function PlayerComparisonTab() {
         display1: String(bw1.wickets || 0),
         display2: String(bw2.wickets || 0),
         winner: higherWinner(bw1.wickets || 0, bw2.wickets || 0),
+      },
+      {
+        key: 'overs',
+        label: 'Overs Bowled',
+        category: 'bowling',
+        val1: bw1.overs || 0,
+        val2: bw2.overs || 0,
+        display1: String(bw1.overs || 0),
+        display2: String(bw2.overs || 0),
+        winner: higherWinner(bw1.overs || 0, bw2.overs || 0),
       },
       {
         key: 'economy',
@@ -491,6 +531,11 @@ export default function PlayerComparisonTab() {
             <Text style={[styles.playerRole, { color: colors.textMuted }]} numberOfLines={1}>
               {p1?.role || p1?.country || 'Tap to choose'}
             </Text>
+            {p1 && (
+              <Text style={{ fontSize: 11, fontWeight: '800', color: '#3B82F6', marginTop: 2 }} numberOfLines={1}>
+                {player1Data?.career?.batting?.matches || player1Data?.career?.matches || 0} Matches · {player1Data?.career?.batting?.innings ?? player1Data?.career?.batting?.matches ?? 0} Inn
+              </Text>
+            )}
             <View style={[styles.changePill, { backgroundColor: '#3B82F618', borderColor: '#3B82F640' }]}>
               <Text style={{ color: '#3B82F6', fontSize: 11, fontWeight: '700' }}>Change</Text>
             </View>
@@ -532,6 +577,11 @@ export default function PlayerComparisonTab() {
             <Text style={[styles.playerRole, { color: colors.textMuted }]} numberOfLines={1}>
               {p2?.role || p2?.country || 'Tap to choose'}
             </Text>
+            {p2 && (
+              <Text style={{ fontSize: 11, fontWeight: '800', color: '#10B981', marginTop: 2 }} numberOfLines={1}>
+                {player2Data?.career?.batting?.matches || player2Data?.career?.matches || 0} Matches · {player2Data?.career?.batting?.innings ?? player2Data?.career?.batting?.matches ?? 0} Inn
+              </Text>
+            )}
             <View style={[styles.changePill, { backgroundColor: '#10B98118', borderColor: '#10B98140' }]}>
               <Text style={{ color: '#10B981', fontSize: 11, fontWeight: '700' }}>Change</Text>
             </View>

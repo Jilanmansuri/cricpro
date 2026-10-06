@@ -95,13 +95,33 @@ export const getPlayerCareer = async (req: Request, res: Response): Promise<void
       career = await careerStatsRepository.create({ playerId, playerName: player.name });
     }
 
-    const insights = AiInsightsService.generatePlayerInsights(career);
+    const { PlayerMatchStats } = await import('../models/PlayerMatchStats');
+    const battingInningsCount = await PlayerMatchStats.countDocuments({
+      playerId,
+      'batting.didNotBat': { $ne: true }
+    });
+    const bowlingInningsCount = await PlayerMatchStats.countDocuments({
+      playerId,
+      'bowling.didNotBowl': { $ne: true }
+    });
+
+    const careerObj: any = career.toObject ? career.toObject() : { ...career };
+    careerObj.batting = {
+      ...careerObj.batting,
+      innings: careerObj.batting?.innings ? careerObj.batting.innings : battingInningsCount
+    };
+    careerObj.bowling = {
+      ...careerObj.bowling,
+      innings: careerObj.bowling?.innings ? careerObj.bowling.innings : bowlingInningsCount
+    };
+
+    const insights = AiInsightsService.generatePlayerInsights(careerObj);
 
     res.json({
       success: true,
       data: {
         player,
-        career,
+        career: careerObj,
         insights
       }
     });
