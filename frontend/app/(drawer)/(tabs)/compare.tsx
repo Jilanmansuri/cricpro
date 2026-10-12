@@ -66,8 +66,6 @@ const KNOWN_FULL_NAMES: Record<string, string> = {
   't varma': 'Tilak Varma',
   
   'm shami': 'Mohammed Shami',
-  'y chahal': 'Yuzvendra Chahal',
- 
   'r jadeja': 'Ravindra Jadeja',
   
   
