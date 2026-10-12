@@ -149,9 +149,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="tournaments"
         options={{
-          title: 'Tournaments',
-          tabBarLabel: 'Tourneys',
-          tabBarIcon: ({ color }) => <TournamentIcon color={color} />,
+          href: null,
         }}
       />
       <Tabs.Screen

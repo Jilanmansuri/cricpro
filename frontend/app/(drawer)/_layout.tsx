@@ -119,6 +119,20 @@ export default function DrawerLayout() {
           </TouchableOpacity>
 
           <TouchableOpacity
+            style={[styles.menuItem, pathname.includes('rankings') && { backgroundColor: colors.surfaceLighter }]}
+            onPress={() => handleNavigate('/(drawer)/rankings')}
+          >
+            <Text style={[styles.menuText, { color: pathname.includes('rankings') ? colors.primary : colors.text }]}>⭐ Player Rankings</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.menuItem, pathname.includes('tournaments') && { backgroundColor: colors.surfaceLighter }]}
+            onPress={() => handleNavigate('/(drawer)/tournaments')}
+          >
+            <Text style={[styles.menuText, { color: pathname.includes('tournaments') ? colors.primary : colors.text }]}>🏆 Tournaments</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
             style={[styles.menuItem, pathname.includes('teams') && { backgroundColor: colors.surfaceLighter }]}
             onPress={() => handleNavigate('/(drawer)/teams')}
           >
