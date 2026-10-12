@@ -189,6 +189,39 @@ export default function ManualMatchEntry() {
     };
   }, [batting, teamBBatting, bowling, teamABowling, matchInfo.teamName, matchInfo.opponentTeam, matchMilestones]);
 
+  const computedFieldingCatches = useMemo(() => {
+    // Team B dismissals -> catches for our team
+    const catchesList: Array<{ fielder: string; count: number }> = [];
+    const catchCounts: { [name: string]: number } = {};
+    const catchRegex = /\b(?:c|caught)\s+(.+?)(?:\s+b\s+(.+)|$)/i;
+    const cAndBRegex = /\b(?:c\s*&\s*b|caught\s+and\s+bowled)\s+(.+)/i;
+
+    teamBBatting.forEach(b => {
+      const text = (b.dismissalText || b.outStatus || '').trim();
+      let fName = b.fielder ? b.fielder.trim() : null;
+      if (cAndBRegex.test(text)) {
+        const m = text.match(cAndBRegex);
+        if (m && m[1]) fName = m[1].trim();
+        else if (b.bowler) fName = b.bowler.trim();
+      } else if (catchRegex.test(text)) {
+        const m = text.match(catchRegex);
+        if (m && m[1]) fName = m[1].trim();
+      }
+      if (fName) {
+        const subM = fName.match(/\bsub\s*\(([^)]+)\)/i);
+        if (subM && subM[1]) fName = subM[1].trim();
+        if (!['sub', 'substitute', 'out'].includes(fName.toLowerCase())) {
+          catchCounts[fName] = (catchCounts[fName] || 0) + 1;
+        }
+      }
+    });
+
+    for (const [name, count] of Object.entries(catchCounts)) {
+      catchesList.push({ fielder: name, count });
+    }
+    return catchesList;
+  }, [teamBBatting]);
+
   const [battingInnings, setBattingInnings] = useState<'teamA' | 'teamB'>('teamA');
   const [bowlingInnings, setBowlingInnings] = useState<'teamB' | 'teamA'>('teamB');
 
@@ -321,6 +354,10 @@ export default function ManualMatchEntry() {
             balls: String(row.balls ?? 0),
             fours: String(row.fours ?? 0),
             sixes: String(row.sixes ?? 0),
+            dismissalText: row.dismissalText || '',
+            dismissalType: row.dismissalType || '',
+            fielder: row.fielder || '',
+            bowler: row.bowler || '',
           }));
           setBatting(formattedBat);
         }
@@ -348,6 +385,10 @@ export default function ManualMatchEntry() {
             balls: String(row.balls ?? 0),
             fours: String(row.fours ?? 0),
             sixes: String(row.sixes ?? 0),
+            dismissalText: row.dismissalText || '',
+            dismissalType: row.dismissalType || '',
+            fielder: row.fielder || '',
+            bowler: row.bowler || '',
           }));
           setTeamBBatting(formattedTBat);
         }
@@ -589,6 +630,10 @@ export default function ManualMatchEntry() {
           }
           return {
             ...b,
+            dismissalText: b.dismissalText || '',
+            dismissalType: b.dismissalType || '',
+            fielder: b.fielder || '',
+            bowler: b.bowler || '',
             fastestFiftyBalls: f50 ? String(f50) : '',
             fastestHundredBalls: f100 ? String(f100) : ''
           };
@@ -609,6 +654,10 @@ export default function ManualMatchEntry() {
           }
           return {
             ...b,
+            dismissalText: b.dismissalText || '',
+            dismissalType: b.dismissalType || '',
+            fielder: b.fielder || '',
+            bowler: b.bowler || '',
             fastestFiftyBalls: f50 ? String(f50) : '',
             fastestHundredBalls: f100 ? String(f100) : ''
           };
@@ -629,6 +678,10 @@ export default function ManualMatchEntry() {
           }
           return {
             ...b,
+            dismissalText: b.dismissalText || '',
+            dismissalType: b.dismissalType || '',
+            fielder: b.fielder || '',
+            bowler: b.bowler || '',
             fastestFiftyBalls: f50 ? String(f50) : '',
             fastestHundredBalls: f100 ? String(f100) : ''
           };
@@ -1180,6 +1233,18 @@ export default function ManualMatchEntry() {
                             )}
                           </View>
                         )}
+                        <View style={{ marginTop: 8, paddingTop: 6, borderTopWidth: 1, borderTopColor: colors.border }}>
+                          <Text style={[styles.label, { color: colors.textMuted, fontSize: 11 }]}>
+                            Dismissal / How Out (Optional)
+                          </Text>
+                          <TextInput
+                            style={[styles.input, { height: 34, fontSize: 12, backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]}
+                            value={b.dismissalText || ''}
+                            onChangeText={t => updateBatsman(b.id, 'dismissalText', t)}
+                            placeholder="e.g. c Warner b Starc"
+                            placeholderTextColor={colors.textMuted}
+                          />
+                        </View>
                       </Card>
                     </Swipeable>
                   ))
@@ -1276,6 +1341,18 @@ export default function ManualMatchEntry() {
                             )}
                           </View>
                         )}
+                        <View style={{ marginTop: 8, paddingTop: 6, borderTopWidth: 1, borderTopColor: colors.border }}>
+                          <Text style={[styles.label, { color: colors.textMuted, fontSize: 11 }]}>
+                            Dismissal / Catch Details (e.g. c S Gill b J Bumrah)
+                          </Text>
+                          <TextInput
+                            style={[styles.input, { height: 34, fontSize: 12, backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]}
+                            value={b.dismissalText || ''}
+                            onChangeText={t => updateTeamBBatsman(b.id, 'dismissalText', t)}
+                            placeholder="e.g. c S Gill b J Bumrah (for catch stats)"
+                            placeholderTextColor={colors.textMuted}
+                          />
+                        </View>
                       </Card>
                     </Swipeable>
                   ))
@@ -1613,6 +1690,37 @@ export default function ManualMatchEntry() {
                 ) : (
                   <Text style={{ color: colors.textMuted, fontSize: 12, fontStyle: 'italic', marginBottom: 4 }}>
                     No 3+ wicket hauls recorded in this match.
+                  </Text>
+                )}
+              </View>
+
+              {/* Fielding Highlights (Catches from Opponent Batting) */}
+              <View style={{ marginTop: 10 }}>
+                <Text style={{ color: colors.textMuted, fontSize: 11, fontWeight: '800', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                  Fielding Highlights (Catches from Opponent Scorecard)
+                </Text>
+                {computedFieldingCatches.length > 0 ? (
+                  <View style={{ marginBottom: 6 }}>
+                    {computedFieldingCatches.map((fc: any, i: number) => (
+                      <View key={'fc_' + i} style={[styles.milestoneBadgeRow, { backgroundColor: '#0284c718', borderColor: '#0284c750' }]}>
+                        <Text style={{ fontSize: 16 }}>🧤</Text>
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ color: '#0284c7', fontWeight: '800', fontSize: 13 }}>
+                            {fc.fielder} - {fc.count} Catch{fc.count > 1 ? 'es' : ''}
+                          </Text>
+                          <Text style={{ color: colors.textMuted, fontSize: 11 }}>
+                            Opponent dismissals credited to {matchInfo.teamName || 'Your Team'}
+                          </Text>
+                        </View>
+                        <View style={[styles.pillBadge, { backgroundColor: '#0284c7' }]}>
+                          <Text style={{ color: '#fff', fontSize: 10, fontWeight: '900' }}>{fc.count} CATCH{fc.count > 1 ? 'ES' : ''}</Text>
+                        </View>
+                      </View>
+                    ))}
+                  </View>
+                ) : (
+                  <Text style={{ color: colors.textMuted, fontSize: 12, fontStyle: 'italic', marginBottom: 4 }}>
+                    No catches recorded from opponent scorecard.
                   </Text>
                 )}
               </View>

@@ -181,22 +181,29 @@ export class MatchService {
       isRunOut = true;
     }
 
-    // Parse dismissalText patterns
-    const catchRegex = /\bc\s+([^b]+?)\s+b\s+/i;
-    const caughtAndBowledRegex = /\bc\s*&\s*b\s+(.+)/i;
-    const stumpedRegex = /\bst\s+([^b]+?)\s+b\s+/i;
-    const runOutRegex = /\brun\s+out\s*\(([^)]+)\)/i;
+    // 1. Caught & bowled: "c & b Bowler" or "c&b Bowler" or "caught and bowled Bowler"
+    const caughtAndBowledRegex = /\b(?:c\s*&\s*b|caught\s+and\s+bowled)\s+(.+)/i;
+    // 2. Caught by fielder/keeper: "c Fielder b Bowler" or "caught Fielder b Bowler" or "c Fielder"
+    const catchRegex = /\b(?:c|caught)\s+(.+?)(?:\s+b\s+(.+)|$)/i;
+    // 3. Stumped: "st Keeper b Bowler" or "stumped Keeper b Bowler"
+    const stumpedRegex = /\b(?:st|stumped)\s+(.+?)(?:\s+b\s+(.+)|$)/i;
+    // 4. Run out: "run out (Fielder)" or "run out by Fielder"
+    const runOutRegex = /\brun\s+out(?:\s*\(([^)]+)\)|\s+by\s+([A-Za-z\s.'-]+))?/i;
 
-    if (catchRegex.test(text)) {
+    if (caughtAndBowledRegex.test(text)) {
+      isCatch = true;
+      if (!fielderName) {
+        const match = text.match(caughtAndBowledRegex);
+        if (match && match[1]) fielderName = match[1].trim();
+        else if (batItem.bowler) fielderName = batItem.bowler.trim();
+      }
+    } else if (catchRegex.test(text)) {
       isCatch = true;
       if (!fielderName) {
         const match = text.match(catchRegex);
-        if (match && match[1]) fielderName = match[1].trim();
-      }
-    } else if (caughtAndBowledRegex.test(text)) {
-      isCatch = true;
-      if (!fielderName && batItem.bowler) {
-        fielderName = batItem.bowler.trim();
+        if (match && match[1]) {
+          fielderName = match[1].trim();
+        }
       }
     } else if (stumpedRegex.test(text)) {
       isStumping = true;
@@ -208,11 +215,100 @@ export class MatchService {
       isRunOut = true;
       if (!fielderName) {
         const match = text.match(runOutRegex);
-        if (match && match[1]) fielderName = match[1].trim();
+        if (match && (match[1] || match[2])) fielderName = (match[1] || match[2]).trim();
+      }
+    }
+
+    // Clean up fielderName if it starts with "sub (" e.g. "sub (A Patel)" -> "A Patel"
+    if (fielderName) {
+      const subMatch = fielderName.match(/\bsub\s*\(([^)]+)\)/i);
+      if (subMatch && subMatch[1]) {
+        fielderName = subMatch[1].trim();
+      } else if (fielderName.toLowerCase() === 'sub' || fielderName.toLowerCase() === 'substitute') {
+        fielderName = null; // Unattributed substitute fielder
       }
     }
 
     return { fielderName, isCatch, isStumping, isRunOut };
+  }
+
+  /**
+   * Intelligently resolves a raw fielder name (e.g. "S Gill", "s gill", "Gill", "Bumrah")
+   * against the Indian players active in playerStatsMap.
+   */
+  private resolveFielderInMap(
+    rawFielderName: string,
+    playerStatsMap: Map<string, any>
+  ): any | null {
+    if (!rawFielderName) return null;
+    const clean = rawFielderName.toLowerCase().trim().replace(/\./g, '');
+    if (!clean || clean === 'sub' || clean === 'substitute') return null;
+
+    // 1. Direct key match
+    if (playerStatsMap.has(clean)) return playerStatsMap.get(clean);
+
+    // 2. Direct name match on entry
+    for (const entry of playerStatsMap.values()) {
+      if (entry.name.toLowerCase().trim().replace(/\./g, '') === clean) {
+        return entry;
+      }
+    }
+
+    // 3. Abbreviation match (e.g. "s gill" -> "shubman gill", "j bumrah" -> "jasprit bumrah")
+    for (const entry of playerStatsMap.values()) {
+      const entryClean = entry.name.toLowerCase().trim().replace(/\./g, '');
+      const cleanTokens = clean.split(/\s+/);
+      const entryTokens = entryClean.split(/\s+/);
+
+      if (cleanTokens.length >= 2 && entryTokens.length >= 2) {
+        const cleanLast = cleanTokens[cleanTokens.length - 1];
+        const entryLast = entryTokens[entryTokens.length - 1];
+        if (cleanLast === entryLast && entryTokens[0].startsWith(cleanTokens[0])) {
+          return entry;
+        }
+        if (cleanLast === entryLast && cleanTokens[0].startsWith(entryTokens[0])) {
+          return entry;
+        }
+      }
+
+      // E.g. "vk" -> "virat kohli"
+      if (cleanTokens.length === 1 && cleanTokens[0].length === 2 && entryTokens.length === 2) {
+        const initials = entryTokens.map((t: string) => t[0]).join('');
+        if (cleanTokens[0] === initials) return entry;
+      }
+    }
+
+    // 4. Last name matching (e.g. "gill" -> "shubman gill", "bumrah" -> "jasprit bumrah")
+    const cleanTokens = clean.split(/\s+/);
+    const targetLast = cleanTokens[cleanTokens.length - 1];
+    const lastNameCandidates: any[] = [];
+    for (const entry of playerStatsMap.values()) {
+      const eTokens = entry.name.toLowerCase().trim().replace(/\./g, '').split(/\s+/);
+      if (eTokens[eTokens.length - 1] === targetLast) {
+        lastNameCandidates.push({ entry, eTokens });
+      }
+    }
+    if (lastNameCandidates.length === 1) {
+      return lastNameCandidates[0].entry;
+    }
+    if (lastNameCandidates.length > 1 && cleanTokens.length > 1) {
+      const firstInitial = cleanTokens[0][0];
+      const match = lastNameCandidates.find((c: any) => c.eTokens[0].startsWith(firstInitial));
+      if (match) return match.entry;
+    }
+
+    // 5. Partial token match / contains match
+    for (const entry of playerStatsMap.values()) {
+      const entryLower = entry.name.toLowerCase().trim();
+      if (entryLower.includes(clean) || clean.includes(entryLower)) {
+        return entry;
+      }
+      if (clean.length >= 4 && entryLower.includes(clean.slice(0, 4))) {
+        return entry;
+      }
+    }
+
+    return null;
   }
 
   public async saveMatch(payload: any): Promise<IMatch> {
@@ -526,19 +622,30 @@ export class MatchService {
 
         // 3. Fielding
         for (const [fielderKey, fStats] of Object.entries(fieldingMap)) {
-          const existing = playerStatsMap.get(fielderKey);
-          if (existing) {
-            existing.fielding.catches += fStats.catches;
-            existing.fielding.stumpings += fStats.stumpings;
-            existing.fielding.runOuts += fStats.runOuts;
+          const matchedEntry = this.resolveFielderInMap(fielderKey, playerStatsMap);
+          if (matchedEntry) {
+            matchedEntry.fielding.catches += fStats.catches;
+            matchedEntry.fielding.stumpings += fStats.stumpings;
+            matchedEntry.fielding.runOuts += fStats.runOuts;
           } else {
-            // Fielder did not bat or bowl in this innings
-            playerStatsMap.set(fielderKey, {
-              name: fielderKey,
-              batting: { didNotBat: true, runs: 0, balls: 0, fours: 0, sixes: 0, outStatus: 'DNB' },
-              bowling: { didNotBowl: true, overs: 0, maidens: 0, runsConceded: 0, wickets: 0 },
-              fielding: { catches: fStats.catches, stumpings: fStats.stumpings, runOuts: fStats.runOuts }
-            });
+            // Check if player exists in database (e.g. Indian player like Ravindra Jadeja who didn't bat/bowl)
+            const dbPlayer = await this.playerMatchingService.findMatchingPlayer(fielderKey, undefined, userId);
+            const playerName = dbPlayer ? dbPlayer.name : fielderKey;
+            const existingKey = playerName.toLowerCase().trim();
+
+            if (playerStatsMap.has(existingKey)) {
+              const existing = playerStatsMap.get(existingKey)!;
+              existing.fielding.catches += fStats.catches;
+              existing.fielding.stumpings += fStats.stumpings;
+              existing.fielding.runOuts += fStats.runOuts;
+            } else {
+              playerStatsMap.set(existingKey, {
+                name: playerName,
+                batting: { didNotBat: true, runs: 0, balls: 0, fours: 0, sixes: 0, outStatus: 'DNB' },
+                bowling: { didNotBowl: true, overs: 0, maidens: 0, runsConceded: 0, wickets: 0 },
+                fielding: { catches: fStats.catches, stumpings: fStats.stumpings, runOuts: fStats.runOuts }
+              });
+            }
           }
         }
 
