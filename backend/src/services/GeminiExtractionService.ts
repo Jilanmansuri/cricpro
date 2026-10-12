@@ -238,12 +238,22 @@ SPECIFIC CRICKET EXTRACTION & COLUMN ACCURACY RULES:
   * W or Wkts: Wickets taken by this bowler. DO NOT confuse with Maidens or Overs!
   * Econ: Economy rate.
 
-- MOBILE CRICKET GAMES & CUSTOM / NEW PLAYERS:
-  * Games often use parody or slightly altered names for licensed players (e.g. 'C Greeny' -> Cameron Green, 'M Starcy' -> Mitchell Starc, 'A Zamps' -> Adam Zampa, 'S Smudge' -> Steve Smith, 'M Bison' -> Mitchell Marsh, 'M Wadey' -> Matthew Wade).
-  * CRITICAL FOR NEW PLAYERS: ALWAYS preserve the EXACT name of every player row visible on the scorecard.
-  * NEVER merge two different players into one.
-  * NEVER substitute or overwrite a new, unfamiliar, or custom player name with a famous player! (e.g. If the name is 'S Dube', keep 'S Dube'; do NOT change to 'S Yadav'. If 'T Malik', do NOT change to 'D Malik'!).
-  * Extract every single player row that has runs, balls, or overs, even if they are unknown or newly added.
+- MOBILE CRICKET GAMES (WCC2, RC20, RC24) BATTING VS BOWLING SCORECARDS:
+  * In mobile cricket games like World Cricket Championship (WCC2):
+    1. If a screenshot has header 'INDIA' (or team name) and shows columns [O, M, R, W, E] with bowling figures (e.g. H Pandya 4.0 ov 60r 3w, J Bumrah 3.0 ov 24r 2w):
+       - These players are INDIA'S BOWLERS.
+       - The team BATTING in this innings is the OPPONENT (e.g. 'Australia')!
+       - Therefore, for this innings: battingTeam = 'Australia', bowlingTeam = 'India'!
+       - DO NOT treat India as the batting team on a bowling scorecard!
+    2. If a screenshot has header 'INDIA' and shows columns [R, B, SR, 4s, 6s] with batting figures (e.g. S Yadav 100 40b, S Gill 20 11b):
+       - These players are INDIA'S BATTERS.
+       - Therefore, for this innings: battingTeam = 'India', bowlingTeam = 'Australia'!
+  * CRITICAL FOR INNINGS SEPARATION:
+    - NEVER mix Indian batters and Australian batters in the same innings!
+    - Innings where India batted MUST have battingTeam: 'India' and only Indian batters.
+    - Innings where Australia batted MUST have battingTeam: 'Australia' and only Australian batters.
+    - The bowlers in India's batting innings are the Australian bowlers who bowled to them (Starc, Cummins, etc.).
+    - The bowlers in Australia's batting innings are the Indian bowlers who bowled to them (Pandya, Bumrah, Siraj, Patel, Arshdeep).
 
 - DEDUCING OPPONENT TEAM FROM DISMISSAL TEXT:
   * If the opponent team (teamB) is not printed in the header, inspect the bowlers and fielders in the dismissal texts.
@@ -252,7 +262,7 @@ SPECIFIC CRICKET EXTRACTION & COLUMN ACCURACY RULES:
 
 - BOWLER EXTRACTION WHEN ONLY BATTING SCORECARD IS PROVIDED:
   * If an innings image shows only the batting scorecard without a separate bowling table:
-    Extract bowlers who took wickets directly from the dismissals (e.g., 'b C Greeny' -> 1 wicket for C Greeny; 'c ... b M Bison' -> 1 wicket for M Bison).
+    Extract bowlers who took wickets directly from the dismissals (e.g., 'b M Starcy' -> 1 wicket for M Starcy; 'c ... b M Bison' -> 1 wicket for M Bison).
     Include these bowlers in the innings 'bowlers' array with their wickets count so bowling records are not empty!
 
 - MATCH OUTCOME & WINNER DECISION (GEMINI AI AS CRICKET ARBITER):

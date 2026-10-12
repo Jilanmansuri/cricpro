@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { MatchRepository } from '../repositories/MatchRepository';
 import { PlayerMatchStatsRepository } from '../repositories/PlayerMatchStatsRepository';
 import { MatchService } from '../services/MatchService';
+import { Player } from '../models/Player';
 
 const matchRepository = new MatchRepository();
 const playerMatchStatsRepository = new PlayerMatchStatsRepository();
@@ -201,9 +202,54 @@ export const uploadScorecard = async (req: Request, res: Response): Promise<void
       userId
     );
 
-    // Normalize for both frontend and backend consumption
-    const inn1 = extractedScorecard.innings?.[0] || {};
-    const inn2 = extractedScorecard.innings?.[1] || {};
+    // 1. Fetch user's existing database players to anchor Team A (My Team) vs Team B (Opponent)
+    const dbPlayers = await Player.find({});
+    const dbPlayerNames = new Set(dbPlayers.map(p => p.name.trim().toLowerCase()));
+
+    const rawInn1 = extractedScorecard.innings?.[0] || {};
+    const rawInn2 = extractedScorecard.innings?.[1] || {};
+
+    const inn1BatterUserMatches = (rawInn1.batters || []).filter((b: any) => 
+      b.name && dbPlayerNames.has(b.name.trim().toLowerCase())
+    ).length;
+
+    const inn2BatterUserMatches = (rawInn2.batters || []).filter((b: any) => 
+      b.name && dbPlayerNames.has(b.name.trim().toLowerCase())
+    ).length;
+
+    const teamANameLower = (extractedScorecard.match.teamA || '').trim().toLowerCase();
+    const teamBNameLower = (extractedScorecard.match.teamB || '').trim().toLowerCase();
+    const inn1BatTeamLower = (rawInn1.battingTeam || '').trim().toLowerCase();
+    const inn2BatTeamLower = (rawInn2.battingTeam || '').trim().toLowerCase();
+
+    let teamAInnings = rawInn1;
+    let teamBInnings = rawInn2;
+
+    // If rawInn2 has MORE recognized user players batting than rawInn1, OR
+    // rawInn2 batting team matches teamA while rawInn1 matches teamB:
+    // Then rawInn2 is Team A (User Team) Batting, and rawInn1 is Team B Batting!
+    if (inn2BatterUserMatches > inn1BatterUserMatches) {
+      teamAInnings = rawInn2;
+      teamBInnings = rawInn1;
+    } else if (inn1BatterUserMatches > 0 && inn2BatterUserMatches === 0) {
+      teamAInnings = rawInn1;
+      teamBInnings = rawInn2;
+    } else if (inn2BatTeamLower && inn2BatTeamLower === teamANameLower && inn1BatTeamLower !== teamANameLower) {
+      teamAInnings = rawInn2;
+      teamBInnings = rawInn1;
+    } else if (inn1BatTeamLower && inn1BatTeamLower === teamBNameLower && inn2BatTeamLower !== teamBNameLower) {
+      teamAInnings = rawInn2;
+      teamBInnings = rawInn1;
+    }
+
+    const teamABatting = teamAInnings.batters || [];
+    const teamBBowling = teamAInnings.bowlers || [];
+    const teamBBatting = teamBInnings.batters || [];
+    const teamABowling = teamBInnings.bowlers || [];
+    const extrasA = teamAInnings.extras || { total: 0 };
+    const extrasB = teamBInnings.extras || { total: 0 };
+    const teamAScore = teamAInnings.total || { runs: 0, wickets: 0, overs: 0 };
+    const teamBScore = teamBInnings.total || { runs: 0, wickets: 0, overs: 0 };
 
     const resolvedTeamAName = teamAResolution.team
       ? (teamAResolution.team.displayName || teamAResolution.team.officialName || teamAResolution.team.name)
@@ -214,14 +260,14 @@ export const uploadScorecard = async (req: Request, res: Response): Promise<void
       : extractedScorecard.match.teamB;
 
     // SMART CRICKET LOGIC ENGINE: DEDUCE WINNER, MARGIN & MILESTONES
-    const allBatters = [...(inn1.batters || []), ...(inn2.batters || [])];
-    const allBowlers = [...(inn1.bowlers || []), ...(inn2.bowlers || [])];
+    const allBatters = [...teamABatting, ...teamBBatting];
+    const allBowlers = [...teamABowling, ...teamBBowling];
 
     // 1. Deduce Result and Margin automatically from scores if not already clear
     let matchResultText = (extractedScorecard.match.result?.text || '').trim();
-    const runsA = Number(inn1.total?.runs || 0);
-    const runsB = Number(inn2.total?.runs || 0);
-    const wktsB = Number(inn2.total?.wickets || 0);
+    const runsA = Number(teamAScore.runs || 0);
+    const runsB = Number(teamBScore.runs || 0);
+    const wktsB = Number(teamBScore.wickets || 0);
 
     if (!matchResultText || matchResultText.toLowerCase() === 'null' || matchResultText.length < 3) {
       if (runsA > 0 && runsB > 0) {
@@ -355,8 +401,8 @@ export const uploadScorecard = async (req: Request, res: Response): Promise<void
         overs: extractedScorecard.match.overs || 20,
         result: matchResultText,
         mvp: suggestedMvp,
-        teamAScore: inn1.total || { runs: 0, wickets: 0, overs: 0 },
-        teamBScore: inn2.total || { runs: 0, wickets: 0, overs: 0 }
+        teamAScore,
+        teamBScore
       },
       milestones: {
         centuries,
@@ -369,12 +415,12 @@ export const uploadScorecard = async (req: Request, res: Response): Promise<void
         bestBowler: bestBowler ? `${bestBowler.name} (${bestBowler.wickets}/${bestBowler.runsConceded ?? bestBowler.runs ?? 0})` : null
       },
       innings: extractedScorecard.innings,
-      teamABatting: inn1.batters || [],
-      teamBBowling: inn1.bowlers || [],
-      teamBBatting: inn2.batters || [],
-      teamABowling: inn2.bowlers || [],
-      extrasA: inn1.extras || { total: 0 },
-      extrasB: inn2.extras || { total: 0 }
+      teamABatting,
+      teamBBowling,
+      teamBBatting,
+      teamABowling,
+      extrasA,
+      extrasB
     };
 
     res.json({
