@@ -575,11 +575,65 @@ export default function ManualMatchEntry() {
       },
       teamAId,
       teamBId,
-      myTeamBatting: batting.filter(b => b.name.trim() !== ''),
+      myTeamBatting: (() => {
+        return batting.filter(b => b.name.trim() !== '').map(b => {
+          const r = Number(b.runs) || 0;
+          const balls = Number(b.balls) || 0;
+          let f50 = b.fastestFiftyBalls ? Number(b.fastestFiftyBalls) : null;
+          if ((!f50 || f50 <= 0) && r >= 50 && balls > 0) {
+            f50 = Math.min(balls, Math.max(1, Math.round((50 / r) * balls)));
+          }
+          let f100 = b.fastestHundredBalls ? Number(b.fastestHundredBalls) : null;
+          if ((!f100 || f100 <= 0) && r >= 100 && balls > 0) {
+            f100 = Math.min(balls, Math.max(1, Math.round((100 / r) * balls)));
+          }
+          return {
+            ...b,
+            fastestFiftyBalls: f50 ? String(f50) : '',
+            fastestHundredBalls: f100 ? String(f100) : ''
+          };
+        });
+      })(),
       myTeamBowling: bowling.filter(b => b.name.trim() !== ''),
-      teamABatting: batting.filter(b => b.name.trim() !== ''),
+      teamABatting: (() => {
+        return batting.filter(b => b.name.trim() !== '').map(b => {
+          const r = Number(b.runs) || 0;
+          const balls = Number(b.balls) || 0;
+          let f50 = b.fastestFiftyBalls ? Number(b.fastestFiftyBalls) : null;
+          if ((!f50 || f50 <= 0) && r >= 50 && balls > 0) {
+            f50 = Math.min(balls, Math.max(1, Math.round((50 / r) * balls)));
+          }
+          let f100 = b.fastestHundredBalls ? Number(b.fastestHundredBalls) : null;
+          if ((!f100 || f100 <= 0) && r >= 100 && balls > 0) {
+            f100 = Math.min(balls, Math.max(1, Math.round((100 / r) * balls)));
+          }
+          return {
+            ...b,
+            fastestFiftyBalls: f50 ? String(f50) : '',
+            fastestHundredBalls: f100 ? String(f100) : ''
+          };
+        });
+      })(),
       teamBBowling: bowling.filter(b => b.name.trim() !== ''),
-      teamBBatting: teamBBatting.filter(b => b.name.trim() !== ''),
+      teamBBatting: (() => {
+        return teamBBatting.filter(b => b.name.trim() !== '').map(b => {
+          const r = Number(b.runs) || 0;
+          const balls = Number(b.balls) || 0;
+          let f50 = b.fastestFiftyBalls ? Number(b.fastestFiftyBalls) : null;
+          if ((!f50 || f50 <= 0) && r >= 50 && balls > 0) {
+            f50 = Math.min(balls, Math.max(1, Math.round((50 / r) * balls)));
+          }
+          let f100 = b.fastestHundredBalls ? Number(b.fastestHundredBalls) : null;
+          if ((!f100 || f100 <= 0) && r >= 100 && balls > 0) {
+            f100 = Math.min(balls, Math.max(1, Math.round((100 / r) * balls)));
+          }
+          return {
+            ...b,
+            fastestFiftyBalls: f50 ? String(f50) : '',
+            fastestHundredBalls: f100 ? String(f100) : ''
+          };
+        });
+      })(),
       teamABowling: teamABowling.filter(b => b.name.trim() !== ''),
       extrasA: { total: extrasA },
       extrasB: { total: extrasB },
@@ -1104,7 +1158,7 @@ export default function ManualMatchEntry() {
                                 style={[styles.input, { height: 36, marginTop: 4, backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]}
                                 value={b.fastestFiftyBalls || ''}
                                 onChangeText={t => updateBatsman(b.id, 'fastestFiftyBalls', t)}
-                                placeholder="e.g. 14 (leave blank if unknown)"
+                                placeholder={Number(b.balls) > 0 ? `e.g. ${Math.min(Number(b.balls), Math.round((50 / Number(b.runs)) * Number(b.balls)))} (auto if blank)` : "e.g. 14 (auto if blank)"}
                                 placeholderTextColor={colors.textMuted}
                                 keyboardType="numeric"
                               />
@@ -1118,7 +1172,7 @@ export default function ManualMatchEntry() {
                                   style={[styles.input, { height: 36, marginTop: 4, backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]}
                                   value={b.fastestHundredBalls || ''}
                                   onChangeText={t => updateBatsman(b.id, 'fastestHundredBalls', t)}
-                                  placeholder="e.g. 38"
+                                  placeholder={Number(b.balls) > 0 ? `e.g. ${Math.min(Number(b.balls), Math.round((100 / Number(b.runs)) * Number(b.balls)))} (auto if blank)` : "e.g. 35 (auto if blank)"}
                                   placeholderTextColor={colors.textMuted}
                                   keyboardType="numeric"
                                 />
@@ -1200,7 +1254,7 @@ export default function ManualMatchEntry() {
                                 style={[styles.input, { height: 36, marginTop: 4, backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]}
                                 value={b.fastestFiftyBalls || ''}
                                 onChangeText={t => updateTeamBBatsman(b.id, 'fastestFiftyBalls', t)}
-                                placeholder="e.g. 14 (leave blank if unknown)"
+                                placeholder={Number(b.balls) > 0 ? `e.g. ${Math.min(Number(b.balls), Math.round((50 / Number(b.runs)) * Number(b.balls)))} (auto if blank)` : "e.g. 14 (auto if blank)"}
                                 placeholderTextColor={colors.textMuted}
                                 keyboardType="numeric"
                               />
@@ -1214,7 +1268,7 @@ export default function ManualMatchEntry() {
                                   style={[styles.input, { height: 36, marginTop: 4, backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]}
                                   value={b.fastestHundredBalls || ''}
                                   onChangeText={t => updateTeamBBatsman(b.id, 'fastestHundredBalls', t)}
-                                  placeholder="e.g. 38"
+                                  placeholder={Number(b.balls) > 0 ? `e.g. ${Math.min(Number(b.balls), Math.round((100 / Number(b.runs)) * Number(b.balls)))} (auto if blank)` : "e.g. 35 (auto if blank)"}
                                   placeholderTextColor={colors.textMuted}
                                   keyboardType="numeric"
                                 />

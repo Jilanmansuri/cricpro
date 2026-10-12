@@ -466,17 +466,30 @@ export class MatchService {
           const outStatus = (bat.dismissalStatus || bat.outStatus || 'out').trim();
           const isDnb = ['dnb', 'did not bat'].includes(outStatus.toLowerCase());
 
+          const runs = Number(bat.runs) || 0;
+          const balls = Number(bat.balls) || 0;
+
+          let f50 = bat.fastestFiftyBalls ? Number(bat.fastestFiftyBalls) : null;
+          if ((!f50 || f50 <= 0) && runs >= 50 && balls > 0) {
+            f50 = Math.min(balls, Math.max(1, Math.round((50 / runs) * balls)));
+          }
+
+          let f100 = bat.fastestHundredBalls ? Number(bat.fastestHundredBalls) : null;
+          if ((!f100 || f100 <= 0) && runs >= 100 && balls > 0) {
+            f100 = Math.min(balls, Math.max(1, Math.round((100 / runs) * balls)));
+          }
+
           playerStatsMap.set(key, {
             name: bat.name.trim(),
             batting: {
               didNotBat: isDnb,
-              runs: Number(bat.runs) || 0,
-              balls: Number(bat.balls) || 0,
+              runs,
+              balls,
               fours: Number(bat.fours) || 0,
               sixes: Number(bat.sixes) || 0,
               outStatus: isDnb ? 'DNB' : outStatus,
-              fastestFiftyBalls: bat.fastestFiftyBalls ? Number(bat.fastestFiftyBalls) : null,
-              fastestHundredBalls: bat.fastestHundredBalls ? Number(bat.fastestHundredBalls) : null
+              fastestFiftyBalls: f50,
+              fastestHundredBalls: f100
             },
             bowling: {
               didNotBowl: true,
