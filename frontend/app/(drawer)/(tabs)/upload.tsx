@@ -24,7 +24,7 @@ const TrashIcon = ({ color }: { color: string }) => (
 
 const CameraIcon = ({ color }: { color: string }) => (
   <Svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-    
+
     <Path d="M12 15a3 3 0 100-6 3 3 0 000 6z" fill={color} />
     <Path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z" fill={color} />
   </Svg>
@@ -40,7 +40,7 @@ const TABS = ['Scan OCR', 'Details', 'Batting', 'Bowling', 'Review'];
 
 const PlayerAutocomplete = ({ value, onChangeText, players, colors, styles }: any) => {
   const [showSuggestions, setShowSuggestions] = useState(false);
-  
+
   const filtered = players
     .filter((p: any) => p.name.toLowerCase().includes(value.toLowerCase()) && p.name.toLowerCase() !== value.toLowerCase())
     .slice(0, 5);
@@ -495,7 +495,7 @@ export default function ManualMatchEntry() {
           setTeamAMasterId(resA.data.data.team.teamId || '');
           setTeamALogo(resA.data.data.team.logoUrl || resA.data.data.team.logo || '');
         }
-      } catch (e) {}
+      } catch (e) { }
     }
     if (newTeamB && !teamBMasterId) {
       try {
@@ -505,7 +505,7 @@ export default function ManualMatchEntry() {
           setTeamBMasterId(resB.data.data.team.teamId || '');
           setTeamBLogo(resB.data.data.team.logoUrl || resB.data.data.team.logo || '');
         }
-      } catch (e) {}
+      } catch (e) { }
     }
 
     // Switch to Review tab to see complete scorecard with user filled missing items
@@ -707,8 +707,8 @@ export default function ManualMatchEntry() {
 
       if (response.data.success) {
         Alert.alert('Success', 'Match saved successfully! Career statistics and team records updated.', [
-          { 
-            text: 'OK', 
+          {
+            text: 'OK',
             onPress: () => {
               setMatchInfo({
                 date: new Date().toISOString().split('T')[0],
@@ -983,10 +983,10 @@ export default function ManualMatchEntry() {
         {activeTab === 1 && (
           <View style={styles.tabContent}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>Match Details</Text>
-            
+
             <View style={styles.inputGroup}>
               <Text style={[styles.label, { color: colors.textMuted }]}>Date (YYYY-MM-DD)</Text>
-              <TextInput style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={matchInfo.date} onChangeText={t => setMatchInfo({...matchInfo, date: t})} />
+              <TextInput style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={matchInfo.date} onChangeText={t => setMatchInfo({ ...matchInfo, date: t })} />
             </View>
 
             <View style={styles.inputGroup}>
@@ -999,7 +999,7 @@ export default function ManualMatchEntry() {
                 ) : null}
               </View>
               <TextInput style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: teamANeedsReview ? '#ff9500' : colors.border }]} value={matchInfo.teamName} onChangeText={t => {
-                setMatchInfo({...matchInfo, teamName: t});
+                setMatchInfo({ ...matchInfo, teamName: t });
                 setTeamANeedsReview(false);
               }} placeholder="e.g. India" placeholderTextColor={colors.textMuted} />
 
@@ -1039,7 +1039,7 @@ export default function ManualMatchEntry() {
                 ) : null}
               </View>
               <TextInput style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: teamBNeedsReview ? '#ff9500' : colors.border }]} value={matchInfo.opponentTeam} onChangeText={t => {
-                setMatchInfo({...matchInfo, opponentTeam: t});
+                setMatchInfo({ ...matchInfo, opponentTeam: t });
                 setTeamBNeedsReview(false);
               }} placeholder="e.g. Australia" placeholderTextColor={colors.textMuted} />
 
@@ -1078,20 +1078,20 @@ export default function ManualMatchEntry() {
             <View style={styles.rowInputs}>
               <View style={[styles.inputGroup, { flex: 1 }]}>
                 <Text style={[styles.label, { color: colors.textMuted }]}>Match Type</Text>
-                <TextInput style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={matchInfo.matchType} onChangeText={t => setMatchInfo({...matchInfo, matchType: t})} />
+                <TextInput style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={matchInfo.matchType} onChangeText={t => setMatchInfo({ ...matchInfo, matchType: t })} />
               </View>
               <View style={[styles.inputGroup, { flex: 1 }]}>
                 <Text style={[styles.label, { color: colors.textMuted }]}>Overs</Text>
-                <TextInput style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={matchInfo.overs} onChangeText={t => setMatchInfo({...matchInfo, overs: t})} keyboardType="numeric" />
+                <TextInput style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={matchInfo.overs} onChangeText={t => setMatchInfo({ ...matchInfo, overs: t })} keyboardType="numeric" />
               </View>
             </View>
             <View style={styles.inputGroup}>
               <Text style={[styles.label, { color: colors.textMuted }]}>Result</Text>
-              <TextInput style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={matchInfo.result} onChangeText={t => setMatchInfo({...matchInfo, result: t})} placeholder="e.g. India won by 15 runs" placeholderTextColor={colors.textMuted} />
+              <TextInput style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={matchInfo.result} onChangeText={t => setMatchInfo({ ...matchInfo, result: t })} placeholder="e.g. India won by 15 runs" placeholderTextColor={colors.textMuted} />
             </View>
             <View style={styles.inputGroup}>
               <Text style={[styles.label, { color: colors.textMuted }]}>Player of the Match (MVP)</Text>
-              <TextInput style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={matchInfo.mvp} onChangeText={t => setMatchInfo({...matchInfo, mvp: t})} placeholder="e.g. Virat Kohli" placeholderTextColor={colors.textMuted} />
+              <TextInput style={[styles.input, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]} value={matchInfo.mvp} onChangeText={t => setMatchInfo({ ...matchInfo, mvp: t })} placeholder="e.g. Virat Kohli" placeholderTextColor={colors.textMuted} />
             </View>
 
             <Button title="Next: Batting ➔" onPress={() => setActiveTab(2)} variant="secondary" style={{ marginTop: 12 }} />
@@ -1541,16 +1541,16 @@ export default function ManualMatchEntry() {
               {matchInfo.mvp ? (
                 <Text style={{ color: colors.primary, fontWeight: '700', marginTop: 4 }}>Player of Match: {matchInfo.mvp}</Text>
               ) : null}
-              
+
               <View style={styles.divider} />
-              
+
               <Text style={[styles.summarySubtitle, { color: colors.text }]}>Innings 1 ({matchInfo.teamName || 'Team 1'})</Text>
               <Text style={{ color: colors.textMuted }}>Batsmen: {batting.filter(b => b.name.trim()).length} players</Text>
               <Text style={{ color: colors.textMuted }}>Batting Runs: {batting.reduce((s, b) => s + (Number(b.runs) || 0), 0)} | Extras: {extrasA}</Text>
               <Text style={{ color: colors.text, fontWeight: '700', marginTop: 2 }}>
                 Total Score: {batting.reduce((s, b) => s + (Number(b.runs) || 0), 0) + extrasA} runs
               </Text>
-              
+
               {teamBBatting.length > 0 && (
                 <>
                   <View style={styles.divider} />
@@ -1564,7 +1564,7 @@ export default function ManualMatchEntry() {
               )}
 
               <View style={styles.divider} />
-              
+
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, gap: 8 }}>
                 <Text style={[styles.summarySubtitle, { color: colors.text, marginBottom: 0, flex: 1 }]} numberOfLines={1}>
                   🌟 Match Records & Milestones

@@ -89,22 +89,16 @@ export class StatsService {
           fifties++;
         }
 
-        // Track fastest 50 (use recorded balls, or fallback to innings balls if r >= 50)
-        let f50 = stats.batting.fastestFiftyBalls;
-        if ((!f50 || f50 <= 0) && r >= 50 && stats.batting.balls > 0) {
-          f50 = Math.min(stats.batting.balls, Math.max(1, Math.round((50 / r) * stats.batting.balls)));
-        }
+        // Track fastest 50 (only when recorded on match scorecard)
+        const f50 = stats.batting.fastestFiftyBalls;
         if (typeof f50 === 'number' && f50 > 0) {
           if (fastestFifty === null || f50 < fastestFifty) {
             fastestFifty = f50;
           }
         }
 
-        // Track fastest 100 (use recorded balls, or fallback to innings balls if r >= 100)
-        let f100 = stats.batting.fastestHundredBalls;
-        if ((!f100 || f100 <= 0) && r >= 100 && stats.batting.balls > 0) {
-          f100 = Math.min(stats.batting.balls, Math.max(1, Math.round((100 / r) * stats.batting.balls)));
-        }
+        // Track fastest 100 (only when recorded on match scorecard)
+        const f100 = stats.batting.fastestHundredBalls;
         if (typeof f100 === 'number' && f100 > 0) {
           if (fastestHundred === null || f100 < fastestHundred) {
             fastestHundred = f100;
@@ -139,7 +133,7 @@ export class StatsService {
 
     const matchIds = matchStatsList.map(s => s.matchId);
     const matches = await this.matchRepository.find({ _id: { $in: matchIds } });
-    
+
     let wins = 0;
     let losses = 0;
     let mvps = 0;

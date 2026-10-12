@@ -92,7 +92,7 @@ export class MatchService {
 
     // 3. Exclude foreign international teams
     const foreignInternationalCodes = [
-      'INT_AUS', 'INT_ENG', 'INT_RSA', 'INT_NZL', 'INT_PAK', 
+      'INT_AUS', 'INT_ENG', 'INT_RSA', 'INT_NZL', 'INT_PAK',
       'INT_SRI', 'INT_WI', 'INT_AFG', 'INT_BAN', 'INT_ZIM', 'INT_IRE'
     ];
     if (foreignInternationalCodes.includes(teamId)) {
@@ -566,14 +566,10 @@ export class MatchService {
           const balls = Number(bat.balls) || 0;
 
           let f50 = bat.fastestFiftyBalls ? Number(bat.fastestFiftyBalls) : null;
-          if ((!f50 || f50 <= 0) && runs >= 50 && balls > 0) {
-            f50 = Math.min(balls, Math.max(1, Math.round((50 / runs) * balls)));
-          }
+          if (!f50 || f50 <= 0) f50 = null;
 
           let f100 = bat.fastestHundredBalls ? Number(bat.fastestHundredBalls) : null;
-          if ((!f100 || f100 <= 0) && runs >= 100 && balls > 0) {
-            f100 = Math.min(balls, Math.max(1, Math.round((100 / runs) * balls)));
-          }
+          if (!f100 || f100 <= 0) f100 = null;
 
           playerStatsMap.set(key, {
             name: bat.name.trim(),
