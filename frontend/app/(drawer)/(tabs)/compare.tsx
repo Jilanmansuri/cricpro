@@ -58,13 +58,33 @@ const KNOWN_FULL_NAMES: Record<string, string> = {
   'arshdeep': 'Arshdeep Singh',
   'j bumrah': 'Jasprit Bumrah',
   'm siraj': 'Mohammed Siraj',
+  'y kuldeep': 'Kuldeep Yadav',
+  'k yadav': 'Kuldeep Yadav',
+  's dube': 'Shivam Dube',
   'r sharma': 'Rohit Sharma',
   'v kohli': 'Virat Kohli',
-  'kl rahul': 'KL Rahul',
+  'y jaiswal': 'Yashasvi Jaiswal',
   'r pant': 'Rishabh Pant',
-  'k yadav': 'Kuldeep Yadav',
+  'kl rahul': 'KL Rahul',
+  's iyer': 'Shreyas Iyer',
+  'r singh': 'Rinku Singh',
+  't varma': 'Tilak Varma',
+  'w sundar': 'Washington Sundar',
+  'r bishnoi': 'Ravi Bishnoi',
+  'm shami': 'Mohammed Shami',
   'y chahal': 'Yuzvendra Chahal',
-  's dube': 'Shivam Dube',
+  'v chakaravarthy': 'Varun Chakaravarthy',
+  'n reddy': 'Nitish Kumar Reddy',
+  'h rana': 'Harshit Rana',
+  'm yadav': 'Mayank Yadav',
+  'd jurel': 'Dhruv Jurel',
+  'j sharma': 'Jitesh Sharma',
+  'a khan': 'Avesh Khan',
+  'p krishna': 'Prasidh Krishna',
+  'k ahmed': 'Khaleel Ahmed',
+  'i kishan': 'Ishan Kishan',
+  's thakur': 'Shardul Thakur',
+  'r jadeja': 'Ravindra Jadeja',
   't head': 'Travis Head',
   'p cummins': 'Pat Cummins',
   'm starc': 'Mitchell Starc',
@@ -132,7 +152,7 @@ export default function PlayerComparisonTab() {
   const loadInitialPlayers = async () => {
     try {
       setIsLoading(true);
-      const res = await api.get('/players');
+      const res = await api.get('/players?limit=100');
       if (res.data.success && res.data.data.length > 0) {
         const players = res.data.data;
         setAllPlayers(players);
