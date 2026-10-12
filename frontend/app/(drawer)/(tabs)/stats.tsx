@@ -70,12 +70,22 @@ function getDisplayPlayerName(player: any): string {
 export default function StatsLeaderboardTab() {
   const router = useRouter();
   const { colors, isDarkMode } = useTheme();
-  const [activeTab, setActiveTab] = useState<'batting' | 'bowling' | 'records'>('batting');
+  const [activeTab, setActiveTab] = useState<'rankings' | 'batting' | 'bowling' | 'records'>('rankings');
   const [selectedDivision, setSelectedDivision] = useState<'all' | 'international' | 'ipl'>('all');
   const [isLoading, setIsLoading] = useState(true);
   const [leaderboard, setLeaderboard] = useState<{ topBatsmen: any[]; topBowlers: any[]; topMvps?: any[] }>({ topBatsmen: [], topBowlers: [], topMvps: [] });
   const [records, setRecords] = useState<{ batting: any[]; bowling: any[]; team: any[] }>({ batting: [], bowling: [], team: [] });
   const [recordsCategory, setRecordsCategory] = useState<'all' | 'batting' | 'bowling' | 'team'>('all');
+
+  // ICC Rankings State
+  const [rankingFormat, setRankingFormat] = useState<'T20' | 'ODI' | 'Test'>('T20');
+  const [rankingCategory, setRankingCategory] = useState<'batters' | 'bowlers' | 'all-rounders'>('batters');
+  const [rankingScope, setRankingScope] = useState<'career' | 'tournament'>('career');
+  const [rankings, setRankings] = useState<{ topBatters: any[]; topBowlers: any[]; topAllRounders: any[] }>({
+    topBatters: [],
+    topBowlers: [],
+    topAllRounders: []
+  });
 
   const [battingSort, setBattingSort] = useState('Runs');
   const [bowlingSort, setBowlingSort] = useState('Wickets');
@@ -83,18 +93,33 @@ export default function StatsLeaderboardTab() {
   const battingFilters = ['Runs', 'Highest Score', 'Average', 'Strike Rate', '100s', '50s', 'Fastest 50', 'Fastest 100', 'Sixes', 'Fours', 'MVPs'];
   const bowlingFilters = ['Wickets', 'Economy', 'Average', 'Maidens', 'MVPs'];
 
-  const fetchAllStats = async (division = selectedDivision) => {
+  const fetchRankingsData = async (fmt = rankingFormat, scp = rankingScope) => {
+    try {
+      const res = await api.get(`/players/rankings?format=${fmt}&scope=${scp}&limit=10`);
+      if (res?.data?.success) {
+        setRankings(res.data.data);
+      }
+    } catch (err) {
+      console.error('Error fetching rankings:', err);
+    }
+  };
+
+  const fetchAllStats = async (division = selectedDivision, fmt = rankingFormat, scp = rankingScope) => {
     setIsLoading(true);
     try {
-      const [lbRes, recRes] = await Promise.allSettled([
+      const [lbRes, recRes, rankRes] = await Promise.allSettled([
         api.get(`/players/leaderboard?division=${division}`),
-        api.get(`/players/records?division=${division}`)
+        api.get(`/players/records?division=${division}`),
+        api.get(`/players/rankings?format=${fmt}&scope=${scp}&limit=10`)
       ]);
       if (lbRes.status === 'fulfilled' && lbRes.value?.data?.success) {
         setLeaderboard(lbRes.value.data.data);
       }
       if (recRes.status === 'fulfilled' && recRes.value?.data?.success) {
         setRecords(recRes.value.data.data);
+      }
+      if (rankRes.status === 'fulfilled' && rankRes.value?.data?.success) {
+        setRankings(rankRes.value.data.data);
       }
     } catch (err) {
       console.error('Error fetching stats and records:', err);
@@ -105,8 +130,8 @@ export default function StatsLeaderboardTab() {
 
   useFocusEffect(
     useCallback(() => {
-      fetchAllStats(selectedDivision);
-    }, [selectedDivision])
+      fetchAllStats(selectedDivision, rankingFormat, rankingScope);
+    }, [selectedDivision, rankingFormat, rankingScope])
   );
 
   const resolveDisplayTeam = (player: any, rawTeam: any, division: string) => {
@@ -427,6 +452,134 @@ export default function StatsLeaderboardTab() {
     );
   };
 
+  const getRankingsData = () => {
+    if (rankingCategory === 'batters') return rankings.topBatters || [];
+    if (rankingCategory === 'bowlers') return rankings.topBowlers || [];
+    return rankings.topAllRounders || [];
+  };
+
+  const renderRankingCard = ({ item, index }: any) => {
+    const isGold = index === 0;
+    const isSilver = index === 1;
+    const isBronze = index === 2;
+
+    const rankBadgeColor = isGold ? '#F59E0B' : isSilver ? '#94A3B8' : isBronze ? '#D97706' : colors.primary;
+    const rankLabel = isGold ? '👑 #1' : isSilver ? '🥈 #2' : isBronze ? '🥉 #3' : `#${index + 1}`;
+
+    const displayName = KNOWN_FULL_NAMES[(item.playerName || '').toLowerCase()] || item.playerName || 'Player';
+
+    return (
+      <TouchableOpacity activeOpacity={0.7} onPress={() => handlePlayerPress(item)}>
+        <Card
+          style={[
+            styles.card,
+            isGold && {
+              borderColor: 'rgba(245, 158, 11, 0.45)',
+              borderWidth: 1.5,
+              backgroundColor: isDarkMode ? '#171923' : '#FFFDF5',
+            },
+          ]}
+        >
+          <View style={styles.row}>
+            {/* Rank Badge */}
+            <View style={{ alignItems: 'center', minWidth: 42, marginRight: 4 }}>
+              <Text style={{ fontSize: 13, fontWeight: '900', color: rankBadgeColor }}>
+                {rankLabel}
+              </Text>
+            </View>
+
+            <Avatar name={displayName} size={42} style={styles.avatar} />
+
+            <View style={styles.info}>
+              <View style={styles.nameAndTeamRow}>
+                <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>
+                  {displayName}
+                </Text>
+              </View>
+
+              {/* Batting Ranking Stats */}
+              {rankingCategory === 'batters' && item.stats && (
+                <>
+                  <Text style={[styles.subText, { color: colors.textMuted }]}>
+                    Runs/M: <Text style={{ color: colors.text, fontWeight: '700' }}>{item.stats.runsPerMatch}</Text> | Avg: <Text style={{ color: colors.primary, fontWeight: '700' }}>{item.stats.average}</Text> | SR: {item.stats.strikeRate}
+                  </Text>
+                  <Text style={[styles.subText, { color: colors.textMuted, fontSize: 10, marginTop: 2 }]}>
+                    Runs: {item.stats.runs} | Inngs: {item.stats.innings} | Cons: {item.components?.consistencyScore || 50}%
+                  </Text>
+                </>
+              )}
+
+              {/* Bowling Ranking Stats */}
+              {rankingCategory === 'bowlers' && item.stats && (
+                <>
+                  <Text style={[styles.subText, { color: colors.textMuted }]}>
+                    W/M: <Text style={{ color: colors.text, fontWeight: '700' }}>{item.stats.wicketsPerMatch}</Text> | Econ: <Text style={{ color: colors.primary, fontWeight: '700' }}>{item.stats.economy}</Text> | Avg: {item.stats.average}
+                  </Text>
+                  <Text style={[styles.subText, { color: colors.textMuted, fontSize: 10, marginTop: 2 }]}>
+                    Overs: {item.stats.overs} ({item.stats.legalBalls}b) | Wickets: {item.stats.wickets}
+                  </Text>
+                </>
+              )}
+
+              {/* All-Rounder Ranking Stats */}
+              {rankingCategory === 'all-rounders' && item.stats && (
+                <>
+                  <Text style={[styles.subText, { color: colors.textMuted }]}>
+                    Bat: <Text style={{ color: '#10B981', fontWeight: '700' }}>{item.battingRating || 'N/A'}</Text> | Bowl: <Text style={{ color: '#3B82F6', fontWeight: '700' }}>{item.bowlingRating || 'N/A'}</Text>
+                  </Text>
+                  <Text style={[styles.subText, { color: colors.textMuted, fontSize: 10, marginTop: 2 }]}>
+                    Runs: {item.stats.runs} ({item.stats.ballsFaced}b) | Wkts: {item.stats.wickets} ({item.stats.oversBowled} ov)
+                  </Text>
+                </>
+              )}
+            </View>
+
+            {/* Rating Points Badge */}
+            <View style={[styles.statsRight, { minWidth: 62, alignItems: 'flex-end' }]}>
+              <View
+                style={{
+                  backgroundColor: isGold
+                    ? 'rgba(245, 158, 11, 0.15)'
+                    : 'rgba(59, 130, 246, 0.12)',
+                  paddingHorizontal: 8,
+                  paddingVertical: 3,
+                  borderRadius: 8,
+                  borderWidth: 1,
+                  borderColor: isGold
+                    ? 'rgba(245, 158, 11, 0.4)'
+                    : 'rgba(59, 130, 246, 0.25)',
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 15,
+                    fontWeight: '900',
+                    color: isGold ? '#F59E0B' : colors.primary,
+                  }}
+                >
+                  {item.rating || item.rawRating || 0}
+                </Text>
+              </View>
+              <Text
+                style={{
+                  fontSize: 9,
+                  fontWeight: '800',
+                  color: colors.textMuted,
+                  marginTop: 2,
+                  letterSpacing: 0.5,
+                }}
+              >
+                RATING
+              </Text>
+            </View>
+
+            <Text style={[styles.chevron, { color: colors.textMuted }]}>›</Text>
+          </View>
+        </Card>
+      </TouchableOpacity>
+    );
+  };
+
   const getSortedData = () => {
     if (activeTab === 'batting') {
       let data = [...leaderboard.topBatsmen];
@@ -546,8 +699,18 @@ export default function StatsLeaderboardTab() {
             </View>
           </View>
 
-          {/* 3-Tab Switcher */}
+          {/* 4-Tab Switcher */}
           <View style={styles.tabSwitcher}>
+            <TouchableOpacity 
+              style={[
+                styles.tabBtn,
+                { backgroundColor: colors.surface, borderColor: colors.border },
+                activeTab === 'rankings' && { backgroundColor: '#8B5CF6', borderColor: '#8B5CF6' }
+              ]}
+              onPress={() => setActiveTab('rankings')}
+            >
+              <Text style={[styles.tabBtnText, { color: activeTab === 'rankings' ? '#fff' : colors.text, fontWeight: activeTab === 'rankings' ? '900' : '700' }]}>⭐ Rankings</Text>
+            </TouchableOpacity>
             <TouchableOpacity 
               style={[
                 styles.tabBtn,
@@ -556,7 +719,7 @@ export default function StatsLeaderboardTab() {
               ]}
               onPress={() => setActiveTab('batting')}
             >
-              <Text style={[styles.tabBtnText, { color: activeTab === 'batting' ? '#fff' : colors.text }]}>🏏 Batsmen</Text>
+              <Text style={[styles.tabBtnText, { color: activeTab === 'batting' ? '#fff' : colors.text }]}>🏏 Batters</Text>
             </TouchableOpacity>
             <TouchableOpacity 
               style={[
@@ -584,7 +747,90 @@ export default function StatsLeaderboardTab() {
         {/* Filter Pills */}
         <View style={styles.filtersContainer}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filtersScroll}>
-            {activeTab === 'records' ? (
+            {activeTab === 'rankings' ? (
+              <>
+                {/* Category filters */}
+                {[
+                  { key: 'batters', label: '🏏 Batters' },
+                  { key: 'bowlers', label: '🎯 Bowlers' },
+                  { key: 'all-rounders', label: '⚡ All-Rounders' },
+                ].map(c => (
+                  <TouchableOpacity
+                    key={c.key}
+                    style={[
+                      styles.filterPill,
+                      { backgroundColor: colors.surface, borderColor: colors.border },
+                      rankingCategory === c.key && { backgroundColor: '#8B5CF6', borderColor: '#8B5CF6' }
+                    ]}
+                    onPress={() => setRankingCategory(c.key as any)}
+                  >
+                    <Text
+                      style={[
+                        styles.filterText,
+                        { color: colors.textMuted },
+                        rankingCategory === c.key && { color: '#fff', fontWeight: '800' }
+                      ]}
+                    >
+                      {c.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+
+                {/* Divider */}
+                <View style={{ width: 1, height: 18, backgroundColor: colors.border, alignSelf: 'center', marginHorizontal: 4 }} />
+
+                {/* Format filters */}
+                {(['T20', 'ODI', 'Test'] as const).map(fmt => (
+                  <TouchableOpacity
+                    key={fmt}
+                    style={[
+                      styles.filterPill,
+                      { backgroundColor: colors.surface, borderColor: colors.border },
+                      rankingFormat === fmt && { backgroundColor: colors.primary, borderColor: colors.primary }
+                    ]}
+                    onPress={() => {
+                      setRankingFormat(fmt);
+                      fetchRankingsData(fmt, rankingScope);
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.filterText,
+                        { color: colors.textMuted },
+                        rankingFormat === fmt && { color: '#fff', fontWeight: '800' }
+                      ]}
+                    >
+                      {fmt}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+
+                {/* Scope filters */}
+                {(['career', 'tournament'] as const).map(scp => (
+                  <TouchableOpacity
+                    key={scp}
+                    style={[
+                      styles.filterPill,
+                      { backgroundColor: colors.surface, borderColor: colors.border },
+                      rankingScope === scp && { backgroundColor: colors.surfaceLighter || '#334155', borderColor: colors.primary }
+                    ]}
+                    onPress={() => {
+                      setRankingScope(scp);
+                      fetchRankingsData(rankingFormat, scp);
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.filterText,
+                        { color: rankingScope === scp ? colors.primary : colors.textMuted, fontWeight: rankingScope === scp ? '800' : '600' }
+                      ]}
+                    >
+                      {scp === 'career' ? '🏆 Career' : '🏟️ Tournament'}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </>
+            ) : activeTab === 'records' ? (
               [
                 { key: 'all', label: 'All Records' },
                 { key: 'batting', label: '🏏 Batting' },
@@ -637,25 +883,46 @@ export default function StatsLeaderboardTab() {
       </View>
 
       <FlatList
-        data={isLoading ? [] : (activeTab === 'records' ? getRecordsData() : getSortedData())}
-        keyExtractor={(item: any, idx: number) => (item.id ? `${item.id}-${idx}` : (item._id ? `${item._id}-${idx}` : (item.playerId?._id ? `${item.playerId._id}-${idx}` : String(idx))))}
+        data={
+          isLoading
+            ? []
+            : (activeTab === 'rankings'
+                ? getRankingsData()
+                : (activeTab === 'records' ? getRecordsData() : getSortedData()))
+        }
+        keyExtractor={(item: any, idx: number) => (item.id ? `${item.id}-${idx}` : (item._id ? `${item._id}-${idx}` : (item.playerId ? `${typeof item.playerId === 'object' ? item.playerId._id : item.playerId}-${idx}` : String(idx))))}
         contentContainerStyle={styles.list}
-        renderItem={activeTab === 'records' ? renderRecordCard : (activeTab === 'batting' ? renderBattingItem : renderBowlingItem)}
+        renderItem={
+          activeTab === 'rankings'
+            ? renderRankingCard
+            : (activeTab === 'records' ? renderRecordCard : (activeTab === 'batting' ? renderBattingItem : renderBowlingItem))
+        }
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
           isLoading ? (
             <View style={styles.loader}>
-              <ActivityIndicator size="large" color={activeTab === 'records' ? '#F59E0B' : colors.primary} />
+              <ActivityIndicator
+                size="large"
+                color={
+                  activeTab === 'rankings'
+                    ? '#8B5CF6'
+                    : (activeTab === 'records' ? '#F59E0B' : colors.primary)
+                }
+              />
               <Text style={{ color: colors.textMuted, marginTop: 12, fontSize: 13, fontWeight: '600' }}>
-                {activeTab === 'records' ? 'Loading all-time cricket records...' : 'Loading stats...'}
+                {activeTab === 'rankings'
+                  ? 'Calculating official format ratings...'
+                  : (activeTab === 'records' ? 'Loading all-time cricket records...' : 'Loading stats...')}
               </Text>
             </View>
           ) : (
             <View style={styles.empty}>
-              <Text style={{ color: colors.textMuted, fontSize: 14 }}>
-                {activeTab === 'records'
-                  ? 'No records established yet in this division.'
-                  : `No ${activeTab} stats recorded yet.`}
+              <Text style={{ color: colors.textMuted, fontSize: 14, textAlign: 'center', lineHeight: 20 }}>
+                {activeTab === 'rankings'
+                  ? `No qualified ${rankingCategory} found for ${rankingFormat} (${rankingScope}) rankings yet.\nPlay more matches in this format to meet qualification criteria!`
+                  : (activeTab === 'records'
+                      ? 'No records established yet in this division.'
+                      : `No ${activeTab} stats recorded yet.`)}
               </Text>
             </View>
           )

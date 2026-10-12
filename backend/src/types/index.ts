@@ -140,6 +140,7 @@ export interface IMatch extends Document {
   venueId: Types.ObjectId;
   date: Date;
   overs: number;
+  format?: 'T20' | 'ODI' | 'Test' | string;
   teamA: Types.ObjectId;
   teamB: Types.ObjectId;
   teamAScore: {

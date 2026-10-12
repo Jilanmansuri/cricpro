@@ -21,6 +21,10 @@ const MatchSchema = new Schema<IMatch>(
       type: Number,
       required: true,
     },
+    format: {
+      type: String,
+      index: true,
+    },
     teamA: {
       type: Schema.Types.ObjectId,
       ref: 'Team',

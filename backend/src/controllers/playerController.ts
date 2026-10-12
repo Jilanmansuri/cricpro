@@ -4,6 +4,7 @@ import { PlayerRepository } from '../repositories/PlayerRepository';
 import { CareerStatsRepository } from '../repositories/CareerStatsRepository';
 import { PlayerMatchStatsRepository } from '../repositories/PlayerMatchStatsRepository';
 import { AiInsightsService } from '../services/AiInsightsService';
+import { RatingService } from '../services/RatingService';
 
 const playerRepository = new PlayerRepository();
 const careerStatsRepository = new CareerStatsRepository();
@@ -1393,4 +1394,34 @@ export const getCricketRecords = async (req: Request, res: Response): Promise<vo
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+export const getPlayerRankings = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const format = (req.query.format as 'T20' | 'ODI' | 'Test') || 'T20';
+    const category = (req.query.category as 'batters' | 'bowlers' | 'all-rounders' | 'all') || 'all';
+    const scope = (req.query.scope as 'career' | 'tournament') || 'career';
+    const tournamentId = req.query.tournamentId as string;
+    const limit = req.query.limit ? parseInt(req.query.limit as string) : 5;
+    const userId = (req as any).user?._id;
+
+    const ratingService = new RatingService();
+    const rankings = await ratingService.getRankings({
+      format,
+      category,
+      scope,
+      tournamentId,
+      userId,
+      limit,
+    });
+
+    res.json({
+      success: true,
+      data: rankings,
+    });
+  } catch (error: any) {
+    console.error('Error fetching player rankings:', error);
+    res.status(500).json({ success: false, message: error.message || 'Failed to fetch player rankings' });
+  }
+};
+
 

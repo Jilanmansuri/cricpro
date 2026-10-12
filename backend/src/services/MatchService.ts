@@ -481,6 +481,7 @@ export class MatchService {
         if (venue) match.venueId = venue._id;
         if (mvpPlayerId) match.mvp = mvpPlayerId;
         if (ocrConfidence) match.ocrConfidence = Number(ocrConfidence);
+        if (payload.format) match.format = payload.format;
         if (userId && !match.createdBy) match.createdBy = userId;
         await match.save();
 
@@ -493,6 +494,7 @@ export class MatchService {
           venueId: venue ? venue._id : undefined,
           date: date ? new Date(date) : new Date(),
           overs: Number(overs) || 20,
+          format: payload.format || (Number(overs) <= 20 ? 'T20' : Number(overs) <= 50 ? 'ODI' : 'Test'),
           teamA: teamA._id,
           teamB: teamB._id,
           teamAScore: finalTeamAScore,
