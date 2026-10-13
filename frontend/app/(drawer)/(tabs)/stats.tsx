@@ -481,11 +481,50 @@ export default function StatsLeaderboardTab() {
           ]}
         >
           <View style={styles.row}>
-            {/* Rank Badge */}
-            <View style={{ alignItems: 'center', minWidth: 42, marginRight: 4 }}>
+            {/* Rank Badge + Trend */}
+            <View style={{ alignItems: 'center', minWidth: 46, marginRight: 6 }}>
               <Text style={{ fontSize: 13, fontWeight: '900', color: rankBadgeColor }}>
                 {rankLabel}
               </Text>
+              {item.trend && (
+                <View
+                  style={{
+                    marginTop: 3,
+                    paddingHorizontal: 5,
+                    paddingVertical: 1.5,
+                    borderRadius: 4,
+                    backgroundColor: item.trend.isNew
+                      ? 'rgba(6, 182, 212, 0.12)'
+                      : item.trend.change > 0
+                      ? 'rgba(16, 185, 129, 0.14)'
+                      : item.trend.change < 0
+                      ? 'rgba(239, 68, 68, 0.14)'
+                      : 'rgba(148, 163, 184, 0.12)',
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: 9,
+                      fontWeight: '800',
+                      color: item.trend.isNew
+                        ? '#06B6D4'
+                        : item.trend.change > 0
+                        ? '#10B981'
+                        : item.trend.change < 0
+                        ? '#EF4444'
+                        : '#94A3B8',
+                    }}
+                  >
+                    {item.trend.isNew
+                      ? 'NEW'
+                      : item.trend.change > 0
+                      ? `▲ +${item.trend.change}`
+                      : item.trend.change < 0
+                      ? `▼ ${Math.abs(item.trend.change)}`
+                      : '▬ 0'}
+                  </Text>
+                </View>
+              )}
             </View>
 
             <Avatar name={displayName} size={42} style={styles.avatar} />

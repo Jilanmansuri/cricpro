@@ -8,6 +8,8 @@ import {
   TouchableOpacity,
   ScrollView,
   Platform,
+  Modal,
+  TextInput,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -58,20 +60,49 @@ export default function RankingsDrawerScreen() {
   const [category, setCategory] = useState<'batters' | 'bowlers' | 'all-rounders'>('batters');
   const [scope, setScope] = useState<'career' | 'tournament'>('career');
 
+  // Time-based filtering state
+  const [timeFilter, setTimeFilter] = useState<'all' | 'year' | '30days' | 'custom'>('all');
+  const [selectedAsOfDate, setSelectedAsOfDate] = useState<string | null>(null);
+  const [isDatePickerVisible, setIsDatePickerVisible] = useState(false);
+  const [customDateInput, setCustomDateInput] = useState('');
+
   const [rankings, setRankings] = useState<{
+    asOfDate?: string | null;
+    availableMatchDates?: string[];
+    totalMatchesCount?: number;
     topBatters: any[];
     topBowlers: any[];
     topAllRounders: any[];
   }>({
+    asOfDate: null,
+    availableMatchDates: [],
+    totalMatchesCount: 0,
     topBatters: [],
     topBowlers: [],
     topAllRounders: [],
   });
 
-  const fetchRankings = async (fmt = format, scp = scope) => {
+  const fetchRankings = async (
+    fmt = format,
+    scp = scope,
+    tFilter = timeFilter,
+    asOf = selectedAsOfDate
+  ) => {
     setIsLoading(true);
     try {
-      const res = await api.get(`/players/rankings?format=${fmt}&scope=${scp}&limit=10`);
+      let queryParams = `/players/rankings?format=${fmt}&scope=${scp}&limit=10`;
+      if (tFilter === 'year') {
+        const currentYear = new Date().getFullYear();
+        queryParams += `&startDate=${currentYear}-01-01`;
+      } else if (tFilter === '30days') {
+        const d = new Date();
+        d.setDate(d.getDate() - 30);
+        queryParams += `&startDate=${d.toISOString().split('T')[0]}`;
+      } else if (tFilter === 'custom' && asOf) {
+        queryParams += `&asOfDate=${asOf}`;
+      }
+
+      const res = await api.get(queryParams);
       if (res?.data?.success) {
         setRankings(res.data.data);
       }
@@ -84,8 +115,8 @@ export default function RankingsDrawerScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      fetchRankings(format, scope);
-    }, [format, scope])
+      fetchRankings(format, scope, timeFilter, selectedAsOfDate);
+    }, [format, scope, timeFilter, selectedAsOfDate])
   );
 
   const getCurrentList = () => {
@@ -101,6 +132,21 @@ export default function RankingsDrawerScreen() {
     }
   };
 
+  const handleApplyCustomDate = (dateStr: string) => {
+    if (!dateStr || dateStr.trim() === '') return;
+    const cleanDate = dateStr.trim();
+    setSelectedAsOfDate(cleanDate);
+    setTimeFilter('custom');
+    setIsDatePickerVisible(false);
+    fetchRankings(format, scope, 'custom', cleanDate);
+  };
+
+  const handleResetToAllTime = () => {
+    setTimeFilter('all');
+    setSelectedAsOfDate(null);
+    fetchRankings(format, scope, 'all', null);
+  };
+
   const renderRankingItem = ({ item, index }: any) => {
     const isGold = index === 0;
     const isSilver = index === 1;
@@ -111,6 +157,8 @@ export default function RankingsDrawerScreen() {
 
     const displayName =
       KNOWN_FULL_NAMES[(item.playerName || '').toLowerCase()] || item.playerName || 'Player';
+
+    const trend = item.trend;
 
     return (
       <TouchableOpacity activeOpacity={0.7} onPress={() => handlePlayerPress(item)}>
@@ -125,11 +173,51 @@ export default function RankingsDrawerScreen() {
           ]}
         >
           <View style={styles.cardRow}>
-            {/* Rank badge */}
-            <View style={{ alignItems: 'center', minWidth: 42, marginRight: 4 }}>
+            {/* Rank badge + Trend Movement Pill */}
+            <View style={{ alignItems: 'center', minWidth: 46, marginRight: 6 }}>
               <Text style={{ fontSize: 13, fontWeight: '900', color: rankBadgeColor }}>
                 {rankLabel}
               </Text>
+
+              {trend && (
+                <View
+                  style={{
+                    marginTop: 3,
+                    paddingHorizontal: 5,
+                    paddingVertical: 1.5,
+                    borderRadius: 4,
+                    backgroundColor: trend.isNew
+                      ? 'rgba(6, 182, 212, 0.12)'
+                      : trend.change > 0
+                      ? 'rgba(16, 185, 129, 0.14)'
+                      : trend.change < 0
+                      ? 'rgba(239, 68, 68, 0.14)'
+                      : 'rgba(148, 163, 184, 0.12)',
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: 9,
+                      fontWeight: '800',
+                      color: trend.isNew
+                        ? '#06B6D4'
+                        : trend.change > 0
+                        ? '#10B981'
+                        : trend.change < 0
+                        ? '#EF4444'
+                        : '#94A3B8',
+                    }}
+                  >
+                    {trend.isNew
+                      ? 'NEW'
+                      : trend.change > 0
+                      ? `▲ +${trend.change}`
+                      : trend.change < 0
+                      ? `▼ ${Math.abs(trend.change)}`
+                      : '▬ 0'}
+                  </Text>
+                </View>
+              )}
             </View>
 
             <Avatar name={displayName} size={42} style={styles.avatar} />
@@ -284,7 +372,7 @@ export default function RankingsDrawerScreen() {
                 ]}
                 onPress={() => {
                   setFormat(fmt);
-                  fetchRankings(fmt, scope);
+                  fetchRankings(fmt, scope, timeFilter, selectedAsOfDate);
                 }}
               >
                 <Text
@@ -312,7 +400,7 @@ export default function RankingsDrawerScreen() {
                 ]}
                 onPress={() => {
                   setScope(scp);
-                  fetchRankings(format, scp);
+                  fetchRankings(format, scp, timeFilter, selectedAsOfDate);
                 }}
               >
                 <Text
@@ -328,6 +416,117 @@ export default function RankingsDrawerScreen() {
             ))}
           </View>
         </View>
+
+        {/* Time-Based Period / As-Of Date Filter Bar */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.timeFilterScroll}
+        >
+          <TouchableOpacity
+            style={[
+              styles.timePill,
+              { borderColor: colors.border, backgroundColor: colors.background },
+              timeFilter === 'all' && { backgroundColor: colors.surfaceLighter, borderColor: colors.primary },
+            ]}
+            onPress={handleResetToAllTime}
+          >
+            <Text
+              style={[
+                styles.timePillText,
+                { color: timeFilter === 'all' ? colors.primary : colors.textMuted },
+                timeFilter === 'all' && { fontWeight: '800' },
+              ]}
+            >
+              🌐 All-Time
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.timePill,
+              { borderColor: colors.border, backgroundColor: colors.background },
+              timeFilter === 'year' && { backgroundColor: colors.surfaceLighter, borderColor: colors.primary },
+            ]}
+            onPress={() => {
+              setTimeFilter('year');
+              setSelectedAsOfDate(null);
+              fetchRankings(format, scope, 'year', null);
+            }}
+          >
+            <Text
+              style={[
+                styles.timePillText,
+                { color: timeFilter === 'year' ? colors.primary : colors.textMuted },
+                timeFilter === 'year' && { fontWeight: '800' },
+              ]}
+            >
+              📅 {new Date().getFullYear()}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.timePill,
+              { borderColor: colors.border, backgroundColor: colors.background },
+              timeFilter === '30days' && { backgroundColor: colors.surfaceLighter, borderColor: colors.primary },
+            ]}
+            onPress={() => {
+              setTimeFilter('30days');
+              setSelectedAsOfDate(null);
+              fetchRankings(format, scope, '30days', null);
+            }}
+          >
+            <Text
+              style={[
+                styles.timePillText,
+                { color: timeFilter === '30days' ? colors.primary : colors.textMuted },
+                timeFilter === '30days' && { fontWeight: '800' },
+              ]}
+            >
+              ⚡ Last 30 Days
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.timePill,
+              { borderColor: colors.border, backgroundColor: colors.background },
+              timeFilter === 'custom' && {
+                backgroundColor: 'rgba(139, 92, 246, 0.15)',
+                borderColor: '#8B5CF6',
+              },
+            ]}
+            onPress={() => setIsDatePickerVisible(true)}
+          >
+            <Text
+              style={[
+                styles.timePillText,
+                { color: timeFilter === 'custom' ? '#8B5CF6' : colors.textMuted },
+                timeFilter === 'custom' && { fontWeight: '800' },
+              ]}
+            >
+              {timeFilter === 'custom' && selectedAsOfDate ? `🗓️ As of: ${selectedAsOfDate}` : '🗓️ Pick Date'}
+            </Text>
+          </TouchableOpacity>
+        </ScrollView>
+
+        {/* Active As-Of-Date Notification Banner */}
+        {timeFilter !== 'all' && (
+          <View style={[styles.activeBanner, { backgroundColor: isDarkMode ? '#1e1b4b' : '#ede9fe' }]}>
+            <Text style={[styles.activeBannerText, { color: '#8b5cf6' }]} numberOfLines={1}>
+              {timeFilter === 'custom' && selectedAsOfDate
+                ? `📅 Showing historical rankings as of ${selectedAsOfDate}`
+                : timeFilter === 'year'
+                ? `📅 Showing ${new Date().getFullYear()} season rankings`
+                : '⚡ Showing last 30 days rankings'}
+              {rankings.totalMatchesCount !== undefined ? ` (${rankings.totalMatchesCount} matches)` : ''}
+            </Text>
+            <TouchableOpacity onPress={handleResetToAllTime} style={styles.bannerResetBtn}>
+              <Text style={{ fontSize: 11, fontWeight: '800', color: '#8b5cf6' }}>✕ Reset</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
 
       {/* Rankings List */}
@@ -350,12 +549,109 @@ export default function RankingsDrawerScreen() {
               <Text style={{ fontSize: 36, marginBottom: 8 }}>⭐</Text>
               <Text style={[styles.emptyTitle, { color: colors.text }]}>No Qualified Players</Text>
               <Text style={[styles.emptySubtitle, { color: colors.textMuted }]}>
-                Minimum match and workload requirements not met in {format} ({scope}). Play more matches in this format to qualify for official rankings!
+                No matches found or minimum sample requirements not met for {format} ({scope})
+                {selectedAsOfDate ? ` up to ${selectedAsOfDate}` : ''}.
               </Text>
+              {timeFilter !== 'all' && (
+                <TouchableOpacity
+                  style={[styles.resetEmptyBtn, { backgroundColor: '#8B5CF6' }]}
+                  onPress={handleResetToAllTime}
+                >
+                  <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>Reset to All-Time</Text>
+                </TouchableOpacity>
+              )}
             </View>
           )
         }
       />
+
+      {/* Modal: Pick As-Of Date / Historical Point in Time */}
+      <Modal
+        visible={isDatePickerVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsDatePickerVisible(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.modalContent, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>📅 View Past Rankings</Text>
+              <TouchableOpacity onPress={() => setIsDatePickerVisible(false)}>
+                <Text style={{ fontSize: 18, color: colors.textMuted, fontWeight: '700' }}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={[styles.modalDesc, { color: colors.textMuted }]}>
+              Select any past date to view who held the #1 spot and podium ranks on that exact day.
+            </Text>
+
+            {/* Quick Match Dates (if available from matches) */}
+            {rankings.availableMatchDates && rankings.availableMatchDates.length > 0 && (
+              <View style={{ marginBottom: 14 }}>
+                <Text style={[styles.sectionSubtitle, { color: colors.text }]}>Recent Match Days:</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 6 }}>
+                  {rankings.availableMatchDates.slice(0, 8).map((dStr) => (
+                    <TouchableOpacity
+                      key={dStr}
+                      style={[
+                        styles.quickDatePill,
+                        { borderColor: colors.border, backgroundColor: colors.background },
+                        selectedAsOfDate === dStr && {
+                          borderColor: '#8B5CF6',
+                          backgroundColor: 'rgba(139, 92, 246, 0.15)',
+                        },
+                      ]}
+                      onPress={() => {
+                        setCustomDateInput(dStr);
+                        handleApplyCustomDate(dStr);
+                      }}
+                    >
+                      <Text
+                        style={[
+                          styles.quickDateText,
+                          { color: selectedAsOfDate === dStr ? '#8B5CF6' : colors.text },
+                        ]}
+                      >
+                        {dStr}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+
+            {/* Manual Date Input */}
+            <Text style={[styles.sectionSubtitle, { color: colors.text }]}>Or Enter Custom Date (YYYY-MM-DD):</Text>
+            <View style={[styles.inputRow, { borderColor: colors.border, backgroundColor: colors.background }]}>
+              <TextInput
+                style={[styles.dateInput, { color: colors.text }]}
+                placeholder="e.g. 2026-05-15"
+                placeholderTextColor={colors.textMuted}
+                value={customDateInput}
+                onChangeText={setCustomDateInput}
+                autoCapitalize="none"
+              />
+              <TouchableOpacity
+                style={styles.applyBtn}
+                onPress={() => handleApplyCustomDate(customDateInput)}
+              >
+                <Text style={{ color: '#fff', fontWeight: '800', fontSize: 13 }}>Apply</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Action buttons */}
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.modalCloseBtn, { borderColor: colors.border }]}
+                onPress={handleResetToAllTime}
+              >
+                <Text style={{ color: colors.textMuted, fontWeight: '700', fontSize: 13 }}>
+                  Clear & Show All-Time
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -421,6 +717,40 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
   },
+  timeFilterScroll: {
+    flexDirection: 'row',
+    gap: 6,
+    paddingVertical: 2,
+  },
+  timePill: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  timePillText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  activeBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+    marginTop: 2,
+  },
+  activeBannerText: {
+    fontSize: 11,
+    fontWeight: '700',
+    flex: 1,
+  },
+  bannerResetBtn: {
+    marginLeft: 8,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+  },
   list: {
     padding: 16,
     gap: 10,
@@ -474,5 +804,81 @@ const styles = StyleSheet.create({
     fontSize: 12,
     textAlign: 'center',
     lineHeight: 18,
+  },
+  resetEmptyBtn: {
+    marginTop: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+    borderRadius: 8,
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    width: '100%',
+    maxWidth: 380,
+    borderRadius: 14,
+    padding: 18,
+    borderWidth: 1,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  modalDesc: {
+    fontSize: 12,
+    lineHeight: 17,
+    marginBottom: 14,
+  },
+  sectionSubtitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    marginBottom: 6,
+  },
+  quickDatePill: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+    borderWidth: 1,
+    marginRight: 6,
+  },
+  quickDateText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 8,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    marginBottom: 16,
+  },
+  dateInput: {
+    flex: 1,
+    paddingVertical: 8,
+    fontSize: 13,
+  },
+  applyBtn: {
+    backgroundColor: '#8B5CF6',
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 6,
+  },
+  modalActions: {
+    alignItems: 'center',
+  },
+  modalCloseBtn: {
+    paddingVertical: 6,
   },
 });

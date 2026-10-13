@@ -1402,6 +1402,8 @@ export const getPlayerRankings = async (req: Request, res: Response): Promise<vo
     const scope = (req.query.scope as 'career' | 'tournament') || 'career';
     const tournamentId = req.query.tournamentId as string;
     const limit = req.query.limit ? parseInt(req.query.limit as string) : 5;
+    const asOfDate = req.query.asOfDate as string;
+    const startDate = req.query.startDate as string;
     const userId = (req as any).user?._id;
 
     const ratingService = new RatingService();
@@ -1412,6 +1414,8 @@ export const getPlayerRankings = async (req: Request, res: Response): Promise<vo
       tournamentId,
       userId,
       limit,
+      asOfDate,
+      startDate,
     });
 
     res.json({

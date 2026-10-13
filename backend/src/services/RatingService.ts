@@ -18,12 +18,20 @@ export interface BowlerRatingComponents {
   consistencyScore: number;
 }
 
+export interface TrendInfo {
+  previousRank: number | null;
+  change: number; // positive = climbed (e.g. +1), negative = dropped (e.g. -1), 0 = no change
+  isNew: boolean;
+}
+
 export interface BatterRatingResult {
   playerId: string;
   playerName: string;
   rating: number | null;
   rawRating: number;
   isEligible: boolean;
+  rank?: number;
+  trend?: TrendInfo;
   components: BattingRatingComponents;
   stats: {
     matches: number;
@@ -44,6 +52,8 @@ export interface BowlerRatingResult {
   rating: number | null;
   rawRating: number;
   isEligible: boolean;
+  rank?: number;
+  trend?: TrendInfo;
   components: BowlerRatingComponents;
   stats: {
     matches: number;
@@ -64,6 +74,8 @@ export interface AllRounderRatingResult {
   playerName: string;
   rating: number | null;
   isEligible: boolean;
+  rank?: number;
+  trend?: TrendInfo;
   battingRating: number | null;
   bowlingRating: number | null;
   stats: {
@@ -84,6 +96,8 @@ export interface RankingOptions {
   tournamentId?: string;
   userId?: string;
   limit?: number;
+  asOfDate?: string | Date;
+  startDate?: string | Date;
 }
 
 export class RatingService {
@@ -453,59 +467,23 @@ export class RatingService {
   }
 
   /**
-   * Query and compute rankings across format, category, and scope
+   * Helper to compute sorted player rankings for a specific set of match IDs
    */
-  public async getRankings(options: RankingOptions = {}) {
-    const format = options.format || 'T20';
-    const category = options.category || 'all';
-    const scope = options.scope || 'career';
-    const tournamentId = options.tournamentId;
-    const userId = options.userId;
-    const limit = options.limit || 5;
-
+  private async calculatePlayerRankingsForMatches(
+    matchedMatchIds: Types.ObjectId[],
+    format: 'T20' | 'ODI' | 'Test',
+    scope: 'career' | 'tournament',
+    limit: number
+  ) {
     const benchmarks = RATING_BENCHMARKS[format];
-    if (!benchmarks) {
-      throw new Error(`Unsupported format: ${format}`);
+    if (!benchmarks || matchedMatchIds.length === 0) {
+      return { sortedBatters: [], sortedBowlers: [], sortedAllRounders: [] };
     }
 
-    // 1. Build Match query
-    const matchQuery: any = {};
-    if (userId) {
-      matchQuery.createdBy = new Types.ObjectId(userId);
-    }
-    if (scope === 'tournament' && tournamentId) {
-      matchQuery.tournamentId = new Types.ObjectId(tournamentId);
-    }
-
-    // Fetch candidate matches
-    const allMatches = await Match.find(matchQuery).select('_id overs format date').lean();
-
-    // Format filtering using explicit format field first, with fallback to overs
-    const matchedMatchIds: Types.ObjectId[] = [];
-    for (const m of allMatches) {
-      const detected = RatingService.detectMatchFormat({ format: m.format, overs: m.overs });
-      if (detected === format) {
-        matchedMatchIds.push(m._id);
-      }
-    }
-
-    if (matchedMatchIds.length === 0) {
-      return {
-        format,
-        scope,
-        tournamentId,
-        topBatters: [],
-        topBowlers: [],
-        topAllRounders: [],
-      };
-    }
-
-    // 2. Fetch all PlayerMatchStats for these matches
     const statsList = await PlayerMatchStats.find({
       matchId: { $in: matchedMatchIds },
     }).lean();
 
-    // Group stats by player
     const playerStatsMap = new Map<string, any[]>();
     for (const stat of statsList) {
       const pId = stat.playerId ? stat.playerId.toString() : null;
@@ -516,12 +494,10 @@ export class RatingService {
       playerStatsMap.get(pId)!.push(stat);
     }
 
-    // 3. Fetch Player details
     const uniquePlayerIds = Array.from(playerStatsMap.keys()).map(id => new Types.ObjectId(id));
     const players = await Player.find({ _id: { $in: uniquePlayerIds } }).lean();
     const playerMap = new Map(players.map(p => [p._id.toString(), p]));
 
-    // 4. Calculate ratings for each player
     const batterResults: BatterRatingResult[] = [];
     const bowlerResults: BowlerRatingResult[] = [];
     const allRounderResults: AllRounderRatingResult[] = [];
@@ -581,7 +557,6 @@ export class RatingService {
       });
     }
 
-    // 5. Sort & Rank (Eligible with highest rating first)
     const sortedBatters = batterResults
       .filter(b => b.isEligible && b.rating !== null && b.rating > 0)
       .sort((a, b) => (b.rating || 0) - (a.rating || 0))
@@ -600,14 +575,167 @@ export class RatingService {
       .slice(0, limit)
       .map((ar, idx) => ({ ...ar, rank: idx + 1 }));
 
+    return { sortedBatters, sortedBowlers, sortedAllRounders };
+  }
+
+  /**
+   * Query and compute rankings across format, category, scope, and time
+   */
+  public async getRankings(options: RankingOptions = {}) {
+    const format = options.format || 'T20';
+    const category = options.category || 'all';
+    const scope = options.scope || 'career';
+    const tournamentId = options.tournamentId;
+    const userId = options.userId;
+    const limit = options.limit || 5;
+
+    const benchmarks = RATING_BENCHMARKS[format];
+    if (!benchmarks) {
+      throw new Error(`Unsupported format: ${format}`);
+    }
+
+    // 1. Build Base Match query
+    const matchQuery: any = {};
+    if (userId) {
+      matchQuery.createdBy = new Types.ObjectId(userId);
+    }
+    if (scope === 'tournament' && tournamentId) {
+      matchQuery.tournamentId = new Types.ObjectId(tournamentId);
+    }
+
+    // Fetch all candidate matches in this scope
+    const allMatches = await Match.find(matchQuery).select('_id overs format date createdAt').lean();
+
+    // Format filtering using explicit format field first, with fallback to overs
+    const formatMatches = allMatches.filter(m => {
+      const detected = RatingService.detectMatchFormat({ format: m.format, overs: m.overs });
+      return detected === format;
+    });
+
+    // Available match dates across all matches in this scope/format
+    const availableMatchDates = Array.from(
+      new Set(
+        formatMatches
+          .map(m => (m.date ? new Date(m.date).toISOString().split('T')[0] : null))
+          .filter(Boolean) as string[]
+      )
+    ).sort().reverse();
+
+    // Filter by date range / asOfDate if specified
+    let filteredMatches = formatMatches;
+    if (options.startDate) {
+      const start = new Date(options.startDate);
+      start.setHours(0, 0, 0, 0);
+      filteredMatches = filteredMatches.filter(m => new Date(m.date || m.createdAt || 0) >= start);
+    }
+    if (options.asOfDate) {
+      const end = new Date(options.asOfDate);
+      end.setHours(23, 59, 59, 999);
+      filteredMatches = filteredMatches.filter(m => new Date(m.date || m.createdAt || 0) <= end);
+    }
+
+    if (filteredMatches.length === 0) {
+      return {
+        format,
+        category,
+        scope,
+        tournamentId,
+        asOfDate: options.asOfDate ? new Date(options.asOfDate).toISOString().split('T')[0] : null,
+        availableMatchDates,
+        totalMatchesCount: 0,
+        topBatters: [],
+        topBowlers: [],
+        topAllRounders: [],
+      };
+    }
+
+    const currentMatchIds = filteredMatches.map(m => m._id);
+    const { sortedBatters, sortedBowlers, sortedAllRounders } = await this.calculatePlayerRankingsForMatches(
+      currentMatchIds,
+      format,
+      scope,
+      limit
+    );
+
+    // Compute Previous Match State for Rank Trends
+    const matchTimes = filteredMatches
+      .map(m => new Date(m.date || m.createdAt || 0).getTime())
+      .filter(t => t > 0);
+    const latestTime = matchTimes.length > 0 ? Math.max(...matchTimes) : 0;
+
+    // Previous matches are those played strictly before the latest match time/day
+    const previousMatches = filteredMatches.filter(
+      m => new Date(m.date || m.createdAt || 0).getTime() < latestTime
+    );
+
+    let prevBatterRankMap = new Map<string, number>();
+    let prevBowlerRankMap = new Map<string, number>();
+    let prevArRankMap = new Map<string, number>();
+
+    if (previousMatches.length > 0) {
+      const prevIds = previousMatches.map(m => m._id);
+      const prevRes = await this.calculatePlayerRankingsForMatches(prevIds, format, scope, 50);
+      prevBatterRankMap = new Map(prevRes.sortedBatters.map(b => [b.playerId, b.rank!]));
+      prevBowlerRankMap = new Map(prevRes.sortedBowlers.map(bw => [bw.playerId, bw.rank!]));
+      prevArRankMap = new Map(prevRes.sortedAllRounders.map(ar => [ar.playerId, ar.rank!]));
+    }
+
+    // Attach Trend to topBatters
+    const finalBatters = sortedBatters.map(b => {
+      const prevRank = previousMatches.length > 0 ? (prevBatterRankMap.get(b.playerId) ?? null) : null;
+      const isNew = prevRank === null;
+      const change = prevRank !== null ? (prevRank - b.rank!) : 0;
+      return {
+        ...b,
+        trend: {
+          previousRank: prevRank,
+          change,
+          isNew,
+        },
+      };
+    });
+
+    // Attach Trend to topBowlers
+    const finalBowlers = sortedBowlers.map(bw => {
+      const prevRank = previousMatches.length > 0 ? (prevBowlerRankMap.get(bw.playerId) ?? null) : null;
+      const isNew = prevRank === null;
+      const change = prevRank !== null ? (prevRank - bw.rank!) : 0;
+      return {
+        ...bw,
+        trend: {
+          previousRank: prevRank,
+          change,
+          isNew,
+        },
+      };
+    });
+
+    // Attach Trend to topAllRounders
+    const finalAllRounders = sortedAllRounders.map(ar => {
+      const prevRank = previousMatches.length > 0 ? (prevArRankMap.get(ar.playerId) ?? null) : null;
+      const isNew = prevRank === null;
+      const change = prevRank !== null ? (prevRank - ar.rank!) : 0;
+      return {
+        ...ar,
+        trend: {
+          previousRank: prevRank,
+          change,
+          isNew,
+        },
+      };
+    });
+
     return {
       format,
       category,
       scope,
       tournamentId,
-      topBatters: (category === 'all' || category === 'batters') ? sortedBatters : [],
-      topBowlers: (category === 'all' || category === 'bowlers') ? sortedBowlers : [],
-      topAllRounders: (category === 'all' || category === 'all-rounders') ? sortedAllRounders : [],
+      asOfDate: options.asOfDate ? new Date(options.asOfDate).toISOString().split('T')[0] : null,
+      availableMatchDates,
+      totalMatchesCount: filteredMatches.length,
+      topBatters: (category === 'all' || category === 'batters') ? finalBatters : [],
+      topBowlers: (category === 'all' || category === 'bowlers') ? finalBowlers : [],
+      topAllRounders: (category === 'all' || category === 'all-rounders') ? finalAllRounders : [],
     };
   }
 }
