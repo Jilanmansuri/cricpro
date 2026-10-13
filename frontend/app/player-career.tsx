@@ -363,6 +363,24 @@ export default function PlayerCareerScreen() {
         color: '#EF4444',
         progress: `HS: ${bat.highestScore || 0}`,
       },
+      {
+        id: 'world_no1_king',
+        icon: '👑',
+        title: 'World No. 1',
+        desc: 'Achieved #1 spot in official ICC Rankings',
+        unlocked: (c.rankingStats?.daysAtNo1 || 0) > 0,
+        color: '#F59E0B',
+        progress: `${c.rankingStats?.daysAtNo1 || 0} Days at #1`,
+      },
+      {
+        id: 'dynasty_ruler',
+        icon: '🏰',
+        title: 'Dynasty Ruler',
+        desc: 'Reigned 10+ days as World No. 1',
+        unlocked: (c.rankingStats?.daysAtNo1 || 0) >= 10,
+        color: '#8B5CF6',
+        progress: `${c.rankingStats?.daysAtNo1 || 0}/10 Days`,
+      },
     ];
 
     const bowling: AchievementBadge[] = [
@@ -455,6 +473,24 @@ export default function PlayerCareerScreen() {
         unlocked: bowlOvers >= 8 || (bowlWkts >= 4 && bowlOvers >= 4),
         color: '#14B8A6',
         progress: `${bowlOvers} Overs`,
+      },
+      {
+        id: 'world_no1_king_bowl',
+        icon: '👑',
+        title: 'World No. 1',
+        desc: 'Achieved #1 spot in official ICC Rankings',
+        unlocked: (c.rankingStats?.daysAtNo1 || 0) > 0,
+        color: '#F59E0B',
+        progress: `${c.rankingStats?.daysAtNo1 || 0} Days at #1`,
+      },
+      {
+        id: 'dynasty_ruler_bowl',
+        icon: '🏰',
+        title: 'Dynasty Ruler',
+        desc: 'Reigned 10+ days as World No. 1',
+        unlocked: (c.rankingStats?.daysAtNo1 || 0) >= 10,
+        color: '#8B5CF6',
+        progress: `${c.rankingStats?.daysAtNo1 || 0}/10 Days`,
       },
     ];
 
@@ -609,6 +645,100 @@ export default function PlayerCareerScreen() {
           )}
         </View>
       </Card>
+
+      {/* ICC Crown Dynasty Card (Days at #1 & Top 3) */}
+      {playerData?.career?.rankingStats &&
+        (playerData.career.rankingStats.daysAtNo1 > 0 || playerData.career.rankingStats.daysInTop3 > 0) && (
+          <Card
+            style={[
+              styles.dynastyCard,
+              {
+                backgroundColor: isDarkMode ? '#1e1b4b' : '#f5f3ff',
+                borderColor: playerData.career.rankingStats.isCurrentlyNo1 ? '#F59E0B' : '#8B5CF6',
+                borderWidth: 1.5,
+              },
+            ]}
+          >
+            <View style={styles.dynastyHeader}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={{ fontSize: 20 }}>👑</Text>
+                <Text style={[styles.dynastyTitle, { color: colors.text }]}>ICC World Ranking Dynasty</Text>
+              </View>
+              {playerData.career.rankingStats.isCurrentlyNo1 && (
+                <View style={styles.reigningBadge}>
+                  <Text style={styles.reigningBadgeText}>👑 REIGNING #1</Text>
+                </View>
+              )}
+            </View>
+
+            <View style={styles.dynastyStatsRow}>
+              <View style={styles.dynastyStatBox}>
+                <Text style={[styles.dynastyStatVal, { color: '#F59E0B' }]}>
+                  {playerData.career.rankingStats.daysAtNo1 || 0}
+                </Text>
+                <Text style={[styles.dynastyStatLbl, { color: colors.textMuted }]}>Days at World #1</Text>
+              </View>
+
+              <View style={styles.dynastyDivider} />
+
+              <View style={styles.dynastyStatBox}>
+                <Text style={[styles.dynastyStatVal, { color: '#8B5CF6' }]}>
+                  {playerData.career.rankingStats.daysInTop3 || 0}
+                </Text>
+                <Text style={[styles.dynastyStatLbl, { color: colors.textMuted }]}>Days in Top 3</Text>
+              </View>
+
+              <View style={styles.dynastyDivider} />
+
+              <View style={styles.dynastyStatBox}>
+                <Text style={[styles.dynastyStatVal, { color: '#10B981' }]}>
+                  {playerData.career.rankingStats.longestReignDays || 0}d
+                </Text>
+                <Text style={[styles.dynastyStatLbl, { color: colors.textMuted }]}>Longest Streak</Text>
+              </View>
+            </View>
+
+            {/* Current Category Badges if reigning */}
+            {playerData.career.rankingStats.currentNo1Categories &&
+              playerData.career.rankingStats.currentNo1Categories.length > 0 && (
+                <View style={styles.currentCategoriesRow}>
+                  <Text style={[styles.currentCatLabel, { color: colors.textMuted }]}>Current Crown:</Text>
+                  {playerData.career.rankingStats.currentNo1Categories.map((cName: string, idx: number) => (
+                    <View key={idx} style={styles.currentCatPill}>
+                      <Text style={styles.currentCatPillText}>🏆 {cName}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+
+            {/* Category Breakdown Chips */}
+            {playerData.career.rankingStats.breakdown &&
+              playerData.career.rankingStats.breakdown.length > 0 && (
+                <View style={{ marginTop: 10, flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                  {playerData.career.rankingStats.breakdown.map((item: any, idx: number) => (
+                    <View
+                      key={idx}
+                      style={[
+                        styles.breakdownChip,
+                        {
+                          backgroundColor: colors.surface,
+                          borderColor: item.isCurrentNo1 ? '#F59E0B' : colors.border,
+                        },
+                      ]}
+                    >
+                      <Text style={[styles.breakdownChipText, { color: colors.text }]}>
+                        {item.format} {item.category}:{' '}
+                        <Text style={{ fontWeight: '800', color: '#F59E0B' }}>
+                          {item.daysAtNo1}d #1
+                        </Text>
+                        {item.daysInTop3 > item.daysAtNo1 ? ` · ${item.daysInTop3}d Top 3` : ''}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+          </Card>
+        )}
 
       {/* 2. Format Selector Tabs (All Formats / T20 / ODI) */}
       <View style={[styles.formatTabsCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
@@ -1466,5 +1596,89 @@ const styles = StyleSheet.create({
   viewMatchText: {
     fontSize: 12,
     fontWeight: '700',
+  },
+  dynastyCard: {
+    padding: 16,
+    borderRadius: 14,
+    marginBottom: 14,
+  },
+  dynastyHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  dynastyTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  reigningBadge: {
+    backgroundColor: '#F59E0B',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  reigningBadgeText: {
+    color: '#000',
+    fontSize: 10,
+    fontWeight: '900',
+  },
+  dynastyStatsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    paddingVertical: 8,
+  },
+  dynastyStatBox: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  dynastyStatVal: {
+    fontSize: 22,
+    fontWeight: '900',
+  },
+  dynastyStatLbl: {
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  dynastyDivider: {
+    width: 1,
+    height: 32,
+    backgroundColor: 'rgba(139, 92, 246, 0.25)',
+  },
+  currentCategoriesRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 10,
+  },
+  currentCatLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  currentCatPill: {
+    backgroundColor: 'rgba(245, 158, 11, 0.18)',
+    borderWidth: 1,
+    borderColor: '#F59E0B',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  currentCatPillText: {
+    color: '#F59E0B',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  breakdownChip: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  breakdownChipText: {
+    fontSize: 10,
+    fontWeight: '600',
   },
 });

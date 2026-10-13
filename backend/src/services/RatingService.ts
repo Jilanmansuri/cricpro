@@ -89,6 +89,23 @@ export interface AllRounderRatingResult {
   };
 }
 
+export interface PlayerReignStats {
+  playerId: string;
+  playerName: string;
+  daysAtNo1: number;
+  daysInTop3: number;
+  longestReignDays: number;
+  isCurrentlyNo1: boolean;
+  currentNo1Categories: string[];
+  breakdown: Array<{
+    format: string;
+    category: string;
+    daysAtNo1: number;
+    daysInTop3: number;
+    isCurrentNo1: boolean;
+  }>;
+}
+
 export interface RankingOptions {
   format?: 'T20' | 'ODI' | 'Test';
   category?: 'batters' | 'bowlers' | 'all-rounders' | 'all';
@@ -736,6 +753,168 @@ export class RatingService {
       topBatters: (category === 'all' || category === 'batters') ? finalBatters : [],
       topBowlers: (category === 'all' || category === 'bowlers') ? finalBowlers : [],
       topAllRounders: (category === 'all' || category === 'all-rounders') ? finalAllRounders : [],
+    };
+  }
+
+  /**
+   * Calculate chronological days each player held #1 (and Top 3) across all formats
+   */
+  public async calculateAllPlayerReigns(userId?: string): Promise<Map<string, PlayerReignStats>> {
+    const matchQuery: any = userId ? { createdBy: new Types.ObjectId(userId) } : {};
+    const allMatches = await Match.find(matchQuery).select('_id overs format date createdAt').lean();
+
+    const formats: Array<'T20' | 'ODI' | 'Test'> = ['T20', 'ODI', 'Test'];
+    const reignMap = new Map<string, PlayerReignStats>();
+
+    const getOrInit = (pId: string, pName: string): PlayerReignStats => {
+      if (!reignMap.has(pId)) {
+        reignMap.set(pId, {
+          playerId: pId,
+          playerName: pName,
+          daysAtNo1: 0,
+          daysInTop3: 0,
+          longestReignDays: 0,
+          isCurrentlyNo1: false,
+          currentNo1Categories: [],
+          breakdown: [],
+        });
+      }
+      return reignMap.get(pId)!;
+    };
+
+    for (const fmt of formats) {
+      const formatMatches = allMatches.filter(m => {
+        return RatingService.detectMatchFormat({ format: m.format, overs: m.overs }) === fmt;
+      });
+
+      if (formatMatches.length === 0) continue;
+
+      const matchDates = Array.from(
+        new Set(
+          formatMatches
+            .map(m => (m.date ? new Date(m.date).toISOString().split('T')[0] : (m.createdAt ? new Date(m.createdAt).toISOString().split('T')[0] : null)))
+            .filter(Boolean) as string[]
+        )
+      ).sort();
+
+      if (matchDates.length === 0) continue;
+
+      const catAccumulator = new Map<string, { daysAtNo1: number; daysInTop3: number; isCurrentNo1: boolean }>();
+
+      for (let i = 0; i < matchDates.length; i++) {
+        const dStr = matchDates[i];
+        const fromDate = new Date(dStr);
+        const toDate = (i < matchDates.length - 1) ? new Date(matchDates[i + 1]) : new Date();
+        const diffMs = toDate.getTime() - fromDate.getTime();
+        const intervalDays = Math.max(1, Math.round(diffMs / (1000 * 60 * 60 * 24)));
+        const isLatestInterval = (i === matchDates.length - 1);
+
+        const cutoff = new Date(dStr);
+        cutoff.setHours(23, 59, 59, 999);
+        const matchesUpTo = formatMatches.filter(m => new Date(m.date || m.createdAt || 0) <= cutoff);
+        const matchIds = matchesUpTo.map(m => m._id);
+
+        const rankRes = await this.calculatePlayerRankingsForMatches(matchIds, fmt, 'career', 5);
+
+        const categoriesData: Array<{ catKey: string; label: string; list: any[] }> = [
+          { catKey: 'batters', label: 'Batting', list: rankRes.sortedBatters },
+          { catKey: 'bowlers', label: 'Bowling', list: rankRes.sortedBowlers },
+          { catKey: 'all-rounders', label: 'All-Rounder', list: rankRes.sortedAllRounders },
+        ];
+
+        for (const cat of categoriesData) {
+          if (cat.list.length === 0) continue;
+
+          // Rank 1
+          const no1Player = cat.list[0];
+          const no1Id = no1Player.playerId;
+          const pStats = getOrInit(no1Id, no1Player.playerName);
+          pStats.daysAtNo1 += intervalDays;
+          pStats.longestReignDays = Math.max(pStats.longestReignDays, intervalDays);
+
+          const accKey = `${no1Id}_${fmt}_${cat.catKey}`;
+          if (!catAccumulator.has(accKey)) {
+            catAccumulator.set(accKey, { daysAtNo1: 0, daysInTop3: 0, isCurrentNo1: false });
+          }
+          const acc = catAccumulator.get(accKey)!;
+          acc.daysAtNo1 += intervalDays;
+
+          if (isLatestInterval) {
+            pStats.isCurrentlyNo1 = true;
+            acc.isCurrentNo1 = true;
+            const catName = `${fmt} ${cat.label}`;
+            if (!pStats.currentNo1Categories.includes(catName)) {
+              pStats.currentNo1Categories.push(catName);
+            }
+          }
+
+          // Top 3
+          for (const topP of cat.list.slice(0, 3)) {
+            const topId = topP.playerId;
+            const topStats = getOrInit(topId, topP.playerName);
+            topStats.daysInTop3 += intervalDays;
+
+            const topAccKey = `${topId}_${fmt}_${cat.catKey}`;
+            if (!catAccumulator.has(topAccKey)) {
+              catAccumulator.set(topAccKey, { daysAtNo1: 0, daysInTop3: 0, isCurrentNo1: false });
+            }
+            catAccumulator.get(topAccKey)!.daysInTop3 += intervalDays;
+          }
+        }
+      }
+
+      // Populate breakdown into player stats
+      for (const [key, data] of catAccumulator.entries()) {
+        const [pId, fName, cKey] = key.split('_');
+        const pStats = reignMap.get(pId);
+        if (pStats) {
+          const catLabel = cKey === 'batters' ? 'Batting' : cKey === 'bowlers' ? 'Bowling' : 'All-Rounder';
+          pStats.breakdown.push({
+            format: fName,
+            category: catLabel,
+            daysAtNo1: data.daysAtNo1,
+            daysInTop3: data.daysInTop3,
+            isCurrentNo1: data.isCurrentNo1,
+          });
+        }
+      }
+    }
+
+    return reignMap;
+  }
+
+  /**
+   * Get reign statistics for a single player
+   */
+  public async getPlayerReignStats(playerId: string | Types.ObjectId, userId?: string): Promise<PlayerReignStats | null> {
+    const allReigns = await this.calculateAllPlayerReigns(userId);
+    return allReigns.get(playerId.toString()) || null;
+  }
+
+  /**
+   * Get the top reign record to include in cricket records
+   */
+  public async getTopReignRecord(userId?: string) {
+    const allReigns = await this.calculateAllPlayerReigns(userId);
+    const reignList = Array.from(allReigns.values()).filter(r => r.daysAtNo1 > 0);
+    if (reignList.length === 0) return null;
+
+    reignList.sort((a, b) => b.daysAtNo1 - a.daysAtNo1);
+    const top = reignList[0];
+
+    const details = top.breakdown
+      .filter(b => b.daysAtNo1 > 0)
+      .map(b => `${b.format} ${b.category} (${b.daysAtNo1}d)`)
+      .join(' · ');
+
+    return {
+      playerId: top.playerId,
+      playerName: top.playerName,
+      daysAtNo1: top.daysAtNo1,
+      daysInTop3: top.daysInTop3,
+      isCurrentlyNo1: top.isCurrentlyNo1,
+      currentCategories: top.currentNo1Categories,
+      details: details || `${top.daysAtNo1} days reigning as World #1`,
     };
   }
 }

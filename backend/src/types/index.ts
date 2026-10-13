@@ -53,6 +53,20 @@ export interface ICareerStats extends Document {
   wins: number;
   losses: number;
   mvps: number;
+  rankingStats?: {
+    daysAtNo1: number;
+    daysInTop3: number;
+    longestReignDays: number;
+    isCurrentlyNo1: boolean;
+    currentNo1Categories: string[];
+    breakdown: Array<{
+      format: string;
+      category: string;
+      daysAtNo1: number;
+      daysInTop3: number;
+      isCurrentNo1: boolean;
+    }>;
+  };
   createdAt: Date;
   updatedAt: Date;
 }

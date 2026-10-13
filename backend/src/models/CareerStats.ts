@@ -48,6 +48,22 @@ const CareerStatsSchema = new Schema<ICareerStats>(
     wins: { type: Number, default: 0 },
     losses: { type: Number, default: 0 },
     mvps: { type: Number, default: 0 },
+    rankingStats: {
+      daysAtNo1: { type: Number, default: 0 },
+      daysInTop3: { type: Number, default: 0 },
+      longestReignDays: { type: Number, default: 0 },
+      isCurrentlyNo1: { type: Boolean, default: false },
+      currentNo1Categories: [{ type: String }],
+      breakdown: [
+        {
+          format: { type: String },
+          category: { type: String },
+          daysAtNo1: { type: Number, default: 0 },
+          daysInTop3: { type: Number, default: 0 },
+          isCurrentNo1: { type: Boolean, default: false },
+        },
+      ],
+    },
   },
   {
     timestamps: true,

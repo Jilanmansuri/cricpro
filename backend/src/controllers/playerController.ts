@@ -118,6 +118,27 @@ export const getPlayerCareer = async (req: Request, res: Response): Promise<void
 
     const insights = AiInsightsService.generatePlayerInsights(careerObj);
 
+    // Calculate and persist ICC Ranking Reign Stats (Days at #1 and Top 3)
+    try {
+      const userId = (req as any).user?._id;
+      const ratingService = new RatingService();
+      const reignStats = await ratingService.getPlayerReignStats(playerId, userId);
+      if (reignStats) {
+        careerObj.rankingStats = {
+          daysAtNo1: reignStats.daysAtNo1,
+          daysInTop3: reignStats.daysInTop3,
+          longestReignDays: reignStats.longestReignDays,
+          isCurrentlyNo1: reignStats.isCurrentlyNo1,
+          currentNo1Categories: reignStats.currentNo1Categories,
+          breakdown: reignStats.breakdown,
+        };
+        career.rankingStats = careerObj.rankingStats;
+        await career.save();
+      }
+    } catch (reignErr) {
+      console.warn('Could not calculate player ranking reign stats:', reignErr);
+    }
+
     res.json({
       success: true,
       data: {
@@ -777,6 +798,31 @@ export const getCricketRecords = async (req: Request, res: Response): Promise<vo
     // 1. INDIVIDUAL BATTING RECORDS (INNINGS)
     // ==========================================
     const battingRecords: any[] = [];
+
+    // 1.0 Most Days Ranked World No. 1 (ICC Crown Dynasty)
+    try {
+      const ratingService = new RatingService();
+      const topReign = await ratingService.getTopReignRecord(userId);
+      if (topReign && topReign.daysAtNo1 > 0) {
+        const pDoc = userPlayerMap.get(topReign.playerId) || { _id: topReign.playerId, name: topReign.playerName };
+        const teamInfo = resolvePlayerTeam(pDoc, division, null, teamMap, teamByCodeMap, playerToTeamMap);
+        battingRecords.push({
+          id: 'most_days_no1',
+          title: 'Most Days Ranked World No. 1',
+          category: 'Crown Dynasty',
+          badge: '👑 ICC DYNASTY',
+          statValue: `${topReign.daysAtNo1} Days`,
+          statLabel: 'World #1 Leaderboard Reign',
+          player: formatPlayerDisplay(pDoc, topReign.playerName),
+          team: teamInfo,
+          opponent: null,
+          details: topReign.details,
+          date: new Date(),
+        });
+      }
+    } catch (reignErr) {
+      console.warn('Could not fetch top reign record:', reignErr);
+    }
 
     // 1.1 Highest Individual Score
     const highestScoreDoc = await PlayerMatchStats.findOne({
