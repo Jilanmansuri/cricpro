@@ -74,8 +74,8 @@ export default function StatsLeaderboardTab() {
   const [selectedDivision, setSelectedDivision] = useState<'all' | 'international' | 'ipl'>('all');
   const [isLoading, setIsLoading] = useState(true);
   const [leaderboard, setLeaderboard] = useState<{ topBatsmen: any[]; topBowlers: any[]; topMvps?: any[] }>({ topBatsmen: [], topBowlers: [], topMvps: [] });
-  const [records, setRecords] = useState<{ batting: any[]; bowling: any[]; team: any[] }>({ batting: [], bowling: [], team: [] });
-  const [recordsCategory, setRecordsCategory] = useState<'all' | 'batting' | 'bowling' | 'team'>('all');
+  const [records, setRecords] = useState<{ batting: any[]; bowling: any[]; team: any[]; rankings?: any[] }>({ batting: [], bowling: [], team: [], rankings: [] });
+  const [recordsCategory, setRecordsCategory] = useState<'all' | 'rankings' | 'batting' | 'bowling' | 'team'>('all');
 
   // ICC Rankings State
   const [rankingFormat, setRankingFormat] = useState<'T20' | 'ODI' | 'Test'>('T20');
@@ -685,10 +685,12 @@ export default function StatsLeaderboardTab() {
   };
 
   const getRecordsData = () => {
+    if (recordsCategory === 'rankings') return records.rankings || [];
     if (recordsCategory === 'batting') return records.batting || [];
     if (recordsCategory === 'bowling') return records.bowling || [];
     if (recordsCategory === 'team') return records.team || [];
     return [
+      ...(records.rankings || []),
       ...(records.batting || []),
       ...(records.bowling || []),
       ...(records.team || []),
@@ -872,6 +874,7 @@ export default function StatsLeaderboardTab() {
             ) : activeTab === 'records' ? (
               [
                 { key: 'all', label: 'All Records' },
+                { key: 'rankings', label: '👑 No. 1 Reign' },
                 { key: 'batting', label: '🏏 Batting' },
                 { key: 'bowling', label: '🎯 Bowling' },
                 { key: 'team', label: '🏰 Team & Match' },

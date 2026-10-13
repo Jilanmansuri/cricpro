@@ -646,76 +646,72 @@ export default function PlayerCareerScreen() {
         </View>
       </Card>
 
-      {/* ICC Crown Dynasty Card (Days at #1 & Top 3) */}
-      {playerData?.career?.rankingStats &&
-        (playerData.career.rankingStats.daysAtNo1 > 0 || playerData.career.rankingStats.daysInTop3 > 0) && (
-          <Card
-            style={[
-              styles.dynastyCard,
-              {
-                backgroundColor: isDarkMode ? '#1e1b4b' : '#f5f3ff',
-                borderColor: playerData.career.rankingStats.isCurrentlyNo1 ? '#F59E0B' : '#8B5CF6',
-                borderWidth: 1.5,
-              },
-            ]}
-          >
-            <View style={styles.dynastyHeader}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <Text style={{ fontSize: 20 }}>👑</Text>
-                <Text style={[styles.dynastyTitle, { color: colors.text }]}>ICC World Ranking Dynasty</Text>
+      {/* ICC Crown Dynasty Card (Days at World #1) */}
+      {playerData?.career?.rankingStats && playerData.career.rankingStats.daysAtNo1 > 0 && (
+        <Card
+          style={[
+            styles.dynastyCard,
+            {
+              backgroundColor: isDarkMode ? '#1e1b4b' : '#f5f3ff',
+              borderColor: '#F59E0B',
+              borderWidth: 1.5,
+            },
+          ]}
+        >
+          <View style={styles.dynastyHeader}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Text style={{ fontSize: 20 }}>👑</Text>
+              <Text style={[styles.dynastyTitle, { color: colors.text }]}>ICC World #1 Crown Reign</Text>
+            </View>
+            {playerData.career.rankingStats.isCurrentlyNo1 ? (
+              <View style={styles.reigningBadge}>
+                <Text style={styles.reigningBadgeText}>👑 REIGNING #1</Text>
               </View>
-              {playerData.career.rankingStats.isCurrentlyNo1 && (
-                <View style={styles.reigningBadge}>
-                  <Text style={styles.reigningBadgeText}>👑 REIGNING #1</Text>
-                </View>
-              )}
+            ) : (
+              <View style={[styles.reigningBadge, { backgroundColor: isDarkMode ? '#334155' : '#e2e8f0' }]}>
+                <Text style={[styles.reigningBadgeText, { color: colors.text }]}>FORMER #1</Text>
+              </View>
+            )}
+          </View>
+
+          <View style={styles.dynastyStatsRow}>
+            <View style={styles.dynastyStatBox}>
+              <Text style={[styles.dynastyStatVal, { color: '#F59E0B' }]}>
+                {playerData.career.rankingStats.daysAtNo1}
+              </Text>
+              <Text style={[styles.dynastyStatLbl, { color: colors.textMuted }]}>Days Ranked World #1</Text>
             </View>
 
-            <View style={styles.dynastyStatsRow}>
-              <View style={styles.dynastyStatBox}>
-                <Text style={[styles.dynastyStatVal, { color: '#F59E0B' }]}>
-                  {playerData.career.rankingStats.daysAtNo1 || 0}
-                </Text>
-                <Text style={[styles.dynastyStatLbl, { color: colors.textMuted }]}>Days at World #1</Text>
-              </View>
+            <View style={styles.dynastyDivider} />
 
-              <View style={styles.dynastyDivider} />
-
-              <View style={styles.dynastyStatBox}>
-                <Text style={[styles.dynastyStatVal, { color: '#8B5CF6' }]}>
-                  {playerData.career.rankingStats.daysInTop3 || 0}
-                </Text>
-                <Text style={[styles.dynastyStatLbl, { color: colors.textMuted }]}>Days in Top 3</Text>
-              </View>
-
-              <View style={styles.dynastyDivider} />
-
-              <View style={styles.dynastyStatBox}>
-                <Text style={[styles.dynastyStatVal, { color: '#10B981' }]}>
-                  {playerData.career.rankingStats.longestReignDays || 0}d
-                </Text>
-                <Text style={[styles.dynastyStatLbl, { color: colors.textMuted }]}>Longest Streak</Text>
-              </View>
+            <View style={styles.dynastyStatBox}>
+              <Text style={[styles.dynastyStatVal, { color: '#10B981' }]}>
+                {playerData.career.rankingStats.longestReignDays || playerData.career.rankingStats.daysAtNo1}d
+              </Text>
+              <Text style={[styles.dynastyStatLbl, { color: colors.textMuted }]}>Longest Unbroken Streak</Text>
             </View>
+          </View>
 
-            {/* Current Category Badges if reigning */}
-            {playerData.career.rankingStats.currentNo1Categories &&
-              playerData.career.rankingStats.currentNo1Categories.length > 0 && (
-                <View style={styles.currentCategoriesRow}>
-                  <Text style={[styles.currentCatLabel, { color: colors.textMuted }]}>Current Crown:</Text>
-                  {playerData.career.rankingStats.currentNo1Categories.map((cName: string, idx: number) => (
-                    <View key={idx} style={styles.currentCatPill}>
-                      <Text style={styles.currentCatPillText}>🏆 {cName}</Text>
-                    </View>
-                  ))}
-                </View>
-              )}
+          {/* Current Category Badges if reigning */}
+          {playerData.career.rankingStats.currentNo1Categories &&
+            playerData.career.rankingStats.currentNo1Categories.length > 0 && (
+              <View style={styles.currentCategoriesRow}>
+                <Text style={[styles.currentCatLabel, { color: colors.textMuted }]}>Current Crown:</Text>
+                {playerData.career.rankingStats.currentNo1Categories.map((cName: string, idx: number) => (
+                  <View key={idx} style={styles.currentCatPill}>
+                    <Text style={styles.currentCatPillText}>🏆 {cName}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
 
-            {/* Category Breakdown Chips */}
-            {playerData.career.rankingStats.breakdown &&
-              playerData.career.rankingStats.breakdown.length > 0 && (
-                <View style={{ marginTop: 10, flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-                  {playerData.career.rankingStats.breakdown.map((item: any, idx: number) => (
+          {/* Category Breakdown Chips */}
+          {playerData.career.rankingStats.breakdown &&
+            playerData.career.rankingStats.breakdown.filter((b: any) => b.daysAtNo1 > 0).length > 0 && (
+              <View style={{ marginTop: 10, flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                {playerData.career.rankingStats.breakdown
+                  .filter((b: any) => b.daysAtNo1 > 0)
+                  .map((item: any, idx: number) => (
                     <View
                       key={idx}
                       style={[
@@ -729,16 +725,15 @@ export default function PlayerCareerScreen() {
                       <Text style={[styles.breakdownChipText, { color: colors.text }]}>
                         {item.format} {item.category}:{' '}
                         <Text style={{ fontWeight: '800', color: '#F59E0B' }}>
-                          {item.daysAtNo1}d #1
+                          {item.daysAtNo1} Days at #1
                         </Text>
-                        {item.daysInTop3 > item.daysAtNo1 ? ` · ${item.daysInTop3}d Top 3` : ''}
                       </Text>
                     </View>
                   ))}
-                </View>
-              )}
-          </Card>
-        )}
+              </View>
+            )}
+        </Card>
+      )}
 
       {/* 2. Format Selector Tabs (All Formats / T20 / ODI) */}
       <View style={[styles.formatTabsCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>

@@ -795,34 +795,37 @@ export const getCricketRecords = async (req: Request, res: Response): Promise<vo
     };
 
     // ==========================================
-    // 1. INDIVIDUAL BATTING RECORDS (INNINGS)
+    // 0. WORLD NO. 1 REIGN RECORDS (CROWN DYNASTY)
     // ==========================================
-    const battingRecords: any[] = [];
-
-    // 1.0 Most Days Ranked World No. 1 (ICC Crown Dynasty)
+    const rankingRecords: any[] = [];
     try {
       const ratingService = new RatingService();
-      const topReign = await ratingService.getTopReignRecord(userId);
-      if (topReign && topReign.daysAtNo1 > 0) {
-        const pDoc = userPlayerMap.get(topReign.playerId) || { _id: topReign.playerId, name: topReign.playerName };
+      const rawReignRecs = await ratingService.getReignRecords(userId);
+      for (const rec of rawReignRecs) {
+        const pDoc = userPlayerMap.get(rec.playerId) || { _id: rec.playerId, name: rec.playerName };
         const teamInfo = resolvePlayerTeam(pDoc, division, null, teamMap, teamByCodeMap, playerToTeamMap);
-        battingRecords.push({
-          id: 'most_days_no1',
-          title: 'Most Days Ranked World No. 1',
-          category: 'Crown Dynasty',
-          badge: '👑 ICC DYNASTY',
-          statValue: `${topReign.daysAtNo1} Days`,
-          statLabel: 'World #1 Leaderboard Reign',
-          player: formatPlayerDisplay(pDoc, topReign.playerName),
+        rankingRecords.push({
+          id: rec.id,
+          title: rec.title,
+          category: 'World #1 Reign',
+          badge: rec.badge,
+          statValue: rec.statValue,
+          statLabel: rec.statLabel,
+          player: formatPlayerDisplay(pDoc, rec.playerName),
           team: teamInfo,
           opponent: null,
-          details: topReign.details,
+          details: rec.details,
           date: new Date(),
         });
       }
     } catch (reignErr) {
-      console.warn('Could not fetch top reign record:', reignErr);
+      console.warn('Could not fetch reign records:', reignErr);
     }
+
+    // ==========================================
+    // 1. INDIVIDUAL BATTING RECORDS (INNINGS)
+    // ==========================================
+    const battingRecords: any[] = [];
 
     // 1.1 Highest Individual Score
     const highestScoreDoc = await PlayerMatchStats.findOne({
@@ -1431,6 +1434,7 @@ export const getCricketRecords = async (req: Request, res: Response): Promise<vo
       success: true,
       data: {
         division,
+        rankings: rankingRecords,
         batting: battingRecords,
         bowling: bowlingRecords,
         team: teamRecords

@@ -917,4 +917,76 @@ export class RatingService {
       details: details || `${top.daysAtNo1} days reigning as World #1`,
     };
   }
+
+  /**
+   * Get all No. 1 reign records for the dedicated Records column
+   */
+  public async getReignRecords(userId?: string) {
+    const allReigns = await this.calculateAllPlayerReigns(userId);
+    const reignList = Array.from(allReigns.values()).filter(r => r.daysAtNo1 > 0);
+    if (reignList.length === 0) return [];
+
+    reignList.sort((a, b) => b.daysAtNo1 - a.daysAtNo1);
+
+    const records: any[] = [];
+
+    // 1. Most Days at World #1 (All-Time King)
+    const topKing = reignList[0];
+    const topDetails = topKing.breakdown
+      .filter(b => b.daysAtNo1 > 0)
+      .map(b => `${b.format} ${b.category} (${b.daysAtNo1}d)`)
+      .join(' · ');
+
+    records.push({
+      id: 'all_time_no1_king',
+      title: 'Most Days Ranked World #1',
+      category: 'World #1 Reign',
+      badge: '👑 ALL-TIME #1',
+      statValue: `${topKing.daysAtNo1} Days`,
+      statLabel: 'World #1 Leaderboard Reign',
+      playerId: topKing.playerId,
+      playerName: topKing.playerName,
+      details: topDetails || `${topKing.daysAtNo1} days reigning as World #1`,
+    });
+
+    // 2. Longest Unbroken Streak at World #1
+    const byStreak = [...reignList].sort((a, b) => b.longestReignDays - a.longestReignDays);
+    const topStreak = byStreak[0];
+    if (topStreak && topStreak.longestReignDays > 0) {
+      records.push({
+        id: 'longest_no1_streak',
+        title: 'Longest Unbroken World #1 Streak',
+        category: 'World #1 Reign',
+        badge: '⚡ DYNASTY STREAK',
+        statValue: `${topStreak.longestReignDays} Days`,
+        statLabel: 'Continuous Reign Without Losing Rank',
+        playerId: topStreak.playerId,
+        playerName: topStreak.playerName,
+        details: `Held the #1 spot continuously for ${topStreak.longestReignDays} days`,
+      });
+    }
+
+    // 3. 2nd Most Days at World #1 (if another player exists)
+    if (reignList.length > 1) {
+      const secondKing = reignList[1];
+      const secondDetails = secondKing.breakdown
+        .filter(b => b.daysAtNo1 > 0)
+        .map(b => `${b.format} ${b.category} (${b.daysAtNo1}d)`)
+        .join(' · ');
+
+      records.push({
+        id: 'second_most_no1_days',
+        title: 'Runner-Up: Most Days at World #1',
+        category: 'World #1 Reign',
+        badge: '🥈 PODIUM REIGN',
+        statValue: `${secondKing.daysAtNo1} Days`,
+        statLabel: 'World #1 Leaderboard Reign',
+        playerId: secondKing.playerId,
+        playerName: secondKing.playerName,
+        details: secondDetails || `${secondKing.daysAtNo1} days reigning as World #1`,
+      });
+    }
+
+    return records;
+  }
 }
