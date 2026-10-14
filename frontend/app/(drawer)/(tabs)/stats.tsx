@@ -70,7 +70,7 @@ function getDisplayPlayerName(player: any): string {
 export default function StatsLeaderboardTab() {
   const router = useRouter();
   const { colors, isDarkMode } = useTheme();
-  const [activeTab, setActiveTab] = useState<'rankings' | 'batting' | 'bowling' | 'records'>('rankings');
+  const [activeTab, setActiveTab] = useState<'batting' | 'bowling' | 'records'>('batting');
   const [selectedDivision, setSelectedDivision] = useState<'all' | 'international' | 'ipl'>('all');
   const [isLoading, setIsLoading] = useState(true);
   const [leaderboard, setLeaderboard] = useState<{ topBatsmen: any[]; topBowlers: any[]; topMvps?: any[] }>({ topBatsmen: [], topBowlers: [], topMvps: [] });
@@ -90,8 +90,8 @@ export default function StatsLeaderboardTab() {
   const [battingSort, setBattingSort] = useState('Runs');
   const [bowlingSort, setBowlingSort] = useState('Wickets');
   
-  const battingFilters = ['Runs', 'Highest Score', 'Average', 'Strike Rate', '100s', '50s', 'Fastest 50', 'Fastest 100', 'Sixes', 'Fours', 'MVPs'];
-  const bowlingFilters = ['Wickets', 'Economy', 'Average', 'Maidens', 'MVPs'];
+  const battingFilters = ['Runs', 'Highest Score', 'Average', 'Strike Rate', '100s', '50s', 'Fastest 50', 'Fastest 100', 'Sixes', 'Fours', 'MVPs', ' Ranking'];
+  const bowlingFilters = ['Wickets', 'Economy', 'Average', 'Maidens', 'MVPs', ' Ranking'];
 
   const fetchRankingsData = async (fmt = rankingFormat, scp = rankingScope) => {
     try {
@@ -453,9 +453,9 @@ export default function StatsLeaderboardTab() {
   };
 
   const getRankingsData = () => {
-    if (rankingCategory === 'batters') return rankings.topBatters || [];
-    if (rankingCategory === 'bowlers') return rankings.topBowlers || [];
-    return rankings.topAllRounders || [];
+    if (rankingCategory === 'all-rounders') return rankings.topAllRounders || [];
+    if (rankingCategory === 'bowlers' || (activeTab === 'bowling' && rankingCategory !== 'batters')) return rankings.topBowlers || [];
+    return rankings.topBatters || [];
   };
 
   const renderRankingCard = ({ item, index }: any) => {
@@ -740,18 +740,8 @@ export default function StatsLeaderboardTab() {
             </View>
           </View>
 
-          {/* 4-Tab Switcher */}
+          {/* 3-Tab Switcher */}
           <View style={styles.tabSwitcher}>
-            <TouchableOpacity 
-              style={[
-                styles.tabBtn,
-                { backgroundColor: colors.surface, borderColor: colors.border },
-                activeTab === 'rankings' && { backgroundColor: '#8B5CF6', borderColor: '#8B5CF6' }
-              ]}
-              onPress={() => setActiveTab('rankings')}
-            >
-              <Text style={[styles.tabBtnText, { color: activeTab === 'rankings' ? '#fff' : colors.text, fontWeight: activeTab === 'rankings' ? '900' : '700' }]}>⭐ Rankings</Text>
-            </TouchableOpacity>
             <TouchableOpacity 
               style={[
                 styles.tabBtn,
@@ -760,7 +750,7 @@ export default function StatsLeaderboardTab() {
               ]}
               onPress={() => setActiveTab('batting')}
             >
-              <Text style={[styles.tabBtnText, { color: activeTab === 'batting' ? '#fff' : colors.text }]}>🏏 Batters</Text>
+              <Text style={[styles.tabBtnText, { color: activeTab === 'batting' ? '#fff' : colors.text, fontWeight: activeTab === 'batting' ? '800' : '600' }]}>🏏 Batters</Text>
             </TouchableOpacity>
             <TouchableOpacity 
               style={[
@@ -770,7 +760,7 @@ export default function StatsLeaderboardTab() {
               ]}
               onPress={() => setActiveTab('bowling')}
             >
-              <Text style={[styles.tabBtnText, { color: activeTab === 'bowling' ? '#fff' : colors.text }]}>🎯 Bowlers</Text>
+              <Text style={[styles.tabBtnText, { color: activeTab === 'bowling' ? '#fff' : colors.text, fontWeight: activeTab === 'bowling' ? '800' : '600' }]}>🎯 Bowlers</Text>
             </TouchableOpacity>
             <TouchableOpacity 
               style={[
@@ -788,90 +778,7 @@ export default function StatsLeaderboardTab() {
         {/* Filter Pills */}
         <View style={styles.filtersContainer}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filtersScroll}>
-            {activeTab === 'rankings' ? (
-              <>
-                {/* Category filters */}
-                {[
-                  { key: 'batters', label: '🏏 Batters' },
-                  { key: 'bowlers', label: '🎯 Bowlers' },
-                  { key: 'all-rounders', label: '⚡ All-Rounders' },
-                ].map(c => (
-                  <TouchableOpacity
-                    key={c.key}
-                    style={[
-                      styles.filterPill,
-                      { backgroundColor: colors.surface, borderColor: colors.border },
-                      rankingCategory === c.key && { backgroundColor: '#8B5CF6', borderColor: '#8B5CF6' }
-                    ]}
-                    onPress={() => setRankingCategory(c.key as any)}
-                  >
-                    <Text
-                      style={[
-                        styles.filterText,
-                        { color: colors.textMuted },
-                        rankingCategory === c.key && { color: '#fff', fontWeight: '800' }
-                      ]}
-                    >
-                      {c.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-
-                {/* Divider */}
-                <View style={{ width: 1, height: 18, backgroundColor: colors.border, alignSelf: 'center', marginHorizontal: 4 }} />
-
-                {/* Format filters */}
-                {(['T20', 'ODI', 'Test'] as const).map(fmt => (
-                  <TouchableOpacity
-                    key={fmt}
-                    style={[
-                      styles.filterPill,
-                      { backgroundColor: colors.surface, borderColor: colors.border },
-                      rankingFormat === fmt && { backgroundColor: colors.primary, borderColor: colors.primary }
-                    ]}
-                    onPress={() => {
-                      setRankingFormat(fmt);
-                      fetchRankingsData(fmt, rankingScope);
-                    }}
-                  >
-                    <Text
-                      style={[
-                        styles.filterText,
-                        { color: colors.textMuted },
-                        rankingFormat === fmt && { color: '#fff', fontWeight: '800' }
-                      ]}
-                    >
-                      {fmt}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-
-                {/* Scope filters */}
-                {(['career', 'tournament'] as const).map(scp => (
-                  <TouchableOpacity
-                    key={scp}
-                    style={[
-                      styles.filterPill,
-                      { backgroundColor: colors.surface, borderColor: colors.border },
-                      rankingScope === scp && { backgroundColor: colors.surfaceLighter || '#334155', borderColor: colors.primary }
-                    ]}
-                    onPress={() => {
-                      setRankingScope(scp);
-                      fetchRankingsData(rankingFormat, scp);
-                    }}
-                  >
-                    <Text
-                      style={[
-                        styles.filterText,
-                        { color: rankingScope === scp ? colors.primary : colors.textMuted, fontWeight: rankingScope === scp ? '800' : '600' }
-                      ]}
-                    >
-                      {scp === 'career' ? '🏆 Career' : '🏟️ Tournament'}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </>
-            ) : activeTab === 'records' ? (
+            {activeTab === 'records' ? (
               [
                 { key: 'all', label: 'All Records' },
                 { key: 'rankings', label: '👑 No. 1 Reign' },
@@ -900,76 +807,167 @@ export default function StatsLeaderboardTab() {
                 </TouchableOpacity>
               ))
             ) : (
-              (activeTab === 'batting' ? battingFilters : bowlingFilters).map(filter => (
-                <TouchableOpacity 
-                  key={filter} 
-                  style={[
-                    styles.filterPill, 
-                    { backgroundColor: colors.surface, borderColor: colors.border },
-                    (activeTab === 'batting' ? battingSort : bowlingSort) === filter && { backgroundColor: colors.primary, borderColor: colors.primary }
-                  ]}
-                  onPress={() => activeTab === 'batting' ? setBattingSort(filter) : setBowlingSort(filter)}
-                >
-                  <Text style={[
-                    styles.filterText, 
-                    { color: colors.textMuted },
-                    (activeTab === 'batting' ? battingSort : bowlingSort) === filter && { color: '#fff', fontWeight: 'bold' }
-                  ]}>
-                    {filter}
-                  </Text>
-                </TouchableOpacity>
-              ))
+              <>
+                {(activeTab === 'batting' ? battingFilters : bowlingFilters).map(filter => {
+                  const isCurrent = (activeTab === 'batting' ? battingSort : bowlingSort) === filter;
+                  const isRankFilter = filter === '⭐ Ranking';
+
+                  return (
+                    <TouchableOpacity 
+                      key={filter} 
+                      style={[
+                        styles.filterPill, 
+                        { backgroundColor: colors.surface, borderColor: colors.border },
+                        isCurrent && {
+                          backgroundColor: isRankFilter ? '#8B5CF6' : colors.primary,
+                          borderColor: isRankFilter ? '#8B5CF6' : colors.primary,
+                        }
+                      ]}
+                      onPress={() => {
+                        if (activeTab === 'batting') {
+                          setBattingSort(filter);
+                          if (filter === '⭐ Ranking') {
+                            setRankingCategory('batters');
+                            fetchRankingsData(rankingFormat, rankingScope);
+                          }
+                        } else {
+                          setBowlingSort(filter);
+                          if (filter === '⭐ Ranking') {
+                            setRankingCategory('bowlers');
+                            fetchRankingsData(rankingFormat, rankingScope);
+                          }
+                        }
+                      }}
+                    >
+                      <Text style={[
+                        styles.filterText, 
+                        { color: colors.textMuted },
+                        isCurrent && { color: '#fff', fontWeight: 'bold' }
+                      ]}>
+                        {filter}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+
+                {/* Format and All-Rounder selectors when ⭐ Ranking is selected */}
+                {((activeTab === 'batting' && battingSort === '⭐ Ranking') || (activeTab === 'bowling' && bowlingSort === '⭐ Ranking')) && (
+                  <>
+                    <View style={{ width: 1, height: 18, backgroundColor: colors.border, alignSelf: 'center', marginHorizontal: 6 }} />
+                    {(['T20', 'ODI', 'Test'] as const).map(fmt => (
+                      <TouchableOpacity
+                        key={fmt}
+                        style={[
+                          styles.filterPill,
+                          { backgroundColor: colors.surface, borderColor: colors.border },
+                          rankingFormat === fmt && { backgroundColor: '#8B5CF6', borderColor: '#8B5CF6' }
+                        ]}
+                        onPress={() => {
+                          setRankingFormat(fmt);
+                          fetchRankingsData(fmt, rankingScope);
+                        }}
+                      >
+                        <Text
+                          style={[
+                            styles.filterText,
+                            { color: colors.textMuted },
+                            rankingFormat === fmt && { color: '#fff', fontWeight: '800' }
+                          ]}
+                        >
+                          {fmt}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+
+                    <TouchableOpacity
+                      style={[
+                        styles.filterPill,
+                        { backgroundColor: colors.surface, borderColor: colors.border },
+                        rankingCategory === 'all-rounders' && { backgroundColor: '#10B981', borderColor: '#10B981' }
+                      ]}
+                      onPress={() => {
+                        const nextCat = rankingCategory === 'all-rounders'
+                          ? (activeTab === 'batting' ? 'batters' : 'bowlers')
+                          : 'all-rounders';
+                        setRankingCategory(nextCat);
+                      }}
+                    >
+                      <Text
+                        style={[
+                          styles.filterText,
+                          { color: rankingCategory === 'all-rounders' ? '#fff' : colors.textMuted, fontWeight: rankingCategory === 'all-rounders' ? '800' : '600' }
+                        ]}
+                      >
+                        ⚡ All-Rounders
+                      </Text>
+                    </TouchableOpacity>
+                  </>
+                )}
+              </>
             )}
           </ScrollView>
         </View>
       </View>
 
-      <FlatList
-        data={
-          isLoading
-            ? []
-            : (activeTab === 'rankings'
-                ? getRankingsData()
-                : (activeTab === 'records' ? getRecordsData() : getSortedData()))
-        }
-        keyExtractor={(item: any, idx: number) => (item.id ? `${item.id}-${idx}` : (item._id ? `${item._id}-${idx}` : (item.playerId ? `${typeof item.playerId === 'object' ? item.playerId._id : item.playerId}-${idx}` : String(idx))))}
-        contentContainerStyle={styles.list}
-        renderItem={
-          activeTab === 'rankings'
-            ? renderRankingCard
-            : (activeTab === 'records' ? renderRecordCard : (activeTab === 'batting' ? renderBattingItem : renderBowlingItem))
-        }
-        showsVerticalScrollIndicator={false}
-        ListEmptyComponent={
-          isLoading ? (
-            <View style={styles.loader}>
-              <ActivityIndicator
-                size="large"
-                color={
-                  activeTab === 'rankings'
-                    ? '#8B5CF6'
-                    : (activeTab === 'records' ? '#F59E0B' : colors.primary)
-                }
-              />
-              <Text style={{ color: colors.textMuted, marginTop: 12, fontSize: 13, fontWeight: '600' }}>
-                {activeTab === 'rankings'
-                  ? 'Calculating official format ratings...'
-                  : (activeTab === 'records' ? 'Loading all-time cricket records...' : 'Loading stats...')}
-              </Text>
-            </View>
-          ) : (
-            <View style={styles.empty}>
-              <Text style={{ color: colors.textMuted, fontSize: 14, textAlign: 'center', lineHeight: 20 }}>
-                {activeTab === 'rankings'
-                  ? `No qualified ${rankingCategory} found for ${rankingFormat} (${rankingScope}) rankings yet.\nPlay more matches in this format to meet qualification criteria!`
-                  : (activeTab === 'records'
-                      ? 'No records established yet in this division.'
-                      : `No ${activeTab} stats recorded yet.`)}
-              </Text>
-            </View>
-          )
-        }
-      />
+      {/* FlatList Section */}
+      {(() => {
+        const isRankingActive =
+          (activeTab === 'batting' && battingSort === '⭐ Ranking') ||
+          (activeTab === 'bowling' && bowlingSort === '⭐ Ranking');
+
+        return (
+          <FlatList
+            data={
+              isLoading
+                ? []
+                : (activeTab === 'records'
+                    ? getRecordsData()
+                    : isRankingActive
+                    ? getRankingsData()
+                    : getSortedData())
+            }
+            keyExtractor={(item: any, idx: number) => (item.id ? `${item.id}-${idx}` : (item._id ? `${item._id}-${idx}` : (item.playerId ? `${typeof item.playerId === 'object' ? item.playerId._id : item.playerId}-${idx}` : String(idx))))}
+            contentContainerStyle={styles.list}
+            renderItem={
+              activeTab === 'records'
+                ? renderRecordCard
+                : isRankingActive
+                ? renderRankingCard
+                : (activeTab === 'batting' ? renderBattingItem : renderBowlingItem)
+            }
+            showsVerticalScrollIndicator={false}
+            ListEmptyComponent={
+              isLoading ? (
+                <View style={styles.loader}>
+                  <ActivityIndicator
+                    size="large"
+                    color={
+                      isRankingActive
+                        ? '#8B5CF6'
+                        : (activeTab === 'records' ? '#F59E0B' : colors.primary)
+                    }
+                  />
+                  <Text style={{ color: colors.textMuted, marginTop: 12, fontSize: 13, fontWeight: '600' }}>
+                    {isRankingActive
+                      ? 'Calculating official format ratings...'
+                      : (activeTab === 'records' ? 'Loading all-time cricket records...' : 'Loading stats...')}
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.empty}>
+                  <Text style={{ color: colors.textMuted, fontSize: 14, textAlign: 'center', lineHeight: 20 }}>
+                    {isRankingActive
+                      ? `No qualified ${rankingCategory} found for ${rankingFormat} (${rankingScope}) rankings yet.\nPlay more matches in this format to meet qualification criteria!`
+                      : (activeTab === 'records'
+                          ? 'No records established yet in this division.'
+                          : `No ${activeTab} stats recorded yet.`)}
+                  </Text>
+                </View>
+              )
+            }
+          />
+        );
+      })()}
     </View>
   );
 }
