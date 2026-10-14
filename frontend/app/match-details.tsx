@@ -296,20 +296,29 @@ export default function MatchDetailsScreen() {
                 <Text style={[styles.headerCell, { color: colors.textMuted }]}>4s</Text>
                 <Text style={[styles.headerCell, { color: colors.textMuted }]}>6s</Text>
               </View>
-              {battingList.map((item, idx) => (
-                <View key={idx} style={[styles.tableRow, { borderBottomColor: colors.border }]}>
-                  <View style={{ flex: 3 }}>
-                    <Text style={[styles.playerNameText, { color: colors.text }]}>{item.playerId.name}</Text>
-                    <Text style={[styles.outText, { color: colors.textMuted }]}>
-                      {item.batting.outStatus === 'not_out' ? 'not out' : 'out'}
-                    </Text>
+              {battingList.map((item, idx) => {
+                const pId = item.playerId?._id || item.playerId;
+                const pName = item.playerId?.name || item.playerName || item.name || 'Player';
+
+                return (
+                  <View key={idx} style={[styles.tableRow, { borderBottomColor: colors.border }]}>
+                    <TouchableOpacity
+                      style={{ flex: 3 }}
+                      onPress={() => pId && router.push({ pathname: '/player-career', params: { id: pId.toString() } })}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.playerNameText, { color: colors.text, fontWeight: '700' }]}>{pName}</Text>
+                      <Text style={[styles.outText, { color: colors.textMuted }]}>
+                        {item.batting.outStatus === 'not_out' ? 'not out' : 'out'}
+                      </Text>
+                    </TouchableOpacity>
+                    <Text style={[styles.rowCell, { color: colors.text, fontWeight: '800' }]}>{item.batting.runs}</Text>
+                    <Text style={[styles.rowCell, { color: colors.text }]}>{item.batting.balls}</Text>
+                    <Text style={[styles.rowCell, { color: colors.text }]}>{item.batting.fours}</Text>
+                    <Text style={[styles.rowCell, { color: colors.text }]}>{item.batting.sixes}</Text>
                   </View>
-                  <Text style={[styles.rowCell, { color: colors.text, fontWeight: '800' }]}>{item.batting.runs}</Text>
-                  <Text style={[styles.rowCell, { color: colors.text }]}>{item.batting.balls}</Text>
-                  <Text style={[styles.rowCell, { color: colors.text }]}>{item.batting.fours}</Text>
-                  <Text style={[styles.rowCell, { color: colors.text }]}>{item.batting.sixes}</Text>
-                </View>
-              ))}
+                );
+              })}
             </Card>
 
             {/* Bowling scorecard */}
@@ -322,15 +331,26 @@ export default function MatchDetailsScreen() {
                 <Text style={[styles.headerCell, { color: colors.textMuted }]}>R</Text>
                 <Text style={[styles.headerCell, { color: colors.textMuted }]}>W</Text>
               </View>
-              {bowlingList.map((item, idx) => (
-                <View key={idx} style={[styles.tableRow, { borderBottomColor: colors.border }]}>
-                  <Text style={[styles.playerNameText, { flex: 3, color: colors.text }]}>{item.playerId.name}</Text>
-                  <Text style={[styles.rowCell, { color: colors.text }]}>{item.bowling.overs}</Text>
-                  <Text style={[styles.rowCell, { color: colors.text }]}>{item.bowling.maidens}</Text>
-                  <Text style={[styles.rowCell, { color: colors.text }]}>{item.bowling.runsConceded}</Text>
-                  <Text style={[styles.rowCell, { color: colors.primary, fontWeight: '800' }]}>{item.bowling.wickets}</Text>
-                </View>
-              ))}
+              {bowlingList.map((item, idx) => {
+                const pId = item.playerId?._id || item.playerId;
+                const pName = item.playerId?.name || item.playerName || item.name || 'Player';
+
+                return (
+                  <View key={idx} style={[styles.tableRow, { borderBottomColor: colors.border }]}>
+                    <TouchableOpacity
+                      style={{ flex: 3 }}
+                      onPress={() => pId && router.push({ pathname: '/player-career', params: { id: pId.toString() } })}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.playerNameText, { color: colors.text, fontWeight: '700' }]}>{pName}</Text>
+                    </TouchableOpacity>
+                    <Text style={[styles.rowCell, { color: colors.text }]}>{item.bowling.overs}</Text>
+                    <Text style={[styles.rowCell, { color: colors.text }]}>{item.bowling.maidens}</Text>
+                    <Text style={[styles.rowCell, { color: colors.text }]}>{item.bowling.runsConceded}</Text>
+                    <Text style={[styles.rowCell, { color: colors.primary, fontWeight: '800' }]}>{item.bowling.wickets}</Text>
+                  </View>
+                );
+              })}
             </Card>
           </View>
         )}

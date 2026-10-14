@@ -468,6 +468,26 @@ export default function PlayerComparisonTab() {
         display2: String(c2.mvps || 0),
         winner: higherWinner(c1.mvps || 0, c2.mvps || 0),
       },
+      {
+        key: 'daysAtNo1',
+        label: 'Days Ranked World #1 👑',
+        category: 'milestone',
+        val1: c1.rankingStats?.daysAtNo1 || 0,
+        val2: c2.rankingStats?.daysAtNo1 || 0,
+        display1: `${c1.rankingStats?.daysAtNo1 || 0} days`,
+        display2: `${c2.rankingStats?.daysAtNo1 || 0} days`,
+        winner: higherWinner(c1.rankingStats?.daysAtNo1 || 0, c2.rankingStats?.daysAtNo1 || 0),
+      },
+      {
+        key: 'longestStreak',
+        label: 'Longest #1 Streak 🔥',
+        category: 'milestone',
+        val1: c1.rankingStats?.longestReignDays || 0,
+        val2: c2.rankingStats?.longestReignDays || 0,
+        display1: `${c1.rankingStats?.longestReignDays || 0} days`,
+        display2: `${c2.rankingStats?.longestReignDays || 0} days`,
+        winner: higherWinner(c1.rankingStats?.longestReignDays || 0, c2.rankingStats?.longestReignDays || 0),
+      },
     ];
 
     if (category === 'all') return metrics;

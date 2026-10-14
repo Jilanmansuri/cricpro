@@ -115,8 +115,8 @@ export default function DashboardScreen() {
 
       <View style={styles.sectionHeader}>
         <Text style={[styles.sectionTitle, { color: colors.text }]}>Recent Matches</Text>
-        <TouchableOpacity onPress={() => router.push('/(drawer)/(tabs)/players')}>
-          <Text style={{ color: colors.primary, fontSize: 13, fontWeight: '700' }}>See All</Text>
+        <TouchableOpacity onPress={() => router.push('/tournaments')}>
+          <Text style={{ color: colors.primary, fontSize: 13, fontWeight: '700' }}>View All</Text>
         </TouchableOpacity>
       </View>
 
@@ -151,7 +151,12 @@ export default function DashboardScreen() {
         </Card>
       )}
 
-      <Text style={[styles.sectionTitle, { color: colors.text, marginTop: 20 }]}>Active Tournaments</Text>
+      <View style={[styles.sectionHeader, { marginTop: 20 }]}>
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>Active Tournaments</Text>
+        <TouchableOpacity onPress={() => router.push('/tournaments')}>
+          <Text style={{ color: colors.primary, fontSize: 13, fontWeight: '700' }}>See All</Text>
+        </TouchableOpacity>
+      </View>
       <View style={styles.tourneyList}>
         {tournaments.length > 0 ? (
           tournaments.map((t) => (

@@ -126,7 +126,13 @@ export default function RankingsDrawerScreen() {
   };
 
   const handlePlayerPress = (item: any) => {
-    const pId = item?.playerId || item?._id;
+    const pId =
+      item?.playerProfileId ||
+      item?.playerId?._id ||
+      item?._id ||
+      item?.id ||
+      (typeof item?.playerId === 'string' ? item.playerId : null) ||
+      (item?.playerId && typeof item.playerId === 'object' && item.playerId.toString && item.playerId.toString() !== '[object Object]' ? item.playerId.toString() : null);
     if (pId) {
       router.push({ pathname: '/player-career', params: { id: pId.toString() } });
     }

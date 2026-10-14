@@ -123,22 +123,28 @@ export default function TournamentDetailsScreen() {
                 <Text style={[styles.headerCell, { color: colors.textMuted }]}>PTS</Text>
               </View>
               
-              {standings.map((item, idx) => (
-                <TouchableOpacity
-                  key={idx}
-                  onPress={() => router.push({ pathname: '/team-profile', params: { id: item.teamId._id } })}
-                >
-                  <View style={[styles.tableRow, { borderBottomColor: colors.border }]}>
-                    <Text style={[styles.teamNameText, { flex: 2, color: colors.text }]} numberOfLines={1}>
-                      {item.teamId.name}
-                    </Text>
-                    <Text style={[styles.rowCell, { color: colors.text }]}>{item.played}</Text>
-                    <Text style={[styles.rowCell, { color: colors.text }]}>{item.won}</Text>
-                    <Text style={[styles.rowCell, { color: colors.text }]}>{item.nrr.toFixed(3)}</Text>
-                    <Text style={[styles.rowCell, { color: colors.primary, fontWeight: '800' }]}>{item.points}</Text>
-                  </View>
-                </TouchableOpacity>
-              ))}
+              {standings.map((item, idx) => {
+                const teamId = item.teamId?._id || (typeof item.teamId === 'string' ? item.teamId : null);
+                const teamName = item.teamId?.name || (typeof item.teamId === 'string' ? item.teamId : 'Team');
+
+                return (
+                  <TouchableOpacity
+                    key={idx}
+                    onPress={() => teamId && router.push({ pathname: '/team-profile', params: { id: teamId.toString() } })}
+                    disabled={!teamId}
+                  >
+                    <View style={[styles.tableRow, { borderBottomColor: colors.border }]}>
+                      <Text style={[styles.teamNameText, { flex: 2, color: colors.text }]} numberOfLines={1}>
+                        {teamName}
+                      </Text>
+                      <Text style={[styles.rowCell, { color: colors.text }]}>{item.played}</Text>
+                      <Text style={[styles.rowCell, { color: colors.text }]}>{item.won}</Text>
+                      <Text style={[styles.rowCell, { color: colors.text }]}>{item.nrr.toFixed(3)}</Text>
+                      <Text style={[styles.rowCell, { color: colors.primary, fontWeight: '800' }]}>{item.points}</Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
 
               {standings.length === 0 && (
                 <View style={styles.emptyTable}>
@@ -154,20 +160,25 @@ export default function TournamentDetailsScreen() {
             {/* Orange Cap Section */}
             <Text style={[styles.sectionTitle, { color: colors.text }]}>ORANGE CAP (MOST RUNS)</Text>
             <Card style={styles.leadersCard}>
-              {orangeCap.map((row, idx) => (
-                <TouchableOpacity
-                  key={idx}
-                  onPress={() => router.push({ pathname: '/player-career', params: { id: row.playerId } })}
-                >
-                  <View style={[styles.leaderRowItem, { borderBottomColor: colors.border }]}>
-                    <View style={styles.leaderProfile}>
-                      <Text style={[styles.rankText, { color: colors.primary }]}>#{idx + 1}</Text>
-                      <Text style={[styles.leaderName, { color: colors.text }]}>{row.name}</Text>
+              {orangeCap.map((row, idx) => {
+                const pId = typeof row.playerId === 'object' ? (row.playerId as any)?._id : row.playerId;
+
+                return (
+                  <TouchableOpacity
+                    key={idx}
+                    onPress={() => pId && router.push({ pathname: '/player-career', params: { id: pId.toString() } })}
+                    disabled={!pId}
+                  >
+                    <View style={[styles.leaderRowItem, { borderBottomColor: colors.border }]}>
+                      <View style={styles.leaderProfile}>
+                        <Text style={[styles.rankText, { color: colors.primary }]}>#{idx + 1}</Text>
+                        <Text style={[styles.leaderName, { color: colors.text }]}>{row.name}</Text>
+                      </View>
+                      <Text style={[styles.leaderStat, { color: colors.text }]}>{row.runs} runs</Text>
                     </View>
-                    <Text style={[styles.leaderStat, { color: colors.text }]}>{row.runs} runs</Text>
-                  </View>
-                </TouchableOpacity>
-              ))}
+                  </TouchableOpacity>
+                );
+              })}
               {orangeCap.length === 0 && (
                 <Text style={[styles.emptyText, { color: colors.textMuted }]}>No batting records compiled yet.</Text>
               )}
@@ -176,20 +187,25 @@ export default function TournamentDetailsScreen() {
             {/* Purple Cap Section */}
             <Text style={[styles.sectionTitle, { color: colors.text, marginTop: 24 }]}>PURPLE CAP (MOST WICKETS)</Text>
             <Card style={styles.leadersCard}>
-              {purpleCap.map((row, idx) => (
-                <TouchableOpacity
-                  key={idx}
-                  onPress={() => router.push({ pathname: '/player-career', params: { id: row.playerId } })}
-                >
-                  <View style={[styles.leaderRowItem, { borderBottomColor: colors.border }]}>
-                    <View style={styles.leaderProfile}>
-                      <Text style={[styles.rankText, { color: colors.primary }]}>#{idx + 1}</Text>
-                      <Text style={[styles.leaderName, { color: colors.text }]}>{row.name}</Text>
+              {purpleCap.map((row, idx) => {
+                const pId = typeof row.playerId === 'object' ? (row.playerId as any)?._id : row.playerId;
+
+                return (
+                  <TouchableOpacity
+                    key={idx}
+                    onPress={() => pId && router.push({ pathname: '/player-career', params: { id: pId.toString() } })}
+                    disabled={!pId}
+                  >
+                    <View style={[styles.leaderRowItem, { borderBottomColor: colors.border }]}>
+                      <View style={styles.leaderProfile}>
+                        <Text style={[styles.rankText, { color: colors.primary }]}>#{idx + 1}</Text>
+                        <Text style={[styles.leaderName, { color: colors.text }]}>{row.name}</Text>
+                      </View>
+                      <Text style={[styles.leaderStat, { color: colors.text }]}>{row.wickets} wkts</Text>
                     </View>
-                    <Text style={[styles.leaderStat, { color: colors.text }]}>{row.wickets} wkts</Text>
-                  </View>
-                </TouchableOpacity>
-              ))}
+                  </TouchableOpacity>
+                );
+              })}
               {purpleCap.length === 0 && (
                 <Text style={[styles.emptyText, { color: colors.textMuted }]}>No bowling records compiled yet.</Text>
               )}

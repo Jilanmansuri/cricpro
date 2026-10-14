@@ -7,6 +7,43 @@ import Avatar from '../../../components/Avatar';
 import api from '../../../services/api';
 import { Button } from '../../../components/Button';
 
+const KNOWN_FULL_NAMES: Record<string, string> = {
+  'a sharma': 'Abhishek Sharma',
+  's samson': 'Sanju Samson',
+  's gill': 'Shubman Gill',
+  's yadav': 'Suryakumar Yadav',
+  'r gaikwad': 'Ruturaj Gaikwad',
+  'h pandya': 'Hardik Pandya',
+  'a patel': 'Axar Patel',
+  'arshdeep': 'Arshdeep Singh',
+  'j bumrah': 'Jasprit Bumrah',
+  'm siraj': 'Mohammed Siraj',
+  'y kuldeep': 'Kuldeep Yadav',
+  'k yadav': 'Kuldeep Yadav',
+  's dube': 'Shivam Dube',
+  'r sharma': 'Rohit Sharma',
+  'v kohli': 'Virat Kohli',
+  't varma': 'Tilak Varma',
+  'm shami': 'Mohammed Shami',
+  'r jadeja': 'Ravindra Jadeja',
+  'kl rahul': 'KL Rahul',
+  's iyer': 'Shreyas Iyer',
+};
+
+function getDisplayPlayerName(player: any): string {
+  if (!player) return 'Player';
+  if (player.fullName && typeof player.fullName === 'string' && player.fullName.trim().length > 0) {
+    return player.fullName;
+  }
+  const rawName = player.name || (typeof player === 'string' ? player : '');
+  const key = rawName.trim().toLowerCase();
+  if (KNOWN_FULL_NAMES[key]) return KNOWN_FULL_NAMES[key];
+  for (const [k, v] of Object.entries(KNOWN_FULL_NAMES)) {
+    if (key.includes(k) || k.includes(key)) return v;
+  }
+  return rawName || 'Player';
+}
+
 export default function PlayersTab() {
   const { colors } = useTheme();
   const router = useRouter();
@@ -149,42 +186,62 @@ export default function PlayersTab() {
           onEndReached={handleLoadMore}
           onEndReachedThreshold={0.3}
           contentContainerStyle={styles.list}
-          renderItem={({ item }) => (
-            <Card style={styles.card}>
-              {editPlayerId === item._id ? (
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                  <TextInput
-                    value={editPlayerName}
-                    onChangeText={setEditPlayerName}
-                    style={[styles.searchInput, { flex: 1, backgroundColor: colors.surface, color: colors.text, borderColor: colors.border, borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, height: 40 }]}
-                  />
-                  <Button title="Save" onPress={handleUpdatePlayer} variant="primary" style={{ width: 60, paddingVertical: 8 }} />
-                  <Button title="Cancel" onPress={() => setEditPlayerId(null)} variant="secondary" style={{ width: 70, paddingVertical: 8 }} />
-                </View>
-              ) : (
-                <TouchableOpacity onPress={() => router.push({ pathname: '/player-career', params: { id: item._id } })}>
-                  <View style={styles.row}>
-                    <Avatar name={item.name} size={42} style={styles.avatar} />
-                    <View style={styles.info}>
-                      <Text style={[styles.name, { color: colors.text }]}>{item.name}</Text>
-                      <Text style={[styles.aliases, { color: colors.textMuted }]}>
-                        Aliases: {item.aliases?.join(', ') || item.name}
-                      </Text>
-                    </View>
-                    <View style={{ flexDirection: 'row', gap: 10, marginRight: 10 }}>
-                      <TouchableOpacity onPress={() => { setEditPlayerId(item._id); setEditPlayerName(item.name); }}>
-                        <Text style={{ color: colors.primary, fontWeight: '700' }}>Edit</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity onPress={() => handleDeletePlayer(item._id)}>
-                        <Text style={{ color: '#ff3b30', fontWeight: '700' }}>Delete</Text>
-                      </TouchableOpacity>
-                    </View>
-                    <Text style={[styles.arrow, { color: colors.primary }]}>→</Text>
+          renderItem={({ item }) => {
+            const displayName = getDisplayPlayerName(item);
+
+            return (
+              <Card style={styles.card}>
+                {editPlayerId === item._id ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                    <TextInput
+                      value={editPlayerName}
+                      onChangeText={setEditPlayerName}
+                      style={[styles.searchInput, { flex: 1, backgroundColor: colors.surface, color: colors.text, borderColor: colors.border, borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, height: 40 }]}
+                    />
+                    <Button title="Save" onPress={handleUpdatePlayer} variant="primary" style={{ width: 60, paddingVertical: 8 }} />
+                    <Button title="Cancel" onPress={() => setEditPlayerId(null)} variant="secondary" style={{ width: 70, paddingVertical: 8 }} />
                   </View>
-                </TouchableOpacity>
-              )}
-            </Card>
-          )}
+                ) : (
+                  <View style={styles.row}>
+                    <TouchableOpacity
+                      style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}
+                      activeOpacity={0.7}
+                      onPress={() => router.push({ pathname: '/player-career', params: { id: item._id } })}
+                    >
+                      <Avatar name={displayName} size={42} style={styles.avatar} />
+                      <View style={styles.info}>
+                        <Text style={[styles.name, { color: colors.text }]}>{displayName}</Text>
+                        <Text style={[styles.aliases, { color: colors.textMuted }]}>
+                          Aliases: {item.aliases?.join(', ') || item.name}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginLeft: 8 }}>
+                      <TouchableOpacity
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        onPress={() => { setEditPlayerId(item._id); setEditPlayerName(item.name); }}
+                      >
+                        <Text style={{ color: colors.primary, fontWeight: '700', fontSize: 13 }}>Edit</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        onPress={() => handleDeletePlayer(item._id)}
+                      >
+                        <Text style={{ color: '#ef4444', fontWeight: '700', fontSize: 13 }}>Delete</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        onPress={() => router.push({ pathname: '/player-career', params: { id: item._id } })}
+                      >
+                        <Text style={[styles.arrow, { color: colors.primary }]}>→</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
+              </Card>
+            );
+          }}
           ListEmptyComponent={
             <View style={styles.empty}>
               <Text style={{ color: colors.textMuted }}>No players matching search criteria.</Text>
