@@ -152,6 +152,12 @@ export class PlayerMatchingService {
       throw new Error('Player name cannot be empty');
     }
 
+    // STRICT DEFENSE: Never allow known non-Indian / opponent players to be created as Indian players
+    const { isKnownForeignPlayer } = await import('../utils/foreignPlayerGuard');
+    if (isKnownForeignPlayer(trimmedName)) {
+      throw new Error(`[PlayerMatchingService] Cannot create foreign/opponent player '${trimmedName}' as an Indian player.`);
+    }
+
     let player = await this.findMatchingPlayer(trimmedName, session, userId);
     if (!player) {
       player = await this.playerRepository.create({

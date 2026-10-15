@@ -224,6 +224,7 @@ export const uploadScorecard = async (req: Request, res: Response): Promise<void
 
     let teamAInnings = rawInn1;
     let teamBInnings = rawInn2;
+    let shouldSwapTeams = false;
 
     // If rawInn2 has MORE recognized user players batting than rawInn1, OR
     // rawInn2 batting team matches teamA while rawInn1 matches teamB:
@@ -231,15 +232,32 @@ export const uploadScorecard = async (req: Request, res: Response): Promise<void
     if (inn2BatterUserMatches > inn1BatterUserMatches) {
       teamAInnings = rawInn2;
       teamBInnings = rawInn1;
+      shouldSwapTeams = true;
     } else if (inn1BatterUserMatches > 0 && inn2BatterUserMatches === 0) {
       teamAInnings = rawInn1;
       teamBInnings = rawInn2;
     } else if (inn2BatTeamLower && inn2BatTeamLower === teamANameLower && inn1BatTeamLower !== teamANameLower) {
       teamAInnings = rawInn2;
       teamBInnings = rawInn1;
+      shouldSwapTeams = true;
     } else if (inn1BatTeamLower && inn1BatTeamLower === teamBNameLower && inn2BatTeamLower !== teamBNameLower) {
       teamAInnings = rawInn2;
       teamBInnings = rawInn1;
+      shouldSwapTeams = true;
+    }
+
+    // CRITICAL FIX: If innings were swapped, we MUST also swap team resolutions and names
+    // so Team A's name matches Team A's score & batting, and Team B's name matches Team B's!
+    let activeTeamAResolution = teamAResolution;
+    let activeTeamBResolution = teamBResolution;
+    let activeRawTeamA = extractedScorecard.match.teamA;
+    let activeRawTeamB = extractedScorecard.match.teamB;
+
+    if (shouldSwapTeams) {
+      activeTeamAResolution = teamBResolution;
+      activeTeamBResolution = teamAResolution;
+      activeRawTeamA = extractedScorecard.match.teamB;
+      activeRawTeamB = extractedScorecard.match.teamA;
     }
 
     const teamABatting = teamAInnings.batters || [];
@@ -251,13 +269,14 @@ export const uploadScorecard = async (req: Request, res: Response): Promise<void
     const teamAScore = teamAInnings.total || { runs: 0, wickets: 0, overs: 0 };
     const teamBScore = teamBInnings.total || { runs: 0, wickets: 0, overs: 0 };
 
-    const resolvedTeamAName = teamAResolution.team
-      ? (teamAResolution.team.displayName || teamAResolution.team.officialName || teamAResolution.team.name)
-      : extractedScorecard.match.teamA;
+    const resolvedTeamAName = activeTeamAResolution.team
+      ? (activeTeamAResolution.team.displayName || activeTeamAResolution.team.officialName || activeTeamAResolution.team.name)
+      : (teamAInnings.battingTeam || activeRawTeamA);
 
-    const resolvedTeamBName = teamBResolution.team
-      ? (teamBResolution.team.displayName || teamBResolution.team.officialName || teamBResolution.team.name)
-      : extractedScorecard.match.teamB;
+    const resolvedTeamBName = activeTeamBResolution.team
+      ? (activeTeamBResolution.team.displayName || activeTeamBResolution.team.officialName || activeTeamBResolution.team.name)
+      : (teamBInnings.battingTeam || activeRawTeamB);
+
 
     // SMART CRICKET LOGIC ENGINE: DEDUCE WINNER, MARGIN & MILESTONES
     const allBatters = [...teamABatting, ...teamBBatting];
@@ -355,12 +374,12 @@ export const uploadScorecard = async (req: Request, res: Response): Promise<void
       validation: validationResult,
       match: extractedScorecard.match,
       teamAResolution: {
-        resolved: teamAResolution.resolved,
-        confidence: teamAResolution.confidence,
-        needsReview: teamAResolution.needsReview,
-        teamId: teamAResolution.team?.teamId,
-        id: teamAResolution.team?._id,
-        candidates: teamAResolution.candidates.map(c => ({
+        resolved: activeTeamAResolution.resolved,
+        confidence: activeTeamAResolution.confidence,
+        needsReview: activeTeamAResolution.needsReview,
+        teamId: activeTeamAResolution.team?.teamId,
+        id: activeTeamAResolution.team?._id,
+        candidates: activeTeamAResolution.candidates.map(c => ({
           id: c.team._id,
           teamId: c.team.teamId,
           name: c.team.displayName || c.team.officialName || c.team.name,
@@ -370,12 +389,12 @@ export const uploadScorecard = async (req: Request, res: Response): Promise<void
         }))
       },
       teamBResolution: {
-        resolved: teamBResolution.resolved,
-        confidence: teamBResolution.confidence,
-        needsReview: teamBResolution.needsReview,
-        teamId: teamBResolution.team?.teamId,
-        id: teamBResolution.team?._id,
-        candidates: teamBResolution.candidates.map(c => ({
+        resolved: activeTeamBResolution.resolved,
+        confidence: activeTeamBResolution.confidence,
+        needsReview: activeTeamBResolution.needsReview,
+        teamId: activeTeamBResolution.team?.teamId,
+        id: activeTeamBResolution.team?._id,
+        candidates: activeTeamBResolution.candidates.map(c => ({
           id: c.team._id,
           teamId: c.team.teamId,
           name: c.team.displayName || c.team.officialName || c.team.name,
@@ -389,12 +408,12 @@ export const uploadScorecard = async (req: Request, res: Response): Promise<void
         teamB: resolvedTeamBName,
         teamName: resolvedTeamAName,
         opponentTeam: resolvedTeamBName,
-        teamAId: teamAResolution.team?._id?.toString(),
-        teamBId: teamBResolution.team?._id?.toString(),
-        teamAMasterId: teamAResolution.team?.teamId,
-        teamBMasterId: teamBResolution.team?.teamId,
-        teamALogo: teamAResolution.team?.logoUrl || teamAResolution.team?.logo || '',
-        teamBLogo: teamBResolution.team?.logoUrl || teamBResolution.team?.logo || '',
+        teamAId: activeTeamAResolution.team?._id?.toString(),
+        teamBId: activeTeamBResolution.team?._id?.toString(),
+        teamAMasterId: activeTeamAResolution.team?.teamId,
+        teamBMasterId: activeTeamBResolution.team?.teamId,
+        teamALogo: activeTeamAResolution.team?.logoUrl || activeTeamAResolution.team?.logo || '',
+        teamBLogo: activeTeamBResolution.team?.logoUrl || activeTeamBResolution.team?.logo || '',
         date: extractedScorecard.match.date,
         venue: extractedScorecard.match.venue,
         venueName: extractedScorecard.match.venue,

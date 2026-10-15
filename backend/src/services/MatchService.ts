@@ -3,10 +3,12 @@ import { MatchRepository } from '../repositories/MatchRepository';
 import { PlayerMatchStatsRepository } from '../repositories/PlayerMatchStatsRepository';
 import { TeamRepository } from '../repositories/TeamRepository';
 import { VenueRepository } from '../repositories/VenueRepository';
+import { PlayerRepository } from '../repositories/PlayerRepository';
 import { PlayerMatchingService } from './PlayerMatchingService';
 import { TeamMatchingService } from './TeamMatchingService';
 import { StatsService } from './StatsService';
 import { IMatch } from '../types';
+import { isKnownForeignPlayer } from '../utils/foreignPlayerGuard';
 
 interface BattingItem {
   name: string;
@@ -408,6 +410,38 @@ export class MatchService {
         teamABowlers = payload.teamABowling || [];
       }
 
+      // AUTO-ALIGNMENT CHECK: Ensure Indian batters align with the Indian team
+      const isTeamAIndian = this.isIndianOrEligibleTeam(teamA);
+      const isTeamBIndian = this.isIndianOrEligibleTeam(teamB);
+
+      if (isTeamAIndian !== isTeamBIndian) {
+        const playerRepo = new PlayerRepository();
+        const dbIndianPlayers = await playerRepo.find({ nationalTeamId: 'INT_IND' });
+        const indianNameSet = new Set(dbIndianPlayers.map(p => p.name.trim().toLowerCase()));
+
+        const countIndianMatches = (batters: BattingItem[]) =>
+          batters.filter(b => b.name && indianNameSet.has(b.name.trim().toLowerCase())).length;
+
+        const teamAIndianCount = countIndianMatches(teamABatters);
+        const teamBIndianCount = countIndianMatches(teamBBatters);
+
+        if ((!isTeamAIndian && teamAIndianCount > teamBIndianCount) ||
+            (!isTeamBIndian && teamBIndianCount > teamAIndianCount)) {
+          console.log(`[MatchService] Inverted innings detected for Indian team! Auto-aligning batters, bowlers, and extras...`);
+          const tempBatters = teamABatters;
+          teamABatters = teamBBatters;
+          teamBBatters = tempBatters;
+
+          const tempBowlers = teamABowlers;
+          teamABowlers = teamBBowlers;
+          teamBBowlers = tempBowlers;
+
+          const tempExtras = teamBWaitersExtras;
+          teamBWaitersExtras = teamAWaitersExtras;
+          teamAWaitersExtras = tempExtras;
+        }
+      }
+
       // Calculate Extras Totals
       const getExtrasTotal = (ext: ExtrasItem): number => {
         if (typeof ext.total === 'number') return ext.total;
@@ -560,6 +594,10 @@ export class MatchService {
         // 1. Batting
         for (const bat of batters) {
           if (!bat.name || !bat.name.trim()) continue;
+          if (isKnownForeignPlayer(bat.name)) {
+            console.log(`[MatchService] Skipping foreign player from batting: ${bat.name}`);
+            continue;
+          }
           const key = bat.name.trim().toLowerCase();
           const outStatus = (bat.dismissalStatus || bat.outStatus || 'out').trim();
           const isDnb = ['dnb', 'did not bat'].includes(outStatus.toLowerCase());
@@ -599,6 +637,10 @@ export class MatchService {
         // 2. Bowling
         for (const bowl of bowlers) {
           if (!bowl.name || !bowl.name.trim()) continue;
+          if (isKnownForeignPlayer(bowl.name)) {
+            console.log(`[MatchService] Skipping foreign player from bowling: ${bowl.name}`);
+            continue;
+          }
           const key = bowl.name.trim().toLowerCase();
           const existing = playerStatsMap.get(key) || {
             name: bowl.name.trim(),
@@ -649,14 +691,21 @@ export class MatchService {
 
         // Save each player to DB and create PlayerMatchStats
         for (const entry of playerStatsMap.values()) {
+          if (isKnownForeignPlayer(entry.name)) {
+            console.log(`[MatchService] Guard blocked foreign player from creation: ${entry.name}`);
+            continue;
+          }
+
           const player = await this.playerMatchingService.findOrCreatePlayer(entry.name, {
             country: 'India',
             nationalTeamId: 'INT_IND'
           }, undefined, userId);
           affectedPlayerIds.push(player._id as Types.ObjectId);
 
-          if (!teamDoc.players.some((id: any) => id.toString() === player._id.toString())) {
-            teamDoc.players.push(player._id as Types.ObjectId);
+          if (this.isIndianOrEligibleTeam(teamDoc)) {
+            if (!teamDoc.players.some((id: any) => id.toString() === player._id.toString())) {
+              teamDoc.players.push(player._id as Types.ObjectId);
+            }
           }
 
           await this.playerMatchStatsRepository.create({
