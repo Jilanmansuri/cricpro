@@ -136,8 +136,8 @@ export default function ManualMatchEntry() {
 
   const computedMilestones = useMemo(() => {
     const allBatters = [
-      ...batting.map(b => ({ ...b, team: matchInfo.teamName || 'Team 1' })),
-      ...teamBBatting.map(b => ({ ...b, team: matchInfo.opponentTeam || 'Team 2' }))
+      ...batting.map(b => ({ ...b, isTeamB: false, team: matchInfo.teamName || 'Team 1' })),
+      ...teamBBatting.map(b => ({ ...b, isTeamB: true, team: matchInfo.opponentTeam || 'Team 2' }))
     ].filter(b => b.name && b.name.trim() !== '');
 
     const allBowlers = [
@@ -174,12 +174,8 @@ export default function ManualMatchEntry() {
       : null;
 
     return {
-      centuries: (matchMilestones?.centuries && matchMilestones.centuries.length > 0)
-        ? matchMilestones.centuries
-        : liveCenturies,
-      fifties: (matchMilestones?.fifties && matchMilestones.fifties.length > 0)
-        ? matchMilestones.fifties
-        : liveFifties,
+      centuries: liveCenturies,
+      fifties: liveFifties,
       topBowlers: (matchMilestones?.topBowlers && matchMilestones.topBowlers.length > 0)
         ? matchMilestones.topBowlers
         : liveTopBowlers,
@@ -530,6 +526,14 @@ export default function ManualMatchEntry() {
 
   const updateTeamBBatsman = (id: string, field: string, value: string) => {
     setTeamBBatting(prev => prev.map(b => b.id === id ? { ...b, [field]: value } : b));
+  };
+
+  const updateBatterMilestone = (id: string, field: 'fastestFiftyBalls' | 'fastestHundredBalls', value: string, isTeamB?: boolean) => {
+    if (isTeamB) {
+      updateTeamBBatsman(id, field, value);
+    } else {
+      updateBatsman(id, field, value);
+    }
   };
 
   const removeTeamBBatsman = (id: string) => {
@@ -1202,33 +1206,54 @@ export default function ManualMatchEntry() {
                           </View>
                         </View>
                         {Number(b.runs) >= 50 && (
-                          <View style={[styles.milestoneInputRow, { backgroundColor: colors.surfaceLighter || 'rgba(255,255,255,0.04)', borderColor: colors.primary + '40' }]}>
+                          <View style={[styles.milestoneCardBox, { backgroundColor: colors.surfaceLighter || 'rgba(255,255,255,0.04)', borderColor: colors.primary + '50', marginTop: 10 }]}>
                             <View style={{ flex: 1 }}>
-                              <Text style={{ fontSize: 11, fontWeight: '700', color: colors.primary }}>
-                                ⭐ 50 reached in (balls)? (Optional)
-                              </Text>
-                              <TextInput
-                                style={[styles.input, { height: 36, marginTop: 4, backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]}
-                                value={b.fastestFiftyBalls || ''}
-                                onChangeText={t => updateBatsman(b.id, 'fastestFiftyBalls', t)}
-                                placeholder={Number(b.balls) > 0 ? `e.g. ${Math.min(Number(b.balls), Math.round((50 / Number(b.runs)) * Number(b.balls)))} (auto if blank)` : "e.g. 14 (auto if blank)"}
-                                placeholderTextColor={colors.textMuted}
-                                keyboardType="numeric"
-                              />
-                            </View>
-                            {Number(b.runs) >= 100 && (
-                              <View style={{ flex: 1, marginLeft: 8 }}>
-                                <Text style={{ fontSize: 11, fontWeight: '700', color: '#10B981' }}>
-                                  💯 100 in (balls)? (Optional)
+                              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                                <Text style={{ fontSize: 12, fontWeight: '800', color: colors.primary }}>
+                                  ⚡ 50 Reached In (Fastest 50 Record)?
                                 </Text>
+                                <Text style={{ fontSize: 11, color: colors.textMuted }}>
+                                  (Optional)
+                                </Text>
+                              </View>
+                              <View style={styles.inlineInputGroup}>
                                 <TextInput
-                                  style={[styles.input, { height: 36, marginTop: 4, backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]}
-                                  value={b.fastestHundredBalls || ''}
-                                  onChangeText={t => updateBatsman(b.id, 'fastestHundredBalls', t)}
-                                  placeholder={Number(b.balls) > 0 ? `e.g. ${Math.min(Number(b.balls), Math.round((100 / Number(b.runs)) * Number(b.balls)))} (auto if blank)` : "e.g. 35 (auto if blank)"}
+                                  style={[styles.milestoneInput, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.primary + '60' }]}
+                                  value={b.fastestFiftyBalls || ''}
+                                  onChangeText={t => updateBatsman(b.id, 'fastestFiftyBalls', t)}
+                                  placeholder={Number(b.balls) > 0 ? `e.g. ${b.balls}` : "e.g. 15"}
                                   placeholderTextColor={colors.textMuted}
                                   keyboardType="numeric"
                                 />
+                                <View style={[styles.inlineInputBadge, { backgroundColor: colors.primary + '25' }]}>
+                                  <Text style={{ color: colors.primary, fontWeight: '900', fontSize: 11 }}>BALLS</Text>
+                                </View>
+                              </View>
+                            </View>
+
+                            {Number(b.runs) >= 100 && (
+                              <View style={{ flex: 1, marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: colors.border }}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                                  <Text style={{ fontSize: 12, fontWeight: '800', color: '#10B981' }}>
+                                    💯 100 Reached In (Fastest 100 Record)?
+                                  </Text>
+                                  <Text style={{ fontSize: 11, color: colors.textMuted }}>
+                                    (Optional)
+                                  </Text>
+                                </View>
+                                <View style={styles.inlineInputGroup}>
+                                  <TextInput
+                                    style={[styles.milestoneInput, { backgroundColor: colors.surface, color: colors.text, borderColor: '#10B98160' }]}
+                                    value={b.fastestHundredBalls || ''}
+                                    onChangeText={t => updateBatsman(b.id, 'fastestHundredBalls', t)}
+                                    placeholder={Number(b.balls) > 0 ? `e.g. ${b.balls}` : "e.g. 35"}
+                                    placeholderTextColor={colors.textMuted}
+                                    keyboardType="numeric"
+                                  />
+                                  <View style={[styles.inlineInputBadge, { backgroundColor: '#10B98125' }]}>
+                                    <Text style={{ color: '#10B981', fontWeight: '900', fontSize: 11 }}>BALLS</Text>
+                                  </View>
+                                </View>
                               </View>
                             )}
                           </View>
@@ -1310,33 +1335,54 @@ export default function ManualMatchEntry() {
                           </View>
                         </View>
                         {Number(b.runs) >= 50 && (
-                          <View style={[styles.milestoneInputRow, { backgroundColor: colors.surfaceLighter || 'rgba(255,255,255,0.04)', borderColor: colors.primary + '40' }]}>
+                          <View style={[styles.milestoneCardBox, { backgroundColor: colors.surfaceLighter || 'rgba(255,255,255,0.04)', borderColor: colors.primary + '50', marginTop: 10 }]}>
                             <View style={{ flex: 1 }}>
-                              <Text style={{ fontSize: 11, fontWeight: '700', color: colors.primary }}>
-                                ⭐ 50 reached in (balls)? (Optional)
-                              </Text>
-                              <TextInput
-                                style={[styles.input, { height: 36, marginTop: 4, backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]}
-                                value={b.fastestFiftyBalls || ''}
-                                onChangeText={t => updateTeamBBatsman(b.id, 'fastestFiftyBalls', t)}
-                                placeholder={Number(b.balls) > 0 ? `e.g. ${Math.min(Number(b.balls), Math.round((50 / Number(b.runs)) * Number(b.balls)))} (auto if blank)` : "e.g. 14 (auto if blank)"}
-                                placeholderTextColor={colors.textMuted}
-                                keyboardType="numeric"
-                              />
-                            </View>
-                            {Number(b.runs) >= 100 && (
-                              <View style={{ flex: 1, marginLeft: 8 }}>
-                                <Text style={{ fontSize: 11, fontWeight: '700', color: '#10B981' }}>
-                                  💯 100 in (balls)? (Optional)
+                              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                                <Text style={{ fontSize: 12, fontWeight: '800', color: colors.primary }}>
+                                  ⚡ 50 Reached In (Fastest 50 Record)?
                                 </Text>
+                                <Text style={{ fontSize: 11, color: colors.textMuted }}>
+                                  (Optional)
+                                </Text>
+                              </View>
+                              <View style={styles.inlineInputGroup}>
                                 <TextInput
-                                  style={[styles.input, { height: 36, marginTop: 4, backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]}
-                                  value={b.fastestHundredBalls || ''}
-                                  onChangeText={t => updateTeamBBatsman(b.id, 'fastestHundredBalls', t)}
-                                  placeholder={Number(b.balls) > 0 ? `e.g. ${Math.min(Number(b.balls), Math.round((100 / Number(b.runs)) * Number(b.balls)))} (auto if blank)` : "e.g. 35 (auto if blank)"}
+                                  style={[styles.milestoneInput, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.primary + '60' }]}
+                                  value={b.fastestFiftyBalls || ''}
+                                  onChangeText={t => updateTeamBBatsman(b.id, 'fastestFiftyBalls', t)}
+                                  placeholder={Number(b.balls) > 0 ? `e.g. ${b.balls}` : "e.g. 15"}
                                   placeholderTextColor={colors.textMuted}
                                   keyboardType="numeric"
                                 />
+                                <View style={[styles.inlineInputBadge, { backgroundColor: colors.primary + '25' }]}>
+                                  <Text style={{ color: colors.primary, fontWeight: '900', fontSize: 11 }}>BALLS</Text>
+                                </View>
+                              </View>
+                            </View>
+
+                            {Number(b.runs) >= 100 && (
+                              <View style={{ flex: 1, marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: colors.border }}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                                  <Text style={{ fontSize: 12, fontWeight: '800', color: '#10B981' }}>
+                                    💯 100 Reached In (Fastest 100 Record)?
+                                  </Text>
+                                  <Text style={{ fontSize: 11, color: colors.textMuted }}>
+                                    (Optional)
+                                  </Text>
+                                </View>
+                                <View style={styles.inlineInputGroup}>
+                                  <TextInput
+                                    style={[styles.milestoneInput, { backgroundColor: colors.surface, color: colors.text, borderColor: '#10B98160' }]}
+                                    value={b.fastestHundredBalls || ''}
+                                    onChangeText={t => updateTeamBBatsman(b.id, 'fastestHundredBalls', t)}
+                                    placeholder={Number(b.balls) > 0 ? `e.g. ${b.balls}` : "e.g. 35"}
+                                    placeholderTextColor={colors.textMuted}
+                                    keyboardType="numeric"
+                                  />
+                                  <View style={[styles.inlineInputBadge, { backgroundColor: '#10B98125' }]}>
+                                    <Text style={{ color: '#10B981', fontWeight: '900', fontSize: 11 }}>BALLS</Text>
+                                  </View>
+                                </View>
                               </View>
                             )}
                           </View>
@@ -1609,25 +1655,68 @@ export default function ManualMatchEntry() {
 
               {/* Batting Milestones: 100s & 50s */}
               <View style={{ marginTop: 12 }}>
-                <Text style={{ color: colors.textMuted, fontSize: 11, fontWeight: '800', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                  Batting Highlights (100s & 50s)
+                <Text style={{ color: colors.textMuted, fontSize: 11, fontWeight: '800', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                  Batting Milestones & Fastest Records (50s & 100s)
                 </Text>
 
                 {computedMilestones.centuries.length > 0 && (
-                  <View style={{ marginBottom: 6 }}>
+                  <View style={{ marginBottom: 10 }}>
                     {computedMilestones.centuries.map((c: any, i: number) => (
-                      <View key={'cen_' + i} style={[styles.milestoneBadgeRow, { backgroundColor: '#ffd70018', borderColor: '#ffd70060' }]}>
-                        <Text style={{ fontSize: 16 }}>💯</Text>
-                        <View style={{ flex: 1 }}>
-                          <Text style={{ color: '#ffd700', fontWeight: '800', fontSize: 13 }}>
-                            {c.name} - {c.runs} Runs {c.balls ? `(${c.balls}b)` : ''}
-                          </Text>
-                          <Text style={{ color: colors.textMuted, fontSize: 11 }}>
-                            {c.team ? `${c.team} • ` : ''}{c.fours || 0} Fours, {c.sixes || 0} Sixes
-                          </Text>
+                      <View key={'cen_' + (c.id || i)} style={[styles.milestoneCardBox, { backgroundColor: '#ffd70012', borderColor: '#ffd70050', marginBottom: 8 }]}>
+                        <View style={styles.milestoneCardTop}>
+                          <Text style={{ fontSize: 20 }}>💯</Text>
+                          <View style={{ flex: 1 }}>
+                            <Text style={{ color: '#ffd700', fontWeight: '900', fontSize: 14 }}>
+                              {c.name} - {c.runs} Runs {c.balls ? `(${c.balls}b)` : ''}
+                            </Text>
+                            <Text style={{ color: colors.textMuted, fontSize: 11, marginTop: 2 }}>
+                              {c.team ? `${c.team} • ` : ''}{c.fours || 0} Fours, {c.sixes || 0} Sixes
+                            </Text>
+                          </View>
+                          <View style={[styles.pillBadge, { backgroundColor: '#ffd700' }]}>
+                            <Text style={{ color: '#000', fontSize: 10, fontWeight: '900' }}>CENTURY</Text>
+                          </View>
                         </View>
-                        <View style={[styles.pillBadge, { backgroundColor: '#ffd700' }]}>
-                          <Text style={{ color: '#000', fontSize: 10, fontWeight: '900' }}>CENTURY</Text>
+
+                        {/* Editable Fastest 50 & 100 Balls Inputs */}
+                        <View style={[styles.milestoneInputSection, { borderTopColor: '#ffd70030' }]}>
+                          <View style={{ flex: 1 }}>
+                            <Text style={{ fontSize: 11, fontWeight: '800', color: '#ffd700', marginBottom: 4 }}>
+                              ⚡ 50 In (Balls)?
+                            </Text>
+                            <View style={styles.inlineInputGroup}>
+                              <TextInput
+                                style={[styles.milestoneInput, { backgroundColor: colors.surface, color: colors.text, borderColor: '#ffd70050' }]}
+                                value={c.fastestFiftyBalls || ''}
+                                onChangeText={val => updateBatterMilestone(c.id, 'fastestFiftyBalls', val, c.isTeamB)}
+                                placeholder={c.balls ? `e.g. ${Math.min(Number(c.balls), Math.round((50 / Number(c.runs)) * Number(c.balls)))}` : "15"}
+                                placeholderTextColor={colors.textMuted}
+                                keyboardType="numeric"
+                              />
+                              <View style={[styles.inlineInputBadge, { backgroundColor: '#ffd70025' }]}>
+                                <Text style={{ color: '#ffd700', fontWeight: '900', fontSize: 11 }}>BALLS</Text>
+                              </View>
+                            </View>
+                          </View>
+
+                          <View style={{ flex: 1, marginLeft: 10 }}>
+                            <Text style={{ fontSize: 11, fontWeight: '800', color: '#ffd700', marginBottom: 4 }}>
+                              ⚡ 100 In (Balls)?
+                            </Text>
+                            <View style={styles.inlineInputGroup}>
+                              <TextInput
+                                style={[styles.milestoneInput, { backgroundColor: colors.surface, color: colors.text, borderColor: '#ffd70050' }]}
+                                value={c.fastestHundredBalls || ''}
+                                onChangeText={val => updateBatterMilestone(c.id, 'fastestHundredBalls', val, c.isTeamB)}
+                                placeholder={c.balls ? `e.g. ${c.balls}` : "35"}
+                                placeholderTextColor={colors.textMuted}
+                                keyboardType="numeric"
+                              />
+                              <View style={[styles.inlineInputBadge, { backgroundColor: '#ffd70025' }]}>
+                                <Text style={{ color: '#ffd700', fontWeight: '900', fontSize: 11 }}>BALLS</Text>
+                              </View>
+                            </View>
+                          </View>
                         </View>
                       </View>
                     ))}
@@ -1635,20 +1724,49 @@ export default function ManualMatchEntry() {
                 )}
 
                 {computedMilestones.fifties.length > 0 && (
-                  <View style={{ marginBottom: 6 }}>
+                  <View style={{ marginBottom: 10 }}>
                     {computedMilestones.fifties.map((f: any, i: number) => (
-                      <View key={'fif_' + i} style={[styles.milestoneBadgeRow, { backgroundColor: colors.primary + '18', borderColor: colors.primary + '50' }]}>
-                        <Text style={{ fontSize: 16 }}>🏏</Text>
-                        <View style={{ flex: 1 }}>
-                          <Text style={{ color: colors.primary, fontWeight: '800', fontSize: 13 }}>
-                            {f.name} - {f.runs} Runs {f.balls ? `(${f.balls}b)` : ''}
-                          </Text>
-                          <Text style={{ color: colors.textMuted, fontSize: 11 }}>
-                            {f.team ? `${f.team} • ` : ''}{f.fours || 0} Fours, {f.sixes || 0} Sixes
-                          </Text>
+                      <View key={'fif_' + (f.id || i)} style={[styles.milestoneCardBox, { backgroundColor: colors.primary + '12', borderColor: colors.primary + '50', marginBottom: 8 }]}>
+                        <View style={styles.milestoneCardTop}>
+                          <Text style={{ fontSize: 20 }}>🏏</Text>
+                          <View style={{ flex: 1 }}>
+                            <Text style={{ color: colors.primary, fontWeight: '900', fontSize: 14 }}>
+                              {f.name} - {f.runs} Runs {f.balls ? `(${f.balls}b)` : ''}
+                            </Text>
+                            <Text style={{ color: colors.textMuted, fontSize: 11, marginTop: 2 }}>
+                              {f.team ? `${f.team} • ` : ''}{f.fours || 0} Fours, {f.sixes || 0} Sixes
+                            </Text>
+                          </View>
+                          <View style={[styles.pillBadge, { backgroundColor: colors.primary }]}>
+                            <Text style={{ color: '#fff', fontSize: 10, fontWeight: '900' }}>FIFTY (50)</Text>
+                          </View>
                         </View>
-                        <View style={[styles.pillBadge, { backgroundColor: colors.primary }]}>
-                          <Text style={{ color: '#fff', fontSize: 10, fontWeight: '900' }}>FIFTY (50)</Text>
+
+                        {/* Editable Fastest 50 Balls Input */}
+                        <View style={[styles.milestoneInputSection, { borderTopColor: colors.primary + '30' }]}>
+                          <View style={{ flex: 1 }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                              <Text style={{ fontSize: 11, fontWeight: '800', color: colors.primary }}>
+                                ⚡ 50 Reached In (Fastest 50 Record)?
+                              </Text>
+                              <Text style={{ fontSize: 10, color: colors.textMuted }}>
+                                (Career stats me save hoga)
+                              </Text>
+                            </View>
+                            <View style={styles.inlineInputGroup}>
+                              <TextInput
+                                style={[styles.milestoneInput, { backgroundColor: colors.surface, color: colors.text, borderColor: colors.primary + '60' }]}
+                                value={f.fastestFiftyBalls || ''}
+                                onChangeText={val => updateBatterMilestone(f.id, 'fastestFiftyBalls', val, f.isTeamB)}
+                                placeholder={f.balls ? `e.g. ${f.balls}` : "e.g. 15"}
+                                placeholderTextColor={colors.textMuted}
+                                keyboardType="numeric"
+                              />
+                              <View style={[styles.inlineInputBadge, { backgroundColor: colors.primary + '25' }]}>
+                                <Text style={{ color: colors.primary, fontWeight: '900', fontSize: 11 }}>BALLS</Text>
+                              </View>
+                            </View>
+                          </View>
                         </View>
                       </View>
                     ))}
@@ -2253,5 +2371,49 @@ const styles = StyleSheet.create({
     padding: 10,
     borderRadius: 8,
     borderWidth: 1,
+  },
+  milestoneCardBox: {
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    marginTop: 6,
+  },
+  milestoneCardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  milestoneInputSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+  },
+  inlineInputGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  milestoneInput: {
+    flex: 1,
+    height: 42,
+    borderWidth: 1.5,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  inlineInputBadge: {
+    paddingHorizontal: 10,
+    height: 42,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  inlineInputUnit: {
+    fontSize: 12,
+    fontWeight: '700',
   },
 });
