@@ -533,12 +533,39 @@ export const getLeaderboard = async (req: Request, res: Response): Promise<void>
         };
       });
 
+      const fieldFilter: any = {
+        $or: [
+          { 'fielding.catches': { $gt: 0 } },
+          { 'fielding.runOuts': { $gt: 0 } },
+          { 'fielding.stumpings': { $gt: 0 } },
+          { matches: { $gt: 0 } }
+        ]
+      };
+      if (userId) fieldFilter.playerId = { $in: userPlayerIds };
+      const topFieldersDocs = await careerStatsRepository.find(
+        fieldFilter,
+        { sort: { 'fielding.catches': -1, 'fielding.runOuts': -1, matches: -1 }, limit: 200, populate: 'playerId' }
+      );
+
+      const topFielders = topFieldersDocs.map((item: any) => {
+        const pDoc = item.playerId;
+        const teamInfo = resolvePlayerTeam(pDoc, 'all', null, teamMap, teamByCodeMap, playerToTeamMap);
+        const playerObj = pDoc ? { _id: pDoc._id, name: pDoc.name, country: pDoc.country, nationalTeamId: pDoc.nationalTeamId, iplTeamId: pDoc.iplTeamId } : { _id: item.playerId || item._id, name: item.playerName || 'Player' };
+        return {
+          ...item.toObject ? item.toObject() : item,
+          playerId: playerObj,
+          playerProfileId: playerObj._id,
+          team: teamInfo
+        };
+      });
+
       const responsePayload = {
         success: true,
         data: {
           division: 'all',
           topBatsmen,
           topBowlers,
+          topFielders,
           topMvps
         }
       };
@@ -665,8 +692,36 @@ export const getLeaderboard = async (req: Request, res: Response): Promise<void>
       { $limit: 200 }
     ]);
 
+    // Aggregate Fielding Stats for this division
+    const fieldingAgg = await PlayerMatchStats.aggregate([
+      { $match: matchStatsFilter },
+      {
+        $group: {
+          _id: '$playerId',
+          playerName: { $first: '$playerName' },
+          lastTeamId: { $last: '$teamId' },
+          matches: { $sum: 1 },
+          catches: { $sum: '$fielding.catches' },
+          runOuts: { $sum: '$fielding.runOuts' },
+          stumpings: { $sum: '$fielding.stumpings' }
+        }
+      },
+      {
+        $match: {
+          $or: [
+            { catches: { $gt: 0 } },
+            { runOuts: { $gt: 0 } },
+            { stumpings: { $gt: 0 } },
+            { matches: { $gt: 0 } }
+          ]
+        }
+      },
+      { $sort: { catches: -1, runOuts: -1 } },
+      { $limit: 200 }
+    ]);
+
     // Populate player info so it matches CareerStats structure
-    const playerIds = Array.from(new Set([...battingAgg.map(b => b._id), ...bowlingAgg.map(b => b._id)]));
+    const playerIds = Array.from(new Set([...battingAgg.map(b => b._id), ...bowlingAgg.map(b => b._id), ...fieldingAgg.map(f => f._id)]));
     const playersList = await Player.find({ _id: { $in: playerIds } }).select('_id name fullName country nationalTeamId iplTeamId');
     const playerMap = new Map(playersList.map(p => [p._id.toString(), p]));
 
@@ -719,6 +774,25 @@ export const getLeaderboard = async (req: Request, res: Response): Promise<void>
       };
     });
 
+    const topFielders = fieldingAgg.map(f => {
+      const pDoc = playerMap.get(f._id?.toString());
+      const teamInfo = resolvePlayerTeam(pDoc, division, f.lastTeamId, teamMap, teamByCodeMap, playerToTeamMap);
+
+      return {
+        _id: f._id,
+        playerId: pDoc ? { _id: pDoc._id, name: pDoc.name } : { _id: f._id, name: f.playerName || 'Player' },
+        playerName: pDoc?.name || f.playerName,
+        team: teamInfo,
+        mvps: mvpMap.get(f._id?.toString()) || 0,
+        matches: f.matches,
+        fielding: {
+          catches: f.catches,
+          runOuts: f.runOuts,
+          stumpings: f.stumpings
+        }
+      };
+    });
+
     const topMvpFilter: any = { mvps: { $gt: 0 } };
     if (userPlayerIds.length > 0) topMvpFilter.playerId = { $in: userPlayerIds };
     const topMvpCareerDocs = await CareerStats.find(topMvpFilter)
@@ -744,6 +818,7 @@ export const getLeaderboard = async (req: Request, res: Response): Promise<void>
         division,
         topBatsmen,
         topBowlers,
+        topFielders,
         topMvps
       }
     };
@@ -1471,6 +1546,98 @@ export const getCricketRecords = async (req: Request, res: Response): Promise<vo
       });
     }
 
+    // 4. Fielding Records
+    const fieldingRecords: any[] = [];
+
+    const mostCatchesCareerDoc = await CareerStats.findOne({
+      ...(userPlayerIds.length > 0 ? { playerId: { $in: userPlayerIds } } : {}),
+      'fielding.catches': { $gt: 0 }
+    })
+      .sort({ 'fielding.catches': -1 })
+      .populate('playerId')
+      .lean();
+
+    if (mostCatchesCareerDoc) {
+      const pDoc = mostCatchesCareerDoc.playerId;
+      const teamInfo = resolvePlayerTeam(pDoc, division, null, teamMap, teamByCodeMap, playerToTeamMap);
+      const totalCatches = (mostCatchesCareerDoc as any).fielding?.catches || 0;
+
+      fieldingRecords.push({
+        id: 'most_catches_career',
+        title: 'Most Catches in Career',
+        category: 'Fielding Master',
+        badge: '🧤 GOLDEN GLOVES',
+        statValue: `${totalCatches} Catches`,
+        statLabel: 'Career Catches',
+        player: formatPlayerDisplay(pDoc, (mostCatchesCareerDoc as any).playerName),
+        team: teamInfo,
+        opponent: null,
+        details: `${totalCatches} catches taken in ${(mostCatchesCareerDoc as any).matches || 0} matches`,
+        date: null
+      });
+    }
+
+    const mostCatchesMatchDoc = await PlayerMatchStats.findOne({
+      ...matchStatsFilter,
+      'fielding.catches': { $gt: 0 }
+    })
+      .sort({ 'fielding.catches': -1, date: -1 })
+      .populate('playerId')
+      .populate('teamId')
+      .populate('opponentTeamId' as any)
+      .lean();
+
+    if (mostCatchesMatchDoc) {
+      const pDoc = mostCatchesMatchDoc.playerId;
+      const tDoc = mostCatchesMatchDoc.teamId;
+      const oppDoc = (mostCatchesMatchDoc as any).opponentTeamId;
+      const teamInfo = formatTeamInfo(tDoc) || resolvePlayerTeam(pDoc, division, null, teamMap, teamByCodeMap, playerToTeamMap);
+      const oppInfo = formatTeamInfo(oppDoc);
+      const catchesNum = (mostCatchesMatchDoc as any).fielding?.catches || 0;
+
+      fieldingRecords.push({
+        id: 'most_catches_match',
+        title: 'Most Catches in an Innings',
+        category: 'Innings Fielding',
+        badge: '⚡ SHARP REFLEXES',
+        statValue: `${catchesNum} Catches`,
+        statLabel: 'Innings Catches',
+        player: formatPlayerDisplay(pDoc, (mostCatchesMatchDoc as any).playerName),
+        team: teamInfo,
+        opponent: oppInfo,
+        details: `Sensational catching display in a single game`,
+        date: (mostCatchesMatchDoc as any).date || null
+      });
+    }
+
+    const mostRunOutsDoc = await CareerStats.findOne({
+      ...(userPlayerIds.length > 0 ? { playerId: { $in: userPlayerIds } } : {}),
+      'fielding.runOuts': { $gt: 0 }
+    })
+      .sort({ 'fielding.runOuts': -1 })
+      .populate('playerId')
+      .lean();
+
+    if (mostRunOutsDoc) {
+      const pDoc = mostRunOutsDoc.playerId;
+      const teamInfo = resolvePlayerTeam(pDoc, division, null, teamMap, teamByCodeMap, playerToTeamMap);
+      const totalRO = (mostRunOutsDoc as any).fielding?.runOuts || 0;
+
+      fieldingRecords.push({
+        id: 'most_runouts_career',
+        title: 'Most Run Outs in Career',
+        category: 'Direct Hit Specialist',
+        badge: '🎯 DIRECT HIT',
+        statValue: `${totalRO} Run Outs`,
+        statLabel: 'Direct Hits',
+        player: formatPlayerDisplay(pDoc, (mostRunOutsDoc as any).playerName),
+        team: teamInfo,
+        opponent: null,
+        details: `Deadly fielding accuracy across career`,
+        date: null
+      });
+    }
+
     const responsePayload = {
       success: true,
       data: {
@@ -1478,6 +1645,7 @@ export const getCricketRecords = async (req: Request, res: Response): Promise<vo
         rankings: rankingRecords,
         batting: battingRecords,
         bowling: bowlingRecords,
+        fielding: fieldingRecords,
         team: teamRecords
       }
     };
@@ -1497,9 +1665,10 @@ export const getPlayerRankings = async (req: Request, res: Response): Promise<vo
     const limit = req.query.limit ? parseInt(req.query.limit as string) : 5;
     const asOfDate = req.query.asOfDate as string;
     const startDate = req.query.startDate as string;
+    const window = (req.query.window as 'recent' | 'all') || 'recent';
     const userId = (req as any).user?._id;
 
-    const cacheKey = `rankings_${format}_${category}_${scope}_${tournamentId || ''}_${limit}_${asOfDate || ''}_${startDate || ''}_${userId || 'anon'}`;
+    const cacheKey = `rankings_${format}_${category}_${scope}_${tournamentId || ''}_${limit}_${asOfDate || ''}_${startDate || ''}_${window}_${userId || 'anon'}`;
     const cached = cacheManager.get(cacheKey);
     if (cached) {
       res.json(cached);
@@ -1516,6 +1685,7 @@ export const getPlayerRankings = async (req: Request, res: Response): Promise<vo
       limit,
       asOfDate,
       startDate,
+      window,
     });
 
     const responsePayload = {

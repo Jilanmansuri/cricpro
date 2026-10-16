@@ -71,7 +71,7 @@ function getDisplayPlayerName(player: any): string {
 export default function StatsLeaderboardTab() {
   const router = useRouter();
   const { colors, isDarkMode } = useTheme();
-  const [activeTab, setActiveTab] = useState<'batting' | 'bowling' | 'records'>('batting');
+  const [activeTab, setActiveTab] = useState<'batting' | 'bowling' | 'fielding'>('batting');
   const [selectedDivision, setSelectedDivision] = useState<'all' | 'international' | 'ipl'>('all');
 
   // Auto-hiding header scroll animation
@@ -91,7 +91,7 @@ export default function StatsLeaderboardTab() {
     })
   ).current;
 
-  const handleTabChange = (tab: 'batting' | 'bowling' | 'records') => {
+  const handleTabChange = (tab: 'batting' | 'bowling' | 'fielding') => {
     setActiveTab(tab);
     scrollY.setValue(0);
     flatListRef.current?.scrollToOffset({ offset: 0, animated: false });
@@ -103,13 +103,13 @@ export default function StatsLeaderboardTab() {
     flatListRef.current?.scrollToOffset({ offset: 0, animated: false });
   };
   // Initialize state with cached data if available for instant 0ms rendering
-  const initialLb = clientCache.get<{ topBatsmen: any[]; topBowlers: any[]; topMvps?: any[] }>('leaderboard_all', true);
+  const initialLb = clientCache.get<{ topBatsmen: any[]; topBowlers: any[]; topFielders?: any[]; topMvps?: any[] }>('leaderboard_all', true);
   const initialRec = clientCache.get<{ batting: any[]; bowling: any[]; team: any[]; rankings?: any[] }>('records_all', true);
   const initialRank = clientCache.get<{ topBatters: any[]; topBowlers: any[]; topAllRounders: any[] }>('rankings_T20_career_10', true);
 
   const [isLoading, setIsLoading] = useState(!initialLb && !initialRec);
-  const [leaderboard, setLeaderboard] = useState<{ topBatsmen: any[]; topBowlers: any[]; topMvps?: any[] }>(
-    initialLb || { topBatsmen: [], topBowlers: [], topMvps: [] }
+  const [leaderboard, setLeaderboard] = useState<{ topBatsmen: any[]; topBowlers: any[]; topFielders: any[]; topMvps?: any[] }>(
+    initialLb ? { ...initialLb, topFielders: initialLb.topFielders || [] } : { topBatsmen: [], topBowlers: [], topFielders: [], topMvps: [] }
   );
   const [records, setRecords] = useState<{ batting: any[]; bowling: any[]; team: any[]; rankings?: any[] }>(
     initialRec || { batting: [], bowling: [], team: [], rankings: [] }
@@ -120,18 +120,21 @@ export default function StatsLeaderboardTab() {
   const [rankingFormat, setRankingFormat] = useState<'T20' | 'ODI' | 'Test'>('T20');
   const [rankingCategory, setRankingCategory] = useState<'batters' | 'bowlers' | 'all-rounders'>('batters');
   const [rankingScope, setRankingScope] = useState<'career' | 'tournament'>('career');
+  const [rankingWindow, setRankingWindow] = useState<'recent' | 'all'>('recent');
   const [rankings, setRankings] = useState<{ topBatters: any[]; topBowlers: any[]; topAllRounders: any[] }>(
     initialRank || { topBatters: [], topBowlers: [], topAllRounders: [] }
   );
 
   const [battingSort, setBattingSort] = useState('Runs');
   const [bowlingSort, setBowlingSort] = useState('Wickets');
+  const [fieldingSort, setFieldingSort] = useState('Catches');
   
-  const battingFilters = ['Runs', 'Highest Score', 'Average', 'Strike Rate', '100s', '50s', 'Fastest 50', 'Fastest 100', 'Sixes', 'Fours', 'MVPs', ' Ranking'];
-  const bowlingFilters = ['Wickets', 'Economy', 'Average', 'Maidens', 'MVPs', ' Ranking'];
+  const battingFilters = ['Runs', 'Highest Score', 'Average', 'Strike Rate', '100s', '50s', 'Fastest 50', 'Fastest 100', 'Sixes', 'Fours', 'MVPs', '⭐ Ranking'];
+  const bowlingFilters = ['Wickets', 'Economy', 'Average', 'Maidens', 'MVPs', '⭐ Ranking'];
+  const fieldingFilters = ['Catches', 'Run Outs', 'Stumpings', 'Total Dismissals'];
 
-  const fetchRankingsData = async (fmt = rankingFormat, scp = rankingScope) => {
-    const rkKey = `rankings_${fmt}_${scp}_10`;
+  const fetchRankingsData = async (fmt = rankingFormat, scp = rankingScope, win = rankingWindow) => {
+    const rkKey = `rankings_${fmt}_${scp}_${win}_10`;
     let cached = clientCache.get<any>(rkKey, true);
     if (!cached) {
       cached = await clientCache.getAsync<any>(rkKey, true);
@@ -140,7 +143,7 @@ export default function StatsLeaderboardTab() {
       setRankings(cached);
     }
     try {
-      const res = await api.get(`/players/rankings?format=${fmt}&scope=${scp}&limit=10`);
+      const res = await api.get(`/players/rankings?format=${fmt}&scope=${scp}&window=${win}&limit=10`);
       if (res?.data?.success) {
         setRankings(res.data.data);
         clientCache.set(rkKey, res.data.data);
@@ -150,10 +153,10 @@ export default function StatsLeaderboardTab() {
     }
   };
 
-  const fetchAllStats = async (division = selectedDivision, fmt = rankingFormat, scp = rankingScope) => {
+  const fetchAllStats = async (division = selectedDivision, fmt = rankingFormat, scp = rankingScope, win = rankingWindow) => {
     const lKey = `leaderboard_${division}`;
     const rKey = `records_${division}`;
-    const rkKey = `rankings_${fmt}_${scp}_10`;
+    const rkKey = `rankings_${fmt}_${scp}_${win}_10`;
 
     // 1. Check synchronous RAM cache first
     let cachedLb = clientCache.get<any>(lKey, true);
@@ -198,7 +201,7 @@ export default function StatsLeaderboardTab() {
       const [lbRes, recRes, rankRes] = await Promise.allSettled([
         api.get(`/players/leaderboard?division=${division}`),
         api.get(`/players/records?division=${division}`),
-        api.get(`/players/rankings?format=${fmt}&scope=${scp}&limit=10`)
+        api.get(`/players/rankings?format=${fmt}&scope=${scp}&window=${win}&limit=10`)
       ]);
       if (lbRes.status === 'fulfilled' && lbRes.value?.data?.success) {
         setLeaderboard(lbRes.value.data.data);
@@ -221,8 +224,8 @@ export default function StatsLeaderboardTab() {
 
   useFocusEffect(
     useCallback(() => {
-      fetchAllStats(selectedDivision, rankingFormat, rankingScope);
-    }, [selectedDivision, rankingFormat, rankingScope])
+      fetchAllStats(selectedDivision, rankingFormat, rankingScope, rankingWindow);
+    }, [selectedDivision, rankingFormat, rankingScope, rankingWindow])
   );
 
   const resolveDisplayTeam = (player: any, rawTeam: any, division: string) => {
@@ -403,6 +406,68 @@ export default function StatsLeaderboardTab() {
                  stats.wickets}
               </Text>
               <Text style={[styles.statLabel, { color: colors.textMuted }]}>{bowlingSort === 'MVPs' ? 'MVPs Won' : bowlingSort}</Text>
+            </View>
+            <Text style={[styles.chevron, { color: colors.textMuted }]}>›</Text>
+          </View>
+        </Card>
+      </TouchableOpacity>
+    );
+  };
+
+  const renderFieldingItem = ({ item, index }: { item: any; index: number }) => {
+    const player = item.playerId || {};
+    const stats = item.fielding || {};
+    const displayName = getDisplayPlayerName(player);
+    const team = item.team ? resolveDisplayTeam(player, item.team, selectedDivision) : null;
+    const catches = stats.catches || 0;
+    const runOuts = stats.runOuts || 0;
+    const stumpings = stats.stumpings || 0;
+    const totalDismissals = catches + runOuts + stumpings;
+
+    return (
+      <TouchableOpacity activeOpacity={0.7} onPress={() => handlePlayerPress(item.playerId)}>
+        <Card style={styles.card}>
+          <View style={styles.row}>
+            <Text style={[styles.rank, { color: '#10B981' }]}>#{index + 1}</Text>
+            <Avatar name={displayName} size={42} style={styles.avatar} />
+            <View style={styles.info}>
+              <View style={styles.nameAndTeamRow}>
+                <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>{displayName}</Text>
+                {team ? (
+                  <View style={[styles.teamBadge, { backgroundColor: colors.surfaceLighter || 'rgba(255,255,255,0.06)', borderColor: colors.border }]}>
+                    <TeamLogo
+                      shortName={team.shortName}
+                      teamName={team.name}
+                      teamId={team.teamId}
+                      playerName={displayName}
+                      country={player.country}
+                      logoUrl={team.logo}
+                      fallbackEmoji={team.flag}
+                      size={16}
+                    />
+                    <Text style={[styles.teamBadgeText, { color: team.color || colors.text }]}>
+                      {team.shortName || team.name}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
+              <Text style={[styles.subText, { color: colors.textMuted }]}>
+                Catches: <Text style={{ color: colors.text, fontWeight: '700' }}>{catches}</Text> | Run Outs: <Text style={{ color: colors.primary, fontWeight: '700' }}>{runOuts}</Text>
+              </Text>
+              <Text style={[styles.subText, { color: colors.textMuted, fontSize: 10, marginTop: 2 }]}>
+                Stumpings: {stumpings} | Matches: {item.matches || 0}
+              </Text>
+            </View>
+            <View style={styles.statsRight}>
+              <Text style={[styles.mainStat, { color: '#10B981' }]}>
+                {fieldingSort === 'Catches' ? catches :
+                 fieldingSort === 'Run Outs' ? runOuts :
+                 fieldingSort === 'Stumpings' ? stumpings :
+                 totalDismissals}
+              </Text>
+              <Text style={[styles.statLabel, { color: colors.textMuted }]}>
+                {fieldingSort === 'Total Dismissals' ? 'Dismissals' : fieldingSort}
+              </Text>
             </View>
             <Text style={[styles.chevron, { color: colors.textMuted }]}>›</Text>
           </View>
@@ -701,6 +766,17 @@ export default function StatsLeaderboardTab() {
               >
                 RATING
               </Text>
+              <Text
+                style={{
+                  fontSize: 8,
+                  fontWeight: '800',
+                  color: rankingWindow === 'recent' ? '#10B981' : '#8B5CF6',
+                  marginTop: 1,
+                  letterSpacing: 0.3,
+                }}
+              >
+                {rankingWindow === 'recent' ? 'FORM (10M)' : 'CAREER'}
+              </Text>
             </View>
 
             <Text style={[styles.chevron, { color: colors.textMuted }]}>›</Text>
@@ -751,8 +827,8 @@ export default function StatsLeaderboardTab() {
           default: return statsB.runs - statsA.runs;
         }
       });
-    } else {
-      let data = [...leaderboard.topBowlers];
+    } else if (activeTab === 'bowling') {
+      let data = [...(leaderboard.topBowlers || [])];
       return data.sort((a, b) => {
         const statsA = a.bowling || {};
         const statsB = b.bowling || {};
@@ -770,6 +846,28 @@ export default function StatsLeaderboardTab() {
           case 'Maidens': return (statsB.maidens || 0) - (statsA.maidens || 0);
           case 'MVPs': return (b.mvps || 0) - (a.mvps || 0) || ((statsB.wickets || 0) - (statsA.wickets || 0));
           default: return statsB.wickets - statsA.wickets;
+        }
+      });
+    } else {
+      let data = [...(leaderboard.topFielders || [])];
+      return data.sort((a, b) => {
+        const statsA = a.fielding || {};
+        const statsB = b.fielding || {};
+        const catA = statsA.catches || 0;
+        const catB = statsB.catches || 0;
+        const roA = statsA.runOuts || 0;
+        const roB = statsB.runOuts || 0;
+        const stA = statsA.stumpings || 0;
+        const stB = statsB.stumpings || 0;
+        const totA = catA + roA + stA;
+        const totB = catB + roB + stB;
+
+        switch(fieldingSort) {
+          case 'Catches': return catB - catA || totB - totA;
+          case 'Run Outs': return roB - roA || totB - totA;
+          case 'Stumpings': return stB - stA || totB - totA;
+          case 'Total Dismissals': return totB - totA || catB - catA;
+          default: return catB - catA;
         }
       });
     }
@@ -850,7 +948,7 @@ export default function StatsLeaderboardTab() {
             </View>
           </View>
 
-          {/* 3-Tab Switcher */}
+          {/* 3-Tab Switcher: Batters, Bowlers, Fielders */}
           <View style={styles.tabSwitcher}>
             <TouchableOpacity 
               style={[
@@ -876,11 +974,11 @@ export default function StatsLeaderboardTab() {
               style={[
                 styles.tabBtn,
                 { backgroundColor: colors.surface, borderColor: colors.border },
-                activeTab === 'records' && { backgroundColor: '#F59E0B', borderColor: '#F59E0B' }
+                activeTab === 'fielding' && { backgroundColor: '#10B981', borderColor: '#10B981' }
               ]}
-              onPress={() => handleTabChange('records')}
+              onPress={() => handleTabChange('fielding')}
             >
-              <Text style={[styles.tabBtnText, { color: activeTab === 'records' ? '#000' : colors.text, fontWeight: activeTab === 'records' ? '900' : '700' }]}>🏆 Records</Text>
+              <Text style={[styles.tabBtnText, { color: activeTab === 'fielding' ? '#fff' : colors.text, fontWeight: activeTab === 'fielding' ? '900' : '700' }]}>🧤 Fielders</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -888,31 +986,26 @@ export default function StatsLeaderboardTab() {
         {/* Filter Pills */}
         <View style={styles.filtersContainer}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filtersScroll}>
-            {activeTab === 'records' ? (
-              [
-                { key: 'all', label: 'All Records' },
-                { key: 'rankings', label: '👑 No. 1 Reign' },
-                { key: 'batting', label: '🏏 Batting' },
-                { key: 'bowling', label: '🎯 Bowling' },
-                { key: 'team', label: '🏰 Team & Match' },
-              ].map(cat => (
+            {activeTab === 'fielding' ? (
+              fieldingFilters.map(filter => (
                 <TouchableOpacity
-                  key={cat.key}
+                  key={filter}
                   style={[
                     styles.filterPill,
                     { backgroundColor: colors.surface, borderColor: colors.border },
-                    recordsCategory === cat.key && { backgroundColor: '#F59E0B', borderColor: '#F59E0B' }
+                    fieldingSort === filter && { backgroundColor: '#10B981', borderColor: '#10B981' }
                   ]}
-                  onPress={() => setRecordsCategory(cat.key as any)}
+                  onPress={() => setFieldingSort(filter)}
                 >
                   <Text
                     style={[
                       styles.filterText,
                       { color: colors.textMuted },
-                      recordsCategory === cat.key && { color: '#000', fontWeight: '800' }
+                      fieldingSort === filter && { color: '#fff', fontWeight: '800' }
                     ]}
                   >
-                    {cat.label}
+                    {filter === 'Catches' ? '🧤 ' : filter === 'Run Outs' ? '⚡ ' : filter === 'Stumpings' ? '🏏 ' : '🛡️ '}
+                    {filter}
                   </Text>
                 </TouchableOpacity>
               ))
@@ -938,13 +1031,13 @@ export default function StatsLeaderboardTab() {
                           setBattingSort(filter);
                           if (filter === '⭐ Ranking') {
                             setRankingCategory('batters');
-                            fetchRankingsData(rankingFormat, rankingScope);
+                            fetchRankingsData(rankingFormat, rankingScope, rankingWindow);
                           }
                         } else {
                           setBowlingSort(filter);
                           if (filter === '⭐ Ranking') {
                             setRankingCategory('bowlers');
-                            fetchRankingsData(rankingFormat, rankingScope);
+                            fetchRankingsData(rankingFormat, rankingScope, rankingWindow);
                           }
                         }
                       }}
@@ -960,10 +1053,58 @@ export default function StatsLeaderboardTab() {
                   );
                 })}
 
-                {/* Format and All-Rounder selectors when ⭐ Ranking is selected */}
+                {/* Mode, Format, and All-Rounder selectors when ⭐ Ranking is selected */}
                 {((activeTab === 'batting' && battingSort === '⭐ Ranking') || (activeTab === 'bowling' && bowlingSort === '⭐ Ranking')) && (
                   <>
                     <View style={{ width: 1, height: 18, backgroundColor: colors.border, alignSelf: 'center', marginHorizontal: 6 }} />
+                    
+                    {/* Dual-Mode Selector: Recent 10 (Current Form) vs All-Time Career */}
+                    <TouchableOpacity
+                      style={[
+                        styles.filterPill,
+                        { backgroundColor: colors.surface, borderColor: colors.border },
+                        rankingWindow === 'recent' && { backgroundColor: '#10B981', borderColor: '#10B981' }
+                      ]}
+                      onPress={() => {
+                        setRankingWindow('recent');
+                        fetchRankingsData(rankingFormat, rankingScope, 'recent');
+                      }}
+                    >
+                      <Text
+                        style={[
+                          styles.filterText,
+                          { color: colors.textMuted },
+                          rankingWindow === 'recent' && { color: '#fff', fontWeight: '800' }
+                        ]}
+                      >
+                        🔥 Recent 10 (Form)
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[
+                        styles.filterPill,
+                        { backgroundColor: colors.surface, borderColor: colors.border },
+                        rankingWindow === 'all' && { backgroundColor: '#8B5CF6', borderColor: '#8B5CF6' }
+                      ]}
+                      onPress={() => {
+                        setRankingWindow('all');
+                        fetchRankingsData(rankingFormat, rankingScope, 'all');
+                      }}
+                    >
+                      <Text
+                        style={[
+                          styles.filterText,
+                          { color: colors.textMuted },
+                          rankingWindow === 'all' && { color: '#fff', fontWeight: '800' }
+                        ]}
+                      >
+                        🏛️ All-Time Career
+                      </Text>
+                    </TouchableOpacity>
+
+                    <View style={{ width: 1, height: 18, backgroundColor: colors.border, alignSelf: 'center', marginHorizontal: 6 }} />
+
                     {(['T20', 'ODI', 'Test'] as const).map(fmt => (
                       <TouchableOpacity
                         key={fmt}
@@ -974,7 +1115,7 @@ export default function StatsLeaderboardTab() {
                         ]}
                         onPress={() => {
                           setRankingFormat(fmt);
-                          fetchRankingsData(fmt, rankingScope);
+                          fetchRankingsData(fmt, rankingScope, rankingWindow);
                         }}
                       >
                         <Text
@@ -1031,9 +1172,7 @@ export default function StatsLeaderboardTab() {
             data={
               isLoading
                 ? []
-                : (activeTab === 'records'
-                    ? getRecordsData()
-                    : isRankingActive
+                : (isRankingActive
                     ? getRankingsData()
                     : getSortedData())
             }
@@ -1048,11 +1187,13 @@ export default function StatsLeaderboardTab() {
             )}
             scrollEventThrottle={16}
             renderItem={
-              activeTab === 'records'
-                ? renderRecordCard
-                : isRankingActive
+              isRankingActive
                 ? renderRankingCard
-                : (activeTab === 'batting' ? renderBattingItem : renderBowlingItem)
+                : (activeTab === 'batting'
+                    ? renderBattingItem
+                    : (activeTab === 'bowling'
+                        ? renderBowlingItem
+                        : renderFieldingItem))
             }
             showsVerticalScrollIndicator={false}
             ListEmptyComponent={
@@ -1063,13 +1204,13 @@ export default function StatsLeaderboardTab() {
                     color={
                       isRankingActive
                         ? '#8B5CF6'
-                        : (activeTab === 'records' ? '#F59E0B' : colors.primary)
+                        : (activeTab === 'fielding' ? '#10B981' : colors.primary)
                     }
                   />
                   <Text style={{ color: colors.textMuted, marginTop: 12, fontSize: 13, fontWeight: '600' }}>
                     {isRankingActive
                       ? 'Calculating official format ratings...'
-                      : (activeTab === 'records' ? 'Loading all-time cricket records...' : 'Loading stats...')}
+                      : (activeTab === 'fielding' ? 'Loading fielding leaderboard...' : 'Loading stats...')}
                   </Text>
                 </View>
               ) : (
@@ -1077,9 +1218,7 @@ export default function StatsLeaderboardTab() {
                   <Text style={{ color: colors.textMuted, fontSize: 14, textAlign: 'center', lineHeight: 20 }}>
                     {isRankingActive
                       ? `No qualified ${rankingCategory} found for ${rankingFormat} (${rankingScope}) rankings yet.\nPlay more matches in this format to meet qualification criteria!`
-                      : (activeTab === 'records'
-                          ? 'No records established yet in this division.'
-                          : `No ${activeTab} stats recorded yet.`)}
+                      : `No ${activeTab} stats recorded yet in this division.`}
                   </Text>
                 </View>
               )

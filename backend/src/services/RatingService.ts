@@ -116,6 +116,7 @@ export interface RankingOptions {
   limit?: number;
   asOfDate?: string | Date;
   startDate?: string | Date;
+  window?: 'recent' | 'all';
 }
 
 export class RatingService {
@@ -491,7 +492,8 @@ export class RatingService {
     matchedMatchIds: Types.ObjectId[],
     format: 'T20' | 'ODI' | 'Test',
     scope: 'career' | 'tournament',
-    limit: number
+    limit: number,
+    windowLimit?: number
   ) {
     const benchmarks = RATING_BENCHMARKS[format];
     if (!benchmarks || matchedMatchIds.length === 0) {
@@ -500,7 +502,7 @@ export class RatingService {
 
     const statsList = await PlayerMatchStats.find({
       matchId: { $in: matchedMatchIds },
-    }).lean();
+    }).populate('matchId', 'date createdAt').lean();
 
     const playerStatsMap = new Map<string, any[]>();
     for (const stat of statsList) {
@@ -524,8 +526,18 @@ export class RatingService {
       const player = playerMap.get(pId);
       const playerName = player?.fullName || player?.name || pStats[0]?.playerName || 'Unknown Player';
 
+      // Sort player's matches descending by match date (most recent first)
+      pStats.sort((a, b) => {
+        const timeA = new Date((a.matchId as any)?.date || (a.matchId as any)?.createdAt || a.createdAt || 0).getTime();
+        const timeB = new Date((b.matchId as any)?.date || (b.matchId as any)?.createdAt || b.createdAt || 0).getTime();
+        return timeB - timeA;
+      });
+
+      // If windowLimit is specified (e.g. 10 for Recent 10 form), evaluate the latest N matches
+      const evaluatedStats = (windowLimit && windowLimit > 0) ? pStats.slice(0, windowLimit) : pStats;
+
       // Batting Rating
-      const batCalc = RatingService.calculateBatterRating(pStats, benchmarks.batting, scope);
+      const batCalc = RatingService.calculateBatterRating(evaluatedStats, benchmarks.batting, scope);
       batterResults.push({
         playerId: pId,
         playerName,
@@ -537,7 +549,7 @@ export class RatingService {
       });
 
       // Bowling Rating
-      const bowlCalc = RatingService.calculateBowlerRating(pStats, benchmarks.bowling, scope);
+      const bowlCalc = RatingService.calculateBowlerRating(evaluatedStats, benchmarks.bowling, scope);
       bowlerResults.push({
         playerId: pId,
         playerName,
@@ -553,7 +565,7 @@ export class RatingService {
         batCalc,
         bowlCalc,
         benchmarks.allRounder,
-        pStats.length,
+        evaluatedStats.length,
         scope
       );
       allRounderResults.push({
@@ -564,7 +576,7 @@ export class RatingService {
         battingRating: batCalc.rating,
         bowlingRating: bowlCalc.rating,
         stats: {
-          matches: pStats.length,
+          matches: evaluatedStats.length,
           runs: batCalc.stats.runs,
           ballsFaced: batCalc.stats.balls,
           wickets: bowlCalc.stats.wickets,
@@ -606,6 +618,8 @@ export class RatingService {
     const tournamentId = options.tournamentId;
     const userId = options.userId;
     const limit = options.limit || 5;
+    const window = options.window || 'recent';
+    const windowLimit = window === 'recent' ? 10 : undefined;
 
     const benchmarks = RATING_BENCHMARKS[format];
     if (!benchmarks) {
@@ -657,6 +671,7 @@ export class RatingService {
         format,
         category,
         scope,
+        window,
         tournamentId,
         asOfDate: options.asOfDate ? new Date(options.asOfDate).toISOString().split('T')[0] : null,
         availableMatchDates,
@@ -672,7 +687,8 @@ export class RatingService {
       currentMatchIds,
       format,
       scope,
-      limit
+      limit,
+      windowLimit
     );
 
     // Compute Previous Match State for Rank Trends
@@ -692,7 +708,7 @@ export class RatingService {
 
     if (previousMatches.length > 0) {
       const prevIds = previousMatches.map(m => m._id);
-      const prevRes = await this.calculatePlayerRankingsForMatches(prevIds, format, scope, 50);
+      const prevRes = await this.calculatePlayerRankingsForMatches(prevIds, format, scope, 50, windowLimit);
       prevBatterRankMap = new Map(prevRes.sortedBatters.map(b => [b.playerId, b.rank!]));
       prevBowlerRankMap = new Map(prevRes.sortedBowlers.map(bw => [bw.playerId, bw.rank!]));
       prevArRankMap = new Map(prevRes.sortedAllRounders.map(ar => [ar.playerId, ar.rank!]));
@@ -747,6 +763,7 @@ export class RatingService {
       format,
       category,
       scope,
+      window,
       tournamentId,
       asOfDate: options.asOfDate ? new Date(options.asOfDate).toISOString().split('T')[0] : null,
       availableMatchDates,

@@ -133,6 +133,13 @@ export default function DrawerLayout() {
           </TouchableOpacity>
 
           <TouchableOpacity
+            style={[styles.menuItem, pathname.includes('records') && { backgroundColor: colors.surfaceLighter }]}
+            onPress={() => handleNavigate('/(drawer)/records')}
+          >
+            <Text style={[styles.menuText, { color: pathname.includes('records') ? '#F59E0B' : colors.text }]}>📜 Cricket Records</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
             style={[styles.menuItem, pathname.includes('teams') && { backgroundColor: colors.surfaceLighter }]}
             onPress={() => handleNavigate('/(drawer)/teams')}
           >
