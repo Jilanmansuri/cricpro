@@ -14,6 +14,7 @@ import { getPlayerCareer, getPlayerHistory } from '../services/playerService';
 import { Card } from '../components/Card';
 import { LineChart } from '../components/Charts';
 import TeamLogo from '../components/TeamLogo';
+import { clientCache } from '../services/cache';
 
 type FormatFilter = 'ALL' | 'T20' | 'ODI';
 
@@ -32,14 +33,57 @@ export default function PlayerCareerScreen() {
   const router = useRouter();
   const { colors, isDarkMode } = useTheme();
 
-  const [playerData, setPlayerData] = useState<any>(null);
-  const [history, setHistory] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const cachedCareer = id ? clientCache.get<any>(`player_career_${id}`, true) : null;
+  const cachedHistory = id ? clientCache.get<any[]>(`player_history_${id}`, true) : null;
+
+  const [playerData, setPlayerData] = useState<any>(cachedCareer || null);
+  const [history, setHistory] = useState<any[]>(cachedHistory || []);
+  const [isLoading, setIsLoading] = useState(!cachedCareer);
   const [selectedFormat, setSelectedFormat] = useState<FormatFilter>('ALL');
-  const [milestonesCategory, setMilestonesCategory] = useState<'batting' | 'bowling'>('batting');
+  const [milestonesCategory, setMilestonesCategory] = useState<'batting' | 'bowling'>(() => {
+    const batRuns = cachedCareer?.career?.batting?.runs || 0;
+    const bowlWkts = cachedCareer?.career?.bowling?.wickets || 0;
+    return bowlWkts > 5 && batRuns < 20 ? 'bowling' : 'batting';
+  });
 
   useEffect(() => {
     const fetchProfile = async () => {
+      const careerKey = `player_career_${id}`;
+      const historyKey = `player_history_${id}`;
+
+      // 1. Check synchronous RAM first
+      let cCareer = clientCache.get<any>(careerKey, true);
+      let cHistory = clientCache.get<any[]>(historyKey, true);
+
+      // 2. If missing from RAM, check phone disk storage (AsyncStorage)
+      if (!cCareer || !cHistory) {
+        const [diskCareer, diskHistory] = await Promise.all([
+          cCareer ? Promise.resolve(cCareer) : clientCache.getAsync<any>(careerKey, true),
+          cHistory ? Promise.resolve(cHistory) : clientCache.getAsync<any[]>(historyKey, true),
+        ]);
+        if (diskCareer) cCareer = diskCareer;
+        if (diskHistory) cHistory = diskHistory;
+      }
+
+      if (cCareer) {
+        setPlayerData(cCareer);
+        const batRuns = cCareer?.career?.batting?.runs || 0;
+        const bowlWkts = cCareer?.career?.bowling?.wickets || 0;
+        if (bowlWkts > 5 && batRuns < 20) {
+          setMilestonesCategory('bowling');
+        }
+      }
+      if (cHistory) {
+        setHistory(cHistory);
+      }
+
+      if (cCareer || cHistory) {
+        setIsLoading(false);
+      } else {
+        setIsLoading(true);
+      }
+
+      // 3. Trigger network fetch in background to sync newest stats & update phone storage
       try {
         const [careerRes, historyRes] = await Promise.all([
           getPlayerCareer(id),
@@ -48,13 +92,17 @@ export default function PlayerCareerScreen() {
 
         if (careerRes.success) {
           setPlayerData(careerRes.data);
+          clientCache.set(careerKey, careerRes.data);
           const batRuns = careerRes.data?.career?.batting?.runs || 0;
           const bowlWkts = careerRes.data?.career?.bowling?.wickets || 0;
           if (bowlWkts > 5 && batRuns < 20) {
             setMilestonesCategory('bowling');
           }
         }
-        if (historyRes.success) setHistory(historyRes.data);
+        if (historyRes.success) {
+          setHistory(historyRes.data);
+          clientCache.set(historyKey, historyRes.data);
+        }
       } catch (err) {
         console.error('Failed to load profile details:', err);
       } finally {

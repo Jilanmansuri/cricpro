@@ -9,6 +9,7 @@ import { TeamMatchingService } from './TeamMatchingService';
 import { StatsService } from './StatsService';
 import { IMatch } from '../types';
 import { isKnownForeignPlayer } from '../utils/foreignPlayerGuard';
+import { cacheManager } from '../utils/cacheManager';
 
 interface BattingItem {
   name: string;
@@ -743,6 +744,9 @@ export class MatchService {
       if (tournamentId) {
         await this.statsService.recalculateTournamentPointsTable(new Types.ObjectId(tournamentId));
       }
+
+      // Invalidate all stats, rankings, leaderboard, and career caches
+      cacheManager.invalidateAllStats();
 
       return match;
     } catch (error) {

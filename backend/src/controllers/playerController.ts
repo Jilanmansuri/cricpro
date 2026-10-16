@@ -5,6 +5,7 @@ import { CareerStatsRepository } from '../repositories/CareerStatsRepository';
 import { PlayerMatchStatsRepository } from '../repositories/PlayerMatchStatsRepository';
 import { AiInsightsService } from '../services/AiInsightsService';
 import { RatingService } from '../services/RatingService';
+import { cacheManager } from '../utils/cacheManager';
 
 const playerRepository = new PlayerRepository();
 const careerStatsRepository = new CareerStatsRepository();
@@ -63,6 +64,7 @@ export const createPlayer = async (req: Request, res: Response): Promise<void> =
       return;
     }
     const player = await playerRepository.create({ name, createdBy: userId });
+    cacheManager.invalidateAllStats();
     res.status(201).json({ success: true, data: player });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
@@ -72,6 +74,14 @@ export const createPlayer = async (req: Request, res: Response): Promise<void> =
 export const getPlayerCareer = async (req: Request, res: Response): Promise<void> => {
   try {
     const rawId = req.params.id;
+    const userId = (req as any).user?._id;
+    const cacheKey = `career_${rawId}_${userId || 'anon'}`;
+    const cached = cacheManager.get(cacheKey);
+    if (cached) {
+      res.json(cached);
+      return;
+    }
+
     let playerId = new Types.ObjectId(rawId);
     let player = await playerRepository.findById(playerId);
 
@@ -139,14 +149,16 @@ export const getPlayerCareer = async (req: Request, res: Response): Promise<void
       console.warn('Could not calculate player ranking reign stats:', reignErr);
     }
 
-    res.json({
+    const responsePayload = {
       success: true,
       data: {
         player,
         career: careerObj,
         insights
       }
-    });
+    };
+    cacheManager.set(cacheKey, responsePayload, 5 * 60 * 1000);
+    res.json(responsePayload);
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -155,6 +167,14 @@ export const getPlayerCareer = async (req: Request, res: Response): Promise<void
 export const getPlayerHistory = async (req: Request, res: Response): Promise<void> => {
   try {
     const rawId = req.params.id;
+    const userId = (req as any).user?._id;
+    const cacheKey = `history_${rawId}_${userId || 'anon'}`;
+    const cached = cacheManager.get(cacheKey);
+    if (cached) {
+      res.json(cached);
+      return;
+    }
+
     let playerId = new Types.ObjectId(rawId);
 
     // Fallback: If id is a CareerStats document ID rather than Player ID
@@ -284,10 +304,12 @@ export const getPlayerHistory = async (req: Request, res: Response): Promise<voi
       };
     }).filter(item => item !== null);
 
-    res.json({
+    const responsePayload = {
       success: true,
       data: history
-    });
+    };
+    cacheManager.set(cacheKey, responsePayload, 5 * 60 * 1000);
+    res.json(responsePayload);
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -302,6 +324,7 @@ export const updatePlayer = async (req: Request, res: Response): Promise<void> =
       return;
     }
     const player = await playerRepository.update(playerId, { name });
+    cacheManager.invalidateAllStats();
     res.json({ success: true, data: player });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
@@ -312,6 +335,7 @@ export const deletePlayer = async (req: Request, res: Response): Promise<void> =
   try {
     const playerId = new Types.ObjectId(req.params.id);
     await playerRepository.delete(playerId);
+    cacheManager.invalidateAllStats();
     res.json({ success: true, message: 'Player deleted successfully' });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
@@ -420,6 +444,13 @@ export const getLeaderboard = async (req: Request, res: Response): Promise<void>
   try {
     const division = ((req.query.division as string) || 'all').toLowerCase();
     const userId = (req as any).user?._id;
+    const cacheKey = `leaderboard_${division}_${userId || 'anon'}`;
+    const cached = cacheManager.get(cacheKey);
+    if (cached) {
+      res.json(cached);
+      return;
+    }
+
     const { Team } = await import('../models/Team');
     const { PlayerMatchStats } = await import('../models/PlayerMatchStats');
     const { Player } = await import('../models/Player');
@@ -502,7 +533,7 @@ export const getLeaderboard = async (req: Request, res: Response): Promise<void>
         };
       });
 
-      res.json({
+      const responsePayload = {
         success: true,
         data: {
           division: 'all',
@@ -510,7 +541,9 @@ export const getLeaderboard = async (req: Request, res: Response): Promise<void>
           topBowlers,
           topMvps
         }
-      });
+      };
+      cacheManager.set(cacheKey, responsePayload, 5 * 60 * 1000);
+      res.json(responsePayload);
       return;
     }
 
@@ -705,7 +738,7 @@ export const getLeaderboard = async (req: Request, res: Response): Promise<void>
       };
     });
 
-    res.json({
+    const responsePayload = {
       success: true,
       data: {
         division,
@@ -713,7 +746,9 @@ export const getLeaderboard = async (req: Request, res: Response): Promise<void>
         topBowlers,
         topMvps
       }
-    });
+    };
+    cacheManager.set(cacheKey, responsePayload, 5 * 60 * 1000);
+    res.json(responsePayload);
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -723,6 +758,12 @@ export const getCricketRecords = async (req: Request, res: Response): Promise<vo
   try {
     const division = ((req.query.division as string) || 'all').toLowerCase();
     const userId = (req as any).user?._id;
+    const cacheKey = `records_${division}_${userId || 'anon'}`;
+    const cached = cacheManager.get(cacheKey);
+    if (cached) {
+      res.json(cached);
+      return;
+    }
 
     const { Team } = await import('../models/Team');
     const { PlayerMatchStats } = await import('../models/PlayerMatchStats');
@@ -1430,7 +1471,7 @@ export const getCricketRecords = async (req: Request, res: Response): Promise<vo
       });
     }
 
-    res.json({
+    const responsePayload = {
       success: true,
       data: {
         division,
@@ -1439,7 +1480,9 @@ export const getCricketRecords = async (req: Request, res: Response): Promise<vo
         bowling: bowlingRecords,
         team: teamRecords
       }
-    });
+    };
+    cacheManager.set(cacheKey, responsePayload, 5 * 60 * 1000);
+    res.json(responsePayload);
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -1456,6 +1499,13 @@ export const getPlayerRankings = async (req: Request, res: Response): Promise<vo
     const startDate = req.query.startDate as string;
     const userId = (req as any).user?._id;
 
+    const cacheKey = `rankings_${format}_${category}_${scope}_${tournamentId || ''}_${limit}_${asOfDate || ''}_${startDate || ''}_${userId || 'anon'}`;
+    const cached = cacheManager.get(cacheKey);
+    if (cached) {
+      res.json(cached);
+      return;
+    }
+
     const ratingService = new RatingService();
     const rankings = await ratingService.getRankings({
       format,
@@ -1468,10 +1518,12 @@ export const getPlayerRankings = async (req: Request, res: Response): Promise<vo
       startDate,
     });
 
-    res.json({
+    const responsePayload = {
       success: true,
       data: rankings,
-    });
+    };
+    cacheManager.set(cacheKey, responsePayload, 5 * 60 * 1000);
+    res.json(responsePayload);
   } catch (error: any) {
     console.error('Error fetching player rankings:', error);
     res.status(500).json({ success: false, message: error.message || 'Failed to fetch player rankings' });

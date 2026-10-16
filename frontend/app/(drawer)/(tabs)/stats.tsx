@@ -6,6 +6,7 @@ import Avatar from '../../../components/Avatar';
 import api from '../../../services/api';
 import { useFocusEffect, useRouter } from 'expo-router';
 import TeamLogo from '../../../components/TeamLogo';
+import { clientCache } from '../../../services/cache';
 
 const KNOWN_FULL_NAMES: Record<string, string> = {
   'a sharma': 'Abhishek Sharma',
@@ -72,20 +73,27 @@ export default function StatsLeaderboardTab() {
   const { colors, isDarkMode } = useTheme();
   const [activeTab, setActiveTab] = useState<'batting' | 'bowling' | 'records'>('batting');
   const [selectedDivision, setSelectedDivision] = useState<'all' | 'international' | 'ipl'>('all');
-  const [isLoading, setIsLoading] = useState(true);
-  const [leaderboard, setLeaderboard] = useState<{ topBatsmen: any[]; topBowlers: any[]; topMvps?: any[] }>({ topBatsmen: [], topBowlers: [], topMvps: [] });
-  const [records, setRecords] = useState<{ batting: any[]; bowling: any[]; team: any[]; rankings?: any[] }>({ batting: [], bowling: [], team: [], rankings: [] });
+  // Initialize state with cached data if available for instant 0ms rendering
+  const initialLb = clientCache.get<{ topBatsmen: any[]; topBowlers: any[]; topMvps?: any[] }>('leaderboard_all', true);
+  const initialRec = clientCache.get<{ batting: any[]; bowling: any[]; team: any[]; rankings?: any[] }>('records_all', true);
+  const initialRank = clientCache.get<{ topBatters: any[]; topBowlers: any[]; topAllRounders: any[] }>('rankings_T20_career_10', true);
+
+  const [isLoading, setIsLoading] = useState(!initialLb && !initialRec);
+  const [leaderboard, setLeaderboard] = useState<{ topBatsmen: any[]; topBowlers: any[]; topMvps?: any[] }>(
+    initialLb || { topBatsmen: [], topBowlers: [], topMvps: [] }
+  );
+  const [records, setRecords] = useState<{ batting: any[]; bowling: any[]; team: any[]; rankings?: any[] }>(
+    initialRec || { batting: [], bowling: [], team: [], rankings: [] }
+  );
   const [recordsCategory, setRecordsCategory] = useState<'all' | 'rankings' | 'batting' | 'bowling' | 'team'>('all');
 
   // ICC Rankings State
   const [rankingFormat, setRankingFormat] = useState<'T20' | 'ODI' | 'Test'>('T20');
   const [rankingCategory, setRankingCategory] = useState<'batters' | 'bowlers' | 'all-rounders'>('batters');
   const [rankingScope, setRankingScope] = useState<'career' | 'tournament'>('career');
-  const [rankings, setRankings] = useState<{ topBatters: any[]; topBowlers: any[]; topAllRounders: any[] }>({
-    topBatters: [],
-    topBowlers: [],
-    topAllRounders: []
-  });
+  const [rankings, setRankings] = useState<{ topBatters: any[]; topBowlers: any[]; topAllRounders: any[] }>(
+    initialRank || { topBatters: [], topBowlers: [], topAllRounders: [] }
+  );
 
   const [battingSort, setBattingSort] = useState('Runs');
   const [bowlingSort, setBowlingSort] = useState('Wickets');
@@ -94,10 +102,19 @@ export default function StatsLeaderboardTab() {
   const bowlingFilters = ['Wickets', 'Economy', 'Average', 'Maidens', 'MVPs', ' Ranking'];
 
   const fetchRankingsData = async (fmt = rankingFormat, scp = rankingScope) => {
+    const rkKey = `rankings_${fmt}_${scp}_10`;
+    let cached = clientCache.get<any>(rkKey, true);
+    if (!cached) {
+      cached = await clientCache.getAsync<any>(rkKey, true);
+    }
+    if (cached) {
+      setRankings(cached);
+    }
     try {
       const res = await api.get(`/players/rankings?format=${fmt}&scope=${scp}&limit=10`);
       if (res?.data?.success) {
         setRankings(res.data.data);
+        clientCache.set(rkKey, res.data.data);
       }
     } catch (err) {
       console.error('Error fetching rankings:', err);
@@ -105,7 +122,49 @@ export default function StatsLeaderboardTab() {
   };
 
   const fetchAllStats = async (division = selectedDivision, fmt = rankingFormat, scp = rankingScope) => {
-    setIsLoading(true);
+    const lKey = `leaderboard_${division}`;
+    const rKey = `records_${division}`;
+    const rkKey = `rankings_${fmt}_${scp}_10`;
+
+    // 1. Check synchronous RAM cache first
+    let cachedLb = clientCache.get<any>(lKey, true);
+    let cachedRec = clientCache.get<any>(rKey, true);
+    let cachedRank = clientCache.get<any>(rkKey, true);
+
+    if (cachedLb) setLeaderboard(cachedLb);
+    if (cachedRec) setRecords(cachedRec);
+    if (cachedRank) setRankings(cachedRank);
+
+    // 2. If RAM was empty (e.g. cold start after app kill), load from AsyncStorage disk
+    if (!cachedLb || !cachedRec || !cachedRank) {
+      const [diskLb, diskRec, diskRank] = await Promise.all([
+        cachedLb ? Promise.resolve(cachedLb) : clientCache.getAsync<any>(lKey, true),
+        cachedRec ? Promise.resolve(cachedRec) : clientCache.getAsync<any>(rKey, true),
+        cachedRank ? Promise.resolve(cachedRank) : clientCache.getAsync<any>(rkKey, true),
+      ]);
+
+      if (diskLb) {
+        cachedLb = diskLb;
+        setLeaderboard(diskLb);
+      }
+      if (diskRec) {
+        cachedRec = diskRec;
+        setRecords(diskRec);
+      }
+      if (diskRank) {
+        cachedRank = diskRank;
+        setRankings(diskRank);
+      }
+    }
+
+    // Only show full-screen loader if zero data is in storage
+    if (!cachedLb && !cachedRec && !cachedRank) {
+      setIsLoading(true);
+    } else {
+      setIsLoading(false);
+    }
+
+    // 3. Trigger network update in background & persist fresh data to AsyncStorage
     try {
       const [lbRes, recRes, rankRes] = await Promise.allSettled([
         api.get(`/players/leaderboard?division=${division}`),
@@ -114,12 +173,15 @@ export default function StatsLeaderboardTab() {
       ]);
       if (lbRes.status === 'fulfilled' && lbRes.value?.data?.success) {
         setLeaderboard(lbRes.value.data.data);
+        clientCache.set(lKey, lbRes.value.data.data);
       }
       if (recRes.status === 'fulfilled' && recRes.value?.data?.success) {
         setRecords(recRes.value.data.data);
+        clientCache.set(rKey, recRes.value.data.data);
       }
       if (rankRes.status === 'fulfilled' && rankRes.value?.data?.success) {
         setRankings(rankRes.value.data.data);
+        clientCache.set(rkKey, rankRes.value.data.data);
       }
     } catch (err) {
       console.error('Error fetching stats and records:', err);

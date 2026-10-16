@@ -3,6 +3,7 @@ import { PlayerMatchStats } from '../models/PlayerMatchStats';
 import { Match } from '../models/Match';
 import { Player } from '../models/Player';
 import { RATING_BENCHMARKS, FormatBenchmarks } from '../config/ratingBenchmarks';
+import { cacheManager } from '../utils/cacheManager';
 
 export interface BattingRatingComponents {
   runScore: number;
@@ -760,6 +761,12 @@ export class RatingService {
    * Calculate chronological days each player held #1 (and Top 3) across all formats
    */
   public async calculateAllPlayerReigns(userId?: string): Promise<Map<string, PlayerReignStats>> {
+    const cacheKey = `reigns_${userId || 'global'}`;
+    const cached = cacheManager.get<Map<string, PlayerReignStats>>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
     const matchQuery: any = userId ? { createdBy: new Types.ObjectId(userId) } : {};
     const allMatches = await Match.find(matchQuery).select('_id overs format date createdAt').lean();
 
@@ -880,6 +887,7 @@ export class RatingService {
       }
     }
 
+    cacheManager.set(cacheKey, reignMap, 10 * 60 * 1000); // Cache for 10 minutes
     return reignMap;
   }
 
