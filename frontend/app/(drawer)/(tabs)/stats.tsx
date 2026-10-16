@@ -1,5 +1,5 @@
-import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity, ScrollView, Image } from 'react-native';
+import React, { useState, useCallback, useRef } from 'react';
+import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity, ScrollView, Image, Animated } from 'react-native';
 import { useTheme } from '../../../components/Theme';
 import Card from '../../../components/Card';
 import Avatar from '../../../components/Avatar';
@@ -73,6 +73,35 @@ export default function StatsLeaderboardTab() {
   const { colors, isDarkMode } = useTheme();
   const [activeTab, setActiveTab] = useState<'batting' | 'bowling' | 'records'>('batting');
   const [selectedDivision, setSelectedDivision] = useState<'all' | 'international' | 'ipl'>('all');
+
+  // Auto-hiding header scroll animation
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const flatListRef = useRef<any>(null);
+  const [headerHeight, setHeaderHeight] = useState(195);
+
+  const clampedScroll = useRef(
+    Animated.diffClamp(scrollY, 0, 205)
+  ).current;
+
+  const headerTranslateY = useRef(
+    clampedScroll.interpolate({
+      inputRange: [0, 205],
+      outputRange: [0, -205],
+      extrapolate: 'clamp',
+    })
+  ).current;
+
+  const handleTabChange = (tab: 'batting' | 'bowling' | 'records') => {
+    setActiveTab(tab);
+    scrollY.setValue(0);
+    flatListRef.current?.scrollToOffset({ offset: 0, animated: false });
+  };
+
+  const handleDivisionChange = (div: 'all' | 'international' | 'ipl') => {
+    setSelectedDivision(div);
+    scrollY.setValue(0);
+    flatListRef.current?.scrollToOffset({ offset: 0, animated: false });
+  };
   // Initialize state with cached data if available for instant 0ms rendering
   const initialLb = clientCache.get<{ topBatsmen: any[]; topBowlers: any[]; topMvps?: any[] }>('leaderboard_all', true);
   const initialRec = clientCache.get<{ batting: any[]; bowling: any[]; team: any[]; rankings?: any[] }>('records_all', true);
@@ -761,8 +790,27 @@ export default function StatsLeaderboardTab() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Header controls outside FlatList so horizontal filter scroll never resets on click */}
-      <View style={styles.headerContainer}>
+      {/* Auto-Hiding Collapsible Header: slides up on scroll down, comes back on reverse scroll */}
+      <Animated.View
+        onLayout={(e) => {
+          const h = e.nativeEvent.layout.height;
+          if (h > 0 && Math.abs(h - headerHeight) > 2) {
+            setHeaderHeight(h);
+          }
+        }}
+        style={[
+          styles.headerContainer,
+          {
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            zIndex: 100,
+            backgroundColor: colors.background,
+            transform: [{ translateY: headerTranslateY }],
+          }
+        ]}
+      >
         <View style={styles.topSectionPadding}>
           {/* Real Cricket Style Division / Tournament Selector */}
           <View style={[styles.divisionCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
@@ -785,7 +833,7 @@ export default function StatsLeaderboardTab() {
                     { backgroundColor: colors.background, borderColor: colors.border },
                     selectedDivision === d.key && { backgroundColor: colors.primary, borderColor: colors.primary }
                   ]}
-                  onPress={() => setSelectedDivision(d.key as any)}
+                  onPress={() => handleDivisionChange(d.key as any)}
                 >
                   <Text style={{ fontSize: 13, marginRight: 4 }}>{d.icon}</Text>
                   <Text
@@ -810,7 +858,7 @@ export default function StatsLeaderboardTab() {
                 { backgroundColor: colors.surface, borderColor: colors.border },
                 activeTab === 'batting' && { backgroundColor: colors.primary, borderColor: colors.primary }
               ]}
-              onPress={() => setActiveTab('batting')}
+              onPress={() => handleTabChange('batting')}
             >
               <Text style={[styles.tabBtnText, { color: activeTab === 'batting' ? '#fff' : colors.text, fontWeight: activeTab === 'batting' ? '800' : '600' }]}>🏏 Batters</Text>
             </TouchableOpacity>
@@ -820,7 +868,7 @@ export default function StatsLeaderboardTab() {
                 { backgroundColor: colors.surface, borderColor: colors.border },
                 activeTab === 'bowling' && { backgroundColor: colors.primary, borderColor: colors.primary }
               ]}
-              onPress={() => setActiveTab('bowling')}
+              onPress={() => handleTabChange('bowling')}
             >
               <Text style={[styles.tabBtnText, { color: activeTab === 'bowling' ? '#fff' : colors.text, fontWeight: activeTab === 'bowling' ? '800' : '600' }]}>🎯 Bowlers</Text>
             </TouchableOpacity>
@@ -830,7 +878,7 @@ export default function StatsLeaderboardTab() {
                 { backgroundColor: colors.surface, borderColor: colors.border },
                 activeTab === 'records' && { backgroundColor: '#F59E0B', borderColor: '#F59E0B' }
               ]}
-              onPress={() => setActiveTab('records')}
+              onPress={() => handleTabChange('records')}
             >
               <Text style={[styles.tabBtnText, { color: activeTab === 'records' ? '#000' : colors.text, fontWeight: activeTab === 'records' ? '900' : '700' }]}>🏆 Records</Text>
             </TouchableOpacity>
@@ -969,7 +1017,7 @@ export default function StatsLeaderboardTab() {
             )}
           </ScrollView>
         </View>
-      </View>
+      </Animated.View>
 
       {/* FlatList Section */}
       {(() => {
@@ -978,7 +1026,8 @@ export default function StatsLeaderboardTab() {
           (activeTab === 'bowling' && bowlingSort === '⭐ Ranking');
 
         return (
-          <FlatList
+          <Animated.FlatList
+            ref={flatListRef}
             data={
               isLoading
                 ? []
@@ -989,7 +1038,15 @@ export default function StatsLeaderboardTab() {
                     : getSortedData())
             }
             keyExtractor={(item: any, idx: number) => (item.id ? `${item.id}-${idx}` : (item._id ? `${item._id}-${idx}` : (item.playerId ? `${typeof item.playerId === 'object' ? item.playerId._id : item.playerId}-${idx}` : String(idx))))}
-            contentContainerStyle={styles.list}
+            contentContainerStyle={[
+              styles.list,
+              { paddingTop: headerHeight + 8 }
+            ]}
+            onScroll={Animated.event(
+              [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+              { useNativeDriver: true }
+            )}
+            scrollEventThrottle={16}
             renderItem={
               activeTab === 'records'
                 ? renderRecordCard

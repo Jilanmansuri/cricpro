@@ -1263,7 +1263,19 @@ export default function ManualMatchEntry() {
                             Dismissal / How Out (Optional)
                           </Text>
                           <TextInput
-                            style={[styles.input, { height: 34, fontSize: 12, backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]}
+                            style={[
+                              styles.input,
+                              {
+                                height: 42,
+                                paddingVertical: 8,
+                                paddingHorizontal: 12,
+                                fontSize: 13,
+                                backgroundColor: colors.surface,
+                                color: colors.text,
+                                borderColor: colors.border,
+                                textAlignVertical: 'center',
+                              }
+                            ]}
                             value={b.dismissalText || ''}
                             onChangeText={t => updateBatsman(b.id, 'dismissalText', t)}
                             placeholder="e.g. c Warner b Starc"
@@ -1392,7 +1404,19 @@ export default function ManualMatchEntry() {
                             Dismissal / Catch Details (e.g. c S Gill b J Bumrah)
                           </Text>
                           <TextInput
-                            style={[styles.input, { height: 34, fontSize: 12, backgroundColor: colors.surface, color: colors.text, borderColor: colors.border }]}
+                            style={[
+                              styles.input,
+                              {
+                                height: 42,
+                                paddingVertical: 8,
+                                paddingHorizontal: 12,
+                                fontSize: 13,
+                                backgroundColor: colors.surface,
+                                color: colors.text,
+                                borderColor: colors.border,
+                                textAlignVertical: 'center',
+                              }
+                            ]}
                             value={b.dismissalText || ''}
                             onChangeText={t => updateTeamBBatsman(b.id, 'dismissalText', t)}
                             placeholder="e.g. c S Gill b J Bumrah (for catch stats)"
