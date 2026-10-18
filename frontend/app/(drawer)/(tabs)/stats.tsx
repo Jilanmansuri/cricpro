@@ -103,13 +103,25 @@ export default function StatsLeaderboardTab() {
     flatListRef.current?.scrollToOffset({ offset: 0, animated: false });
   };
   // Initialize state with cached data if available for instant 0ms rendering
-  const initialLb = clientCache.get<{ topBatsmen: any[]; topBowlers: any[]; topFielders?: any[]; topMvps?: any[] }>('leaderboard_all', true);
+  const initialLb = clientCache.get<{ topBatsmen: any[]; topBowlers: any[]; topFielders?: any[]; topFastestFifties?: any[]; topFastestHundreds?: any[]; topMvps?: any[] }>('leaderboard_all', true);
   const initialRec = clientCache.get<{ batting: any[]; bowling: any[]; team: any[]; rankings?: any[] }>('records_all', true);
   const initialRank = clientCache.get<{ topBatters: any[]; topBowlers: any[]; topAllRounders: any[] }>('rankings_T20_career_10', true);
 
   const [isLoading, setIsLoading] = useState(!initialLb && !initialRec);
-  const [leaderboard, setLeaderboard] = useState<{ topBatsmen: any[]; topBowlers: any[]; topFielders: any[]; topMvps?: any[] }>(
-    initialLb ? { ...initialLb, topFielders: initialLb.topFielders || [] } : { topBatsmen: [], topBowlers: [], topFielders: [], topMvps: [] }
+  const [leaderboard, setLeaderboard] = useState<{
+    topBatsmen: any[];
+    topBowlers: any[];
+    topFielders: any[];
+    topFastestFifties?: any[];
+    topFastestHundreds?: any[];
+    topMvps?: any[];
+  }>(
+    initialLb ? {
+      ...initialLb,
+      topFielders: initialLb.topFielders || [],
+      topFastestFifties: initialLb.topFastestFifties || [],
+      topFastestHundreds: initialLb.topFastestHundreds || []
+    } : { topBatsmen: [], topBowlers: [], topFielders: [], topFastestFifties: [], topFastestHundreds: [], topMvps: [] }
   );
   const [records, setRecords] = useState<{ batting: any[]; bowling: any[]; team: any[]; rankings?: any[] }>(
     initialRec || { batting: [], bowling: [], team: [], rankings: [] }
@@ -286,13 +298,19 @@ export default function StatsLeaderboardTab() {
   };
 
   const renderBattingItem = ({ item, index }: any) => {
+    const isFastestInnings = battingSort === 'Fastest 50' || battingSort === 'Fastest 100';
     const player = item.playerId || { name: item.playerName || 'Unknown Player' };
     const stats = item.batting;
     const team = resolveDisplayTeam(player, item.team, selectedDivision);
     const strikeRate = stats.balls > 0 ? ((stats.runs / stats.balls) * 100).toFixed(1) : '0.0';
-    const outs = stats.matches - (stats.notOuts || 0);
+    const outs = (stats.matches || 1) - (stats.notOuts || 0);
     const average = outs > 0 ? (stats.runs / outs).toFixed(1) : stats.runs.toString();
     const displayName = getDisplayPlayerName(player);
+
+    const opponent = item.opponent ? resolveDisplayTeam(null, item.opponent, selectedDivision) : null;
+    const formattedDate = item.date
+      ? new Date(item.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+      : null;
 
     return (
       <TouchableOpacity activeOpacity={0.7} onPress={() => handlePlayerPress(item)}>
@@ -321,14 +339,29 @@ export default function StatsLeaderboardTab() {
                   </View>
                 ) : null}
               </View>
-              <Text style={[styles.subText, { color: colors.textMuted }]}>
-                Runs: <Text style={{ color: colors.text, fontWeight: '700' }}>{stats.runs}</Text> | HS: <Text style={{ color: colors.primary, fontWeight: '700' }}>{stats.highestScore || 0}</Text> | SR: {strikeRate}
-              </Text>
-              <Text style={[styles.subText, { color: colors.textMuted, fontSize: 10, marginTop: 2 }]}>
-                Avg: {average} | 100s: {stats.hundreds || 0} | 50s: {stats.fifties || 0}
-                {stats.fastestFifty ? ` | F50: ${stats.fastestFifty}b` : ''}
-                {stats.fastestHundred ? ` | F100: ${stats.fastestHundred}b` : ''}
-              </Text>
+
+              {isFastestInnings ? (
+                <>
+                  <Text style={[styles.subText, { color: colors.textMuted }]}>
+                    Knock: <Text style={{ color: colors.text, fontWeight: '700' }}>{stats.runs} ({stats.balls}b)</Text> | 4s: {stats.fours || 0} | 6s: {stats.sixes || 0} | SR: {strikeRate}
+                  </Text>
+                  <Text style={[styles.subText, { color: colors.textMuted, fontSize: 10, marginTop: 2 }]}>
+                    {opponent ? `vs ${opponent.shortName || opponent.name} • ` : ''}
+                    {formattedDate || 'Match Knock'}
+                  </Text>
+                </>
+              ) : (
+                <>
+                  <Text style={[styles.subText, { color: colors.textMuted }]}>
+                    Runs: <Text style={{ color: colors.text, fontWeight: '700' }}>{stats.runs}</Text> | HS: <Text style={{ color: colors.primary, fontWeight: '700' }}>{stats.highestScore || 0}</Text> | SR: {strikeRate}
+                  </Text>
+                  <Text style={[styles.subText, { color: colors.textMuted, fontSize: 10, marginTop: 2 }]}>
+                    Avg: {average} | 100s: {stats.hundreds || 0} | 50s: {stats.fifties || 0}
+                    {stats.fastestFifty ? ` | F50: ${stats.fastestFifty}b` : ''}
+                    {stats.fastestHundred ? ` | F100: ${stats.fastestHundred}b` : ''}
+                  </Text>
+                </>
+              )}
             </View>
             <View style={styles.statsRight}>
               <Text style={[styles.mainStat, (battingSort === 'MVPs' || battingSort === 'Fastest 50' || battingSort === 'Fastest 100') ? { color: '#F59E0B' } : { color: colors.text }]}>
@@ -788,6 +821,12 @@ export default function StatsLeaderboardTab() {
 
   const getSortedData = () => {
     if (activeTab === 'batting') {
+      if (battingSort === 'Fastest 50') {
+        return (leaderboard.topFastestFifties || []).slice(0, 15);
+      }
+      if (battingSort === 'Fastest 100') {
+        return (leaderboard.topFastestHundreds || []).slice(0, 15);
+      }
       let data = [...leaderboard.topBatsmen];
       return data.sort((a, b) => {
         const statsA = a.batting || {};

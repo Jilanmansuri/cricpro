@@ -475,6 +475,140 @@ export const getLeaderboard = async (req: Request, res: Response): Promise<void>
       }
     }
 
+    const resolveMatchOpponent = (matchDoc: any, playerTeamId: any) => {
+      if (!matchDoc) return null;
+      const teamAId = matchDoc.teamA?._id?.toString() || matchDoc.teamA?.toString();
+      const teamBId = matchDoc.teamB?._id?.toString() || matchDoc.teamB?.toString();
+      const pTeamIdStr = playerTeamId?.toString();
+
+      const oppId = pTeamIdStr === teamAId ? teamBId : teamAId;
+      if (oppId && teamMap.has(oppId)) {
+        return formatTeamInfo(teamMap.get(oppId));
+      }
+      return null;
+    };
+
+    const fetchFastestInnings = async (filter: any) => {
+      const minMilestoneDate = new Date('2026-10-13T00:00:00.000Z');
+
+      const f50Docs = await PlayerMatchStats.find({
+        ...filter,
+        $or: [
+          { 'batting.fastestFiftyBalls': { $gt: 0 } },
+          { 'batting.runs': { $gte: 50 } }
+        ]
+      })
+        .populate('playerId')
+        .populate('matchId')
+        .lean();
+
+      const topFastestFifties: any[] = [];
+      for (const s of f50Docs) {
+        const matchDoc = (s as any).matchId;
+        const matchDate = matchDoc?.date ? new Date(matchDoc.date) : ((s as any).createdAt ? new Date((s as any).createdAt) : null);
+        if (!matchDate || matchDate < minMilestoneDate) continue;
+
+        const fBalls = (s as any).batting?.fastestFiftyBalls || ((s as any).batting?.runs >= 50 && (s as any).batting?.balls > 0 ? (s as any).batting.balls : null);
+        if (!fBalls || fBalls <= 0) continue;
+        const pDoc = (s as any).playerId;
+        const teamInfo = resolvePlayerTeam(pDoc, division, (s as any).teamId, teamMap, teamByCodeMap, playerToTeamMap);
+        const oppInfo = resolveMatchOpponent(matchDoc, (s as any).teamId);
+
+        topFastestFifties.push({
+          _id: s._id,
+          id: s._id.toString(),
+          playerId: pDoc ? { _id: pDoc._id, name: pDoc.name } : { _id: (s as any).playerId, name: (s as any).playerName },
+          playerProfileId: pDoc?._id || (s as any).playerId,
+          playerName: pDoc?.name || (s as any).playerName,
+          team: teamInfo,
+          opponent: oppInfo,
+          date: matchDoc?.date || (s as any).createdAt,
+          venue: matchDoc?.venueId?.name || null,
+          fastestFiftyBalls: fBalls,
+          batting: {
+            runs: (s as any).batting?.runs || 0,
+            balls: (s as any).batting?.balls || 0,
+            fours: (s as any).batting?.fours || 0,
+            sixes: (s as any).batting?.sixes || 0,
+            outStatus: (s as any).batting?.outStatus || 'out',
+            fastestFifty: fBalls,
+            highestScore: (s as any).batting?.runs || 0,
+            matches: 1,
+            fifties: 1,
+            hundreds: ((s as any).batting?.runs || 0) >= 100 ? 1 : 0
+          }
+        });
+      }
+
+      topFastestFifties.sort((a, b) => {
+        if (a.fastestFiftyBalls !== b.fastestFiftyBalls) {
+          return a.fastestFiftyBalls - b.fastestFiftyBalls;
+        }
+        return b.batting.runs - a.batting.runs;
+      });
+
+      const f100Docs = await PlayerMatchStats.find({
+        ...filter,
+        $or: [
+          { 'batting.fastestHundredBalls': { $gt: 0 } },
+          { 'batting.runs': { $gte: 100 } }
+        ]
+      })
+        .populate('playerId')
+        .populate('matchId')
+        .lean();
+
+      const topFastestHundreds: any[] = [];
+      for (const s of f100Docs) {
+        const matchDoc = (s as any).matchId;
+        const matchDate = matchDoc?.date ? new Date(matchDoc.date) : ((s as any).createdAt ? new Date((s as any).createdAt) : null);
+        if (!matchDate || matchDate < minMilestoneDate) continue;
+
+        const fBalls = (s as any).batting?.fastestHundredBalls || ((s as any).batting?.runs >= 100 && (s as any).batting?.balls > 0 ? (s as any).batting.balls : null);
+        if (!fBalls || fBalls <= 0) continue;
+        const pDoc = (s as any).playerId;
+        const teamInfo = resolvePlayerTeam(pDoc, division, (s as any).teamId, teamMap, teamByCodeMap, playerToTeamMap);
+        const oppInfo = resolveMatchOpponent(matchDoc, (s as any).teamId);
+
+        topFastestHundreds.push({
+          _id: s._id,
+          id: s._id.toString(),
+          playerId: pDoc ? { _id: pDoc._id, name: pDoc.name } : { _id: (s as any).playerId, name: (s as any).playerName },
+          playerProfileId: pDoc?._id || (s as any).playerId,
+          playerName: pDoc?.name || (s as any).playerName,
+          team: teamInfo,
+          opponent: oppInfo,
+          date: matchDoc?.date || (s as any).createdAt,
+          venue: matchDoc?.venueId?.name || null,
+          fastestHundredBalls: fBalls,
+          batting: {
+            runs: (s as any).batting?.runs || 0,
+            balls: (s as any).batting?.balls || 0,
+            fours: (s as any).batting?.fours || 0,
+            sixes: (s as any).batting?.sixes || 0,
+            outStatus: (s as any).batting?.outStatus || 'out',
+            fastestHundred: fBalls,
+            highestScore: (s as any).batting?.runs || 0,
+            matches: 1,
+            fifties: ((s as any).batting?.runs || 0) >= 50 && ((s as any).batting?.runs || 0) < 100 ? 1 : 0,
+            hundreds: 1
+          }
+        });
+      }
+
+      topFastestHundreds.sort((a, b) => {
+        if (a.fastestHundredBalls !== b.fastestHundredBalls) {
+          return a.fastestHundredBalls - b.fastestHundredBalls;
+        }
+        return b.batting.runs - a.batting.runs;
+      });
+
+      return {
+        topFastestFifties: topFastestFifties.slice(0, 15),
+        topFastestHundreds: topFastestHundreds.slice(0, 15)
+      };
+    };
+
     if (division === 'all') {
       const baseFilter: any = { 'batting.runs': { $gt: 0 } };
       if (userId) baseFilter.playerId = { $in: userPlayerIds };
@@ -559,6 +693,8 @@ export const getLeaderboard = async (req: Request, res: Response): Promise<void>
         };
       });
 
+      const fastestInnings = await fetchFastestInnings(userId ? { playerId: { $in: userPlayerIds } } : {});
+
       const responsePayload = {
         success: true,
         data: {
@@ -566,7 +702,9 @@ export const getLeaderboard = async (req: Request, res: Response): Promise<void>
           topBatsmen,
           topBowlers,
           topFielders,
-          topMvps
+          topMvps,
+          topFastestFifties: fastestInnings.topFastestFifties,
+          topFastestHundreds: fastestInnings.topFastestHundreds
         }
       };
       cacheManager.set(cacheKey, responsePayload, 5 * 60 * 1000);
@@ -812,6 +950,8 @@ export const getLeaderboard = async (req: Request, res: Response): Promise<void>
       };
     });
 
+    const fastestInnings = await fetchFastestInnings(matchStatsFilter);
+
     const responsePayload = {
       success: true,
       data: {
@@ -819,7 +959,9 @@ export const getLeaderboard = async (req: Request, res: Response): Promise<void>
         topBatsmen,
         topBowlers,
         topFielders,
-        topMvps
+        topMvps,
+        topFastestFifties: fastestInnings.topFastestFifties,
+        topFastestHundreds: fastestInnings.topFastestHundreds
       }
     };
     cacheManager.set(cacheKey, responsePayload, 5 * 60 * 1000);
