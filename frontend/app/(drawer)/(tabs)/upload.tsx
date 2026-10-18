@@ -694,7 +694,7 @@ export default function ManualMatchEntry() {
       teamABowling: teamABowling.filter(b => b.name.trim() !== ''),
       extrasA: { total: extrasA },
       extrasB: { total: extrasB },
-      forceNew: false
+      forceNew: true
     };
 
     try {

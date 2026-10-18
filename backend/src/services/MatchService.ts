@@ -497,33 +497,36 @@ export class MatchService {
         }
       }
 
-      // 5. Check if duplicate match exists
-      const duplicateCheck = await this.checkDuplicateMatch({
-        date,
-        teamAName: teamA.name,
-        teamBName: teamB.name,
-        userId
-      });
+      // 5. Match creation or update
+      let match: any = null;
+      const targetMatchId = payload.matchId || matchInfo.matchId || matchInfo._id;
 
-      let match: any;
-      if (duplicateCheck.isDuplicate && duplicateCheck.match && !payload.forceNew) {
-        // Update existing match record instead of duplicating
-        match = duplicateCheck.match;
-        match.teamAScore = finalTeamAScore;
-        match.teamBScore = finalTeamBScore;
-        match.overs = Number(overs) || match.overs || 20;
-        if (result) match.result = result;
-        if (venue) match.venueId = venue._id;
-        if (mvpPlayerId) match.mvp = mvpPlayerId;
-        if (ocrConfidence) match.ocrConfidence = Number(ocrConfidence);
-        if (payload.format) match.format = payload.format;
-        if (userId && !match.createdBy) match.createdBy = userId;
-        await match.save();
+      if (targetMatchId && Types.ObjectId.isValid(targetMatchId)) {
+        // Explicit update of an existing match
+        match = await this.matchRepository.findById(targetMatchId);
+        if (match) {
+          console.log(`[MatchService] Explicitly updating existing match ${match._id}...`);
+          match.teamAScore = finalTeamAScore;
+          match.teamBScore = finalTeamBScore;
+          match.overs = Number(overs) || match.overs || 20;
+          if (result) match.result = result;
+          if (venue) match.venueId = venue._id;
+          if (mvpPlayerId) match.mvp = mvpPlayerId;
+          if (ocrConfidence) match.ocrConfidence = Number(ocrConfidence);
+          if (payload.format) match.format = payload.format;
+          if (userId && !match.createdBy) match.createdBy = userId;
+          await match.save();
 
-        // Delete old playerMatchStats for this match before re-inserting
-        await this.playerMatchStatsRepository.deleteMany({ matchId: match._id });
-      } else {
-        // Create new Match record
+          // Delete old playerMatchStats for this match before re-inserting
+          await this.playerMatchStatsRepository.deleteMany({ matchId: match._id });
+        }
+      }
+
+      // If not an explicit update by matchId, ALWAYS create a new Match record.
+      // This ensures subsequent matches played/uploaded on the same day between the same teams
+      // are saved as separate matches and NEVER overwrite or erase previous match data.
+      if (!match) {
+        console.log(`[MatchService] Creating brand new match record between ${teamA.name} and ${teamB.name}...`);
         match = await this.matchRepository.create({
           tournamentId: tournamentId ? new Types.ObjectId(tournamentId) : undefined,
           venueId: venue ? venue._id : undefined,
