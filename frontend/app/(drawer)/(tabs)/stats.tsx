@@ -312,15 +312,19 @@ export default function StatsLeaderboardTab() {
       ? new Date(item.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
       : null;
 
+    const rankColor = index === 0 ? '#F59E0B' : index === 1 ? '#94A3B8' : index === 2 ? '#D97706' : colors.primary;
+
     return (
       <TouchableOpacity activeOpacity={0.7} onPress={() => handlePlayerPress(item)}>
         <Card style={styles.card}>
           <View style={styles.row}>
-            <Text style={[styles.rank, { color: colors.primary }]}>#{index + 1}</Text>
-            <Avatar name={displayName} size={42} style={styles.avatar} />
+            <Text style={[styles.rank, { color: rankColor }]}>#{index + 1}</Text>
+            <Avatar name={displayName} size={38} style={styles.avatar} />
             <View style={styles.info}>
               <View style={styles.nameAndTeamRow}>
-                <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>{displayName}</Text>
+                <Text style={[styles.name, { color: colors.text }]} numberOfLines={1} ellipsizeMode="tail">
+                  {displayName}
+                </Text>
                 {team ? (
                   <View style={[styles.teamBadge, { backgroundColor: colors.surfaceLighter || 'rgba(255,255,255,0.06)', borderColor: colors.border }]}>
                     <TeamLogo
@@ -331,7 +335,7 @@ export default function StatsLeaderboardTab() {
                       country={player.country}
                       logoUrl={team.logo}
                       fallbackEmoji={team.flag}
-                      size={16}
+                      size={14}
                     />
                     <Text style={[styles.teamBadgeText, { color: team.color || colors.text }]}>
                       {team.shortName || team.name}
@@ -342,23 +346,23 @@ export default function StatsLeaderboardTab() {
 
               {isFastestInnings ? (
                 <>
-                  <Text style={[styles.subText, { color: colors.textMuted }]}>
-                    Knock: <Text style={{ color: colors.text, fontWeight: '700' }}>{stats.runs} ({stats.balls}b)</Text> | 4s: {stats.fours || 0} | 6s: {stats.sixes || 0} | SR: {strikeRate}
+                  <Text style={[styles.subText, { color: colors.textMuted }]} numberOfLines={1}>
+                    Score: <Text style={{ color: colors.text, fontWeight: '700' }}>{stats.runs} ({stats.balls}b)</Text> • {stats.fours || 0}x4, {stats.sixes || 0}x6 • SR {strikeRate}
                   </Text>
-                  <Text style={[styles.subText, { color: colors.textMuted, fontSize: 10, marginTop: 2 }]}>
+                  <Text style={[styles.matchDateText, { color: colors.textMuted }]} numberOfLines={1}>
                     {opponent ? `vs ${opponent.shortName || opponent.name} • ` : ''}
                     {formattedDate || 'Match Knock'}
                   </Text>
                 </>
               ) : (
                 <>
-                  <Text style={[styles.subText, { color: colors.textMuted }]}>
-                    Runs: <Text style={{ color: colors.text, fontWeight: '700' }}>{stats.runs}</Text> | HS: <Text style={{ color: colors.primary, fontWeight: '700' }}>{stats.highestScore || 0}</Text> | SR: {strikeRate}
+                  <Text style={[styles.subText, { color: colors.textMuted }]} numberOfLines={1}>
+                    Runs: <Text style={{ color: colors.text, fontWeight: '700' }}>{stats.runs}</Text> • HS: <Text style={{ color: colors.primary, fontWeight: '700' }}>{stats.highestScore || 0}</Text> • SR: {strikeRate}
                   </Text>
-                  <Text style={[styles.subText, { color: colors.textMuted, fontSize: 10, marginTop: 2 }]}>
-                    Avg: {average} | 100s: {stats.hundreds || 0} | 50s: {stats.fifties || 0}
-                    {stats.fastestFifty ? ` | F50: ${stats.fastestFifty}b` : ''}
-                    {stats.fastestHundred ? ` | F100: ${stats.fastestHundred}b` : ''}
+                  <Text style={[styles.matchDateText, { color: colors.textMuted }]} numberOfLines={1}>
+                    Avg: {average} • 100s: {stats.hundreds || 0} • 50s: {stats.fifties || 0}
+                    {stats.fastestFifty ? ` • F50: ${stats.fastestFifty}b` : ''}
+                    {stats.fastestHundred ? ` • F100: ${stats.fastestHundred}b` : ''}
                   </Text>
                 </>
               )}
@@ -378,11 +382,13 @@ export default function StatsLeaderboardTab() {
                  stats.runs}
               </Text>
               <Text style={[styles.statLabel, { color: colors.textMuted }]}>
-                {battingSort === 'Highest Score' ? 'High Score (HS)' :
-                 battingSort === 'Runs' ? 'Total Runs' :
-                 battingSort === 'Fastest 50' ? 'Fastest 50 (Balls)' :
-                 battingSort === 'Fastest 100' ? 'Fastest 100 (Balls)' :
-                 battingSort === 'MVPs' ? 'MVPs Won' : battingSort}
+                {battingSort === 'Highest Score' ? 'High Score' :
+                 battingSort === 'Runs' ? 'Runs' :
+                 battingSort === 'Fastest 50' ? 'Balls' :
+                 battingSort === 'Fastest 100' ? 'Balls' :
+                 battingSort === 'Strike Rate' ? 'SR' :
+                 battingSort === 'Average' ? 'Avg' :
+                 battingSort === 'MVPs' ? 'MVPs' : battingSort}
               </Text>
             </View>
             <Text style={[styles.chevron, { color: colors.textMuted }]}>›</Text>
@@ -399,16 +405,19 @@ export default function StatsLeaderboardTab() {
     const economy = stats.overs > 0 ? (stats.runsConceded / stats.overs).toFixed(2) : '0.00';
     const average = stats.wickets > 0 ? (stats.runsConceded / stats.wickets).toFixed(1) : '0.0';
     const displayName = getDisplayPlayerName(player);
+    const rankColor = index === 0 ? '#F59E0B' : index === 1 ? '#94A3B8' : index === 2 ? '#D97706' : colors.primary;
     
     return (
       <TouchableOpacity activeOpacity={0.7} onPress={() => handlePlayerPress(item)}>
         <Card style={styles.card}>
           <View style={styles.row}>
-            <Text style={[styles.rank, { color: colors.primary }]}>#{index + 1}</Text>
-            <Avatar name={displayName} size={42} style={styles.avatar} />
+            <Text style={[styles.rank, { color: rankColor }]}>#{index + 1}</Text>
+            <Avatar name={displayName} size={38} style={styles.avatar} />
             <View style={styles.info}>
               <View style={styles.nameAndTeamRow}>
-                <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>{displayName}</Text>
+                <Text style={[styles.name, { color: colors.text }]} numberOfLines={1} ellipsizeMode="tail">
+                  {displayName}
+                </Text>
                 {team ? (
                   <View style={[styles.teamBadge, { backgroundColor: colors.surfaceLighter || 'rgba(255,255,255,0.06)', borderColor: colors.border }]}>
                     <TeamLogo
@@ -419,7 +428,7 @@ export default function StatsLeaderboardTab() {
                       country={player.country}
                       logoUrl={team.logo}
                       fallbackEmoji={team.flag}
-                      size={16}
+                      size={14}
                     />
                     <Text style={[styles.teamBadgeText, { color: team.color || colors.text }]}>
                       {team.shortName || team.name}
@@ -427,8 +436,12 @@ export default function StatsLeaderboardTab() {
                   </View>
                 ) : null}
               </View>
-              <Text style={[styles.subText, { color: colors.textMuted }]}>Econ: {economy} | Avg: {average}</Text>
-              <Text style={[styles.subText, { color: colors.textMuted, fontSize: 10, marginTop: 2 }]}>Overs: {stats.overs} | Runs: {stats.runsConceded}</Text>
+              <Text style={[styles.subText, { color: colors.textMuted }]} numberOfLines={1}>
+                Econ: <Text style={{ color: colors.text, fontWeight: '700' }}>{economy}</Text> • Avg: {average}
+              </Text>
+              <Text style={[styles.matchDateText, { color: colors.textMuted }]} numberOfLines={1}>
+                Overs: {stats.overs} • Runs: {stats.runsConceded}
+              </Text>
             </View>
             <View style={styles.statsRight}>
               <Text style={[styles.mainStat, bowlingSort === 'MVPs' ? { color: '#F59E0B' } : { color: colors.text }]}>
@@ -438,7 +451,13 @@ export default function StatsLeaderboardTab() {
                  bowlingSort === 'MVPs' ? (item.mvps || 0) :
                  stats.wickets}
               </Text>
-              <Text style={[styles.statLabel, { color: colors.textMuted }]}>{bowlingSort === 'MVPs' ? 'MVPs Won' : bowlingSort}</Text>
+              <Text style={[styles.statLabel, { color: colors.textMuted }]}>
+                {bowlingSort === 'MVPs' ? 'MVPs' :
+                 bowlingSort === 'Wickets' ? 'Wickets' :
+                 bowlingSort === 'Economy' ? 'Econ' :
+                 bowlingSort === 'Average' ? 'Avg' :
+                 bowlingSort === 'Maidens' ? 'Maidens' : bowlingSort}
+              </Text>
             </View>
             <Text style={[styles.chevron, { color: colors.textMuted }]}>›</Text>
           </View>
@@ -456,16 +475,19 @@ export default function StatsLeaderboardTab() {
     const runOuts = stats.runOuts || 0;
     const stumpings = stats.stumpings || 0;
     const totalDismissals = catches + runOuts + stumpings;
+    const rankColor = index === 0 ? '#F59E0B' : index === 1 ? '#94A3B8' : index === 2 ? '#D97706' : '#10B981';
 
     return (
       <TouchableOpacity activeOpacity={0.7} onPress={() => handlePlayerPress(item.playerId)}>
         <Card style={styles.card}>
           <View style={styles.row}>
-            <Text style={[styles.rank, { color: '#10B981' }]}>#{index + 1}</Text>
-            <Avatar name={displayName} size={42} style={styles.avatar} />
+            <Text style={[styles.rank, { color: rankColor }]}>#{index + 1}</Text>
+            <Avatar name={displayName} size={38} style={styles.avatar} />
             <View style={styles.info}>
               <View style={styles.nameAndTeamRow}>
-                <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>{displayName}</Text>
+                <Text style={[styles.name, { color: colors.text }]} numberOfLines={1} ellipsizeMode="tail">
+                  {displayName}
+                </Text>
                 {team ? (
                   <View style={[styles.teamBadge, { backgroundColor: colors.surfaceLighter || 'rgba(255,255,255,0.06)', borderColor: colors.border }]}>
                     <TeamLogo
@@ -476,7 +498,7 @@ export default function StatsLeaderboardTab() {
                       country={player.country}
                       logoUrl={team.logo}
                       fallbackEmoji={team.flag}
-                      size={16}
+                      size={14}
                     />
                     <Text style={[styles.teamBadgeText, { color: team.color || colors.text }]}>
                       {team.shortName || team.name}
@@ -484,11 +506,11 @@ export default function StatsLeaderboardTab() {
                   </View>
                 ) : null}
               </View>
-              <Text style={[styles.subText, { color: colors.textMuted }]}>
-                Catches: <Text style={{ color: colors.text, fontWeight: '700' }}>{catches}</Text> | Run Outs: <Text style={{ color: colors.primary, fontWeight: '700' }}>{runOuts}</Text>
+              <Text style={[styles.subText, { color: colors.textMuted }]} numberOfLines={1}>
+                Catches: <Text style={{ color: colors.text, fontWeight: '700' }}>{catches}</Text> • Run Outs: {runOuts}
               </Text>
-              <Text style={[styles.subText, { color: colors.textMuted, fontSize: 10, marginTop: 2 }]}>
-                Stumpings: {stumpings} | Matches: {item.matches || 0}
+              <Text style={[styles.matchDateText, { color: colors.textMuted }]} numberOfLines={1}>
+                Stumpings: {stumpings} • Matches: {item.matches || 0}
               </Text>
             </View>
             <View style={styles.statsRight}>
@@ -499,7 +521,10 @@ export default function StatsLeaderboardTab() {
                  totalDismissals}
               </Text>
               <Text style={[styles.statLabel, { color: colors.textMuted }]}>
-                {fieldingSort === 'Total Dismissals' ? 'Dismissals' : fieldingSort}
+                {fieldingSort === 'Total Dismissals' ? 'Dismissals' :
+                 fieldingSort === 'Catches' ? 'Catches' :
+                 fieldingSort === 'Run Outs' ? 'Run Outs' :
+                 fieldingSort === 'Stumpings' ? 'Stumpings' : fieldingSort}
               </Text>
             </View>
             <Text style={[styles.chevron, { color: colors.textMuted }]}>›</Text>
@@ -1363,75 +1388,94 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   list: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     paddingTop: 4,
     paddingBottom: 140,
-    gap: 10,
+    gap: 8,
   },
   card: {
-    padding: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    borderRadius: 12,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   rank: {
-    fontSize: 18,
+    fontSize: 15,
     fontWeight: '900',
-    marginRight: 10,
-    width: 32,
+    width: 26,
+    textAlign: 'center',
+    marginRight: 8,
   },
   avatar: {
-    marginRight: 10,
+    marginRight: 8,
   },
   info: {
     flex: 1,
+    justifyContent: 'center',
+    paddingRight: 4,
   },
   nameAndTeamRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    flexWrap: 'wrap',
+    marginBottom: 2,
   },
   name: {
-    fontSize: 15,
+    fontSize: 14.5,
     fontWeight: '800',
+    flexShrink: 1,
   },
   teamBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 6,
-    paddingVertical: 1.5,
-    borderRadius: 6,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 5,
     borderWidth: 1,
     gap: 3,
+    flexShrink: 0,
   },
   teamBadgeText: {
-    fontSize: 10,
+    fontSize: 9.5,
     fontWeight: '800',
     letterSpacing: 0.2,
   },
   subText: {
-    fontSize: 12,
-    marginTop: 4,
+    fontSize: 11.5,
+    marginTop: 2,
+    lineHeight: 16,
+  },
+  matchDateText: {
+    fontSize: 10.5,
+    marginTop: 2,
+    lineHeight: 14,
   },
   statsRight: {
     alignItems: 'flex-end',
+    justifyContent: 'center',
+    minWidth: 52,
     marginLeft: 6,
   },
   mainStat: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '900',
+    letterSpacing: -0.3,
   },
   statLabel: {
-    fontSize: 11,
+    fontSize: 9,
     textTransform: 'uppercase',
-    fontWeight: '700',
+    fontWeight: '800',
+    letterSpacing: 0.5,
+    marginTop: 1,
   },
   chevron: {
-    fontSize: 22,
-    fontWeight: '400',
-    marginLeft: 8,
+    fontSize: 18,
+    fontWeight: '600',
+    marginLeft: 6,
+    opacity: 0.5,
   },
   empty: {
     alignItems: 'center',
