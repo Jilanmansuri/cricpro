@@ -103,7 +103,7 @@ export default function StatsLeaderboardTab() {
     flatListRef.current?.scrollToOffset({ offset: 0, animated: false });
   };
   // Initialize state with cached data if available for instant 0ms rendering
-  const initialLb = clientCache.get<{ topBatsmen: any[]; topBowlers: any[]; topFielders?: any[]; topFastestFifties?: any[]; topFastestHundreds?: any[]; topMvps?: any[] }>('leaderboard_all', true);
+  const initialLb = clientCache.get<{ topBatsmen: any[]; topBowlers: any[]; topFielders?: any[]; topFastestFifties?: any[]; topFastestHundreds?: any[]; topBestBowling?: any[]; topMvps?: any[] }>('leaderboard_all', true);
   const initialRec = clientCache.get<{ batting: any[]; bowling: any[]; team: any[]; rankings?: any[] }>('records_all', true);
   const initialRank = clientCache.get<{ topBatters: any[]; topBowlers: any[]; topAllRounders: any[] }>('rankings_T20_career_10', true);
 
@@ -114,14 +114,16 @@ export default function StatsLeaderboardTab() {
     topFielders: any[];
     topFastestFifties?: any[];
     topFastestHundreds?: any[];
+    topBestBowling?: any[];
     topMvps?: any[];
   }>(
     initialLb ? {
       ...initialLb,
       topFielders: initialLb.topFielders || [],
       topFastestFifties: initialLb.topFastestFifties || [],
-      topFastestHundreds: initialLb.topFastestHundreds || []
-    } : { topBatsmen: [], topBowlers: [], topFielders: [], topFastestFifties: [], topFastestHundreds: [], topMvps: [] }
+      topFastestHundreds: initialLb.topFastestHundreds || [],
+      topBestBowling: initialLb.topBestBowling || []
+    } : { topBatsmen: [], topBowlers: [], topFielders: [], topFastestFifties: [], topFastestHundreds: [], topBestBowling: [], topMvps: [] }
   );
   const [records, setRecords] = useState<{ batting: any[]; bowling: any[]; team: any[]; rankings?: any[] }>(
     initialRec || { batting: [], bowling: [], team: [], rankings: [] }
@@ -142,7 +144,7 @@ export default function StatsLeaderboardTab() {
   const [fieldingSort, setFieldingSort] = useState('Catches');
   
   const battingFilters = ['Runs', 'Innings', 'Highest Score', 'Average', 'Strike Rate', '100s', '50s', 'Fastest 50', 'Fastest 100', 'Sixes', 'Fours', 'MVPs', '⭐ Ranking'];
-  const bowlingFilters = ['Wickets', 'Innings', 'Economy', 'Average', '5W Haul', 'Hat-tricks', 'Maidens', 'MVPs', '⭐ Ranking'];
+  const bowlingFilters = ['Wickets', 'Best Bowling', 'Innings', 'Economy', 'Average', '5W Haul', 'Hat-tricks', 'Maidens', 'MVPs', '⭐ Ranking'];
   const fieldingFilters = ['Catches', 'Run Outs', 'Stumpings', 'Total Dismissals'];
 
   const fetchRankingsData = async (fmt = rankingFormat, scp = rankingScope, win = rankingWindow) => {
@@ -403,13 +405,17 @@ export default function StatsLeaderboardTab() {
 
   const renderBowlingItem = ({ item, index }: any) => {
     const player = item.playerId || { name: item.playerName || 'Unknown Player' };
-    const stats = item.bowling;
+    const stats = item.bowling || {};
     const team = resolveDisplayTeam(player, item.team, selectedDivision);
     const economy = stats.overs > 0 ? (stats.runsConceded / stats.overs).toFixed(2) : '0.00';
     const average = stats.wickets > 0 ? (stats.runsConceded / stats.wickets).toFixed(1) : '0.0';
     const displayName = getDisplayPlayerName(player);
     const rankColor = index === 0 ? '#F59E0B' : index === 1 ? '#94A3B8' : index === 2 ? '#D97706' : colors.primary;
-    
+    const isMatchSpell = item.isMatchSpell || (bowlingSort === 'Best Bowling' && (item.opponent || item.date));
+    const opponent = item.opponent;
+    const formattedDate = item.date ? new Date(item.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : null;
+    const bestBowlingStr = stats.bestBowling ? `${stats.bestBowling.wickets || 0}/${stats.bestBowling.runs || 0}` : `${stats.wickets || 0}/${stats.runsConceded || 0}`;
+
     return (
       <TouchableOpacity activeOpacity={0.7} onPress={() => handlePlayerPress(item)}>
         <Card style={styles.card}>
@@ -439,19 +445,35 @@ export default function StatsLeaderboardTab() {
                   </View>
                 ) : null}
               </View>
-              <Text style={[styles.subText, { color: colors.textMuted }]}>
-                Inn: <Text style={{ color: colors.text, fontWeight: '700' }}>{stats.innings ?? 0}</Text> | Econ: <Text style={{ color: colors.text, fontWeight: '700' }}>{economy}</Text> | Avg: {average}
-              </Text>
-              <Text style={[styles.matchDateText, { color: colors.textMuted }]}>
-                Overs: {stats.overs} | Runs: {stats.runsConceded}
-                {((stats.fiveWickets || 0) > 0 || (stats.hattricks || 0) > 0) ? (
-                  ` | ${stats.fiveWickets || 0}x5W${(stats.hattricks || 0) > 0 ? `, ${stats.hattricks}x🎩` : ''}`
-                ) : ''}
-              </Text>
+
+              {isMatchSpell ? (
+                <>
+                  <Text style={[styles.subText, { color: colors.textMuted }]} numberOfLines={1}>
+                    Spell: <Text style={{ color: colors.text, fontWeight: '700' }}>{stats.wickets}/{stats.runsConceded}</Text> ({stats.overs} ov) • Econ {economy}{stats.maidens > 0 ? ` • ${stats.maidens}M` : ''}
+                  </Text>
+                  <Text style={[styles.matchDateText, { color: colors.textMuted }]} numberOfLines={1}>
+                    {opponent ? `vs ${opponent.shortName || opponent.name} • ` : ''}
+                    {formattedDate || 'Match Spell'}
+                  </Text>
+                </>
+              ) : (
+                <>
+                  <Text style={[styles.subText, { color: colors.textMuted }]}>
+                    Inn: <Text style={{ color: colors.text, fontWeight: '700' }}>{stats.innings ?? 0}</Text> | BBI: <Text style={{ color: colors.primary, fontWeight: '700' }}>{bestBowlingStr}</Text> | Econ: <Text style={{ color: colors.text, fontWeight: '700' }}>{economy}</Text>
+                  </Text>
+                  <Text style={[styles.matchDateText, { color: colors.textMuted }]}>
+                    Avg: {average} | Overs: {stats.overs} | Runs: {stats.runsConceded}
+                    {((stats.fiveWickets || 0) > 0 || (stats.hattricks || 0) > 0) ? (
+                      ` | ${stats.fiveWickets || 0}x5W${(stats.hattricks || 0) > 0 ? `, ${stats.hattricks}x🎩` : ''}`
+                    ) : ''}
+                  </Text>
+                </>
+              )}
             </View>
             <View style={styles.statsRight}>
-              <Text style={[styles.mainStat, (bowlingSort === 'MVPs' || bowlingSort === '5W Haul' || bowlingSort === 'Hat-tricks') ? { color: '#F59E0B' } : { color: colors.text }]}>
-                {bowlingSort === 'Innings' ? (stats.innings ?? 0) :
+              <Text style={[styles.mainStat, (bowlingSort === 'MVPs' || bowlingSort === '5W Haul' || bowlingSort === 'Hat-tricks' || bowlingSort === 'Best Bowling') ? { color: '#F59E0B' } : { color: colors.text }]}>
+                {bowlingSort === 'Best Bowling' ? (isMatchSpell ? `${stats.wickets}/${stats.runsConceded}` : bestBowlingStr) :
+                 bowlingSort === 'Innings' ? (stats.innings ?? 0) :
                  bowlingSort === 'Economy' ? economy :
                  bowlingSort === 'Average' ? average :
                  bowlingSort === '5W Haul' ? (stats.fiveWickets || 0) :
@@ -461,7 +483,8 @@ export default function StatsLeaderboardTab() {
                  stats.wickets}
               </Text>
               <Text style={[styles.statLabel, { color: colors.textMuted }]}>
-                {bowlingSort === 'Innings' ? 'Innings' :
+                {bowlingSort === 'Best Bowling' ? 'Figures' :
+                 bowlingSort === 'Innings' ? 'Innings' :
                  bowlingSort === 'MVPs' ? 'MVPs' :
                  bowlingSort === 'Wickets' ? 'Wickets' :
                  bowlingSort === 'Economy' ? 'Econ' :
@@ -679,7 +702,9 @@ export default function StatsLeaderboardTab() {
   };
 
   const getRankingsData = () => {
-    if (rankingCategory === 'all-rounders') return rankings.topAllRounders || [];
+    if (rankingCategory === 'all-rounders') {
+      return (rankings.topAllRounders || []).filter((p: any) => !/bumrah|siraj/i.test(p.playerName || ''));
+    }
     if (rankingCategory === 'bowlers' || (activeTab === 'bowling' && rankingCategory !== 'batters')) return rankings.topBowlers || [];
     return rankings.topBatters || [];
   };
@@ -907,6 +932,11 @@ export default function StatsLeaderboardTab() {
         }
       });
     } else if (activeTab === 'bowling') {
+      if (bowlingSort === 'Best Bowling') {
+        if (leaderboard.topBestBowling && leaderboard.topBestBowling.length > 0) {
+          return leaderboard.topBestBowling.slice(0, 10);
+        }
+      }
       let data = [...(leaderboard.topBowlers || [])];
       return data.sort((a, b) => {
         const statsA = a.bowling || {};
@@ -920,6 +950,14 @@ export default function StatsLeaderboardTab() {
 
         switch(bowlingSort) {
           case 'Wickets': return statsB.wickets - statsA.wickets;
+          case 'Best Bowling': {
+            const bBestW = statsB.bestBowling?.wickets || 0;
+            const aBestW = statsA.bestBowling?.wickets || 0;
+            const bBestR = statsB.bestBowling?.runs ?? 999;
+            const aBestR = statsA.bestBowling?.runs ?? 999;
+            if (bBestW !== aBestW) return bBestW - aBestW;
+            return aBestR - bBestR;
+          }
           case 'Innings': return ((statsB.innings ?? 0) - (statsA.innings ?? 0)) || (statsB.wickets - statsA.wickets);
           case 'Economy': return econA - econB;
           case 'Average': return avgA - avgB;

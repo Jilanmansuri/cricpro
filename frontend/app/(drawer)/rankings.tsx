@@ -122,7 +122,7 @@ export default function RankingsDrawerScreen() {
   const getCurrentList = () => {
     if (category === 'batters') return rankings.topBatters || [];
     if (category === 'bowlers') return rankings.topBowlers || [];
-    return rankings.topAllRounders || [];
+    return (rankings.topAllRounders || []).filter((p: any) => !/bumrah|siraj/i.test(p.playerName || ''));
   };
 
   const handlePlayerPress = (item: any) => {

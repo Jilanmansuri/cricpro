@@ -178,7 +178,21 @@ export default function PlayerCareerScreen() {
           runsConceded: bw.runsConceded || 0,
           fiveWickets: bw.fiveWickets || 0,
           hattricks: bw.hattricks || 0,
-          bestBowling: bw.bestBowling || { wickets: 0, runs: 0 },
+          bestBowling: (bw.bestBowling && (bw.bestBowling.wickets > 0 || bw.bestBowling.runs > 0))
+            ? bw.bestBowling
+            : (() => {
+                let bwW = 0;
+                let bwR = 0;
+                for (const h of history) {
+                  const w = h.bowling?.wickets || 0;
+                  const r = h.bowling?.runsConceded || 0;
+                  if (w > bwW || (w === bwW && (bwR === 0 || r < bwR))) {
+                    bwW = w;
+                    bwR = r;
+                  }
+                }
+                return { wickets: bwW, runs: bwR };
+              })(),
         },
         fielding: {
           catches: fld.catches || 0,

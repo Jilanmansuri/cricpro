@@ -561,13 +561,17 @@ export class RatingService {
       });
 
       // All-Rounder Rating
-      const arCalc = RatingService.calculateAllRounderRating(
-        batCalc,
-        bowlCalc,
-        benchmarks.allRounder,
-        evaluatedStats.length,
-        scope
-      );
+      // Pure bowlers (Jasprit Bumrah, Mohammed Siraj, etc.) should not be treated as all-rounders
+      const isExcludedAllRounder = /bumrah|siraj/i.test(playerName);
+      const arCalc = isExcludedAllRounder
+        ? { rating: null, isEligible: false }
+        : RatingService.calculateAllRounderRating(
+            batCalc,
+            bowlCalc,
+            benchmarks.allRounder,
+            evaluatedStats.length,
+            scope
+          );
       allRounderResults.push({
         playerId: pId,
         playerName,
@@ -600,7 +604,7 @@ export class RatingService {
       .map((b, idx) => ({ ...b, rank: idx + 1 }));
 
     const sortedAllRounders = allRounderResults
-      .filter(ar => ar.isEligible && ar.rating !== null && ar.rating > 0)
+      .filter(ar => ar.isEligible && ar.rating !== null && ar.rating > 0 && !/bumrah|siraj/i.test(ar.playerName))
       .sort((a, b) => (b.rating || 0) - (a.rating || 0))
       .slice(0, limit)
       .map((ar, idx) => ({ ...ar, rank: idx + 1 }));
@@ -770,7 +774,7 @@ export class RatingService {
       totalMatchesCount: filteredMatches.length,
       topBatters: (category === 'all' || category === 'batters') ? finalBatters : [],
       topBowlers: (category === 'all' || category === 'bowlers') ? finalBowlers : [],
-      topAllRounders: (category === 'all' || category === 'all-rounders') ? finalAllRounders : [],
+      topAllRounders: (category === 'all' || category === 'all-rounders') ? finalAllRounders.filter(ar => !/bumrah|siraj/i.test(ar.playerName)) : [],
     };
   }
 

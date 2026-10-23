@@ -126,6 +126,20 @@ export const getPlayerCareer = async (req: Request, res: Response): Promise<void
       innings: careerObj.bowling?.innings ? careerObj.bowling.innings : bowlingInningsCount
     };
 
+    // Ensure bestBowling is accurate from match history if 0/0 or missing
+    if (!careerObj.bowling?.bestBowling || (careerObj.bowling.bestBowling.wickets === 0 && careerObj.bowling.bestBowling.runs === 0)) {
+      const bestSpell = await PlayerMatchStats.findOne({
+        playerId,
+        'bowling.wickets': { $gt: 0 }
+      }).sort({ 'bowling.wickets': -1, 'bowling.runsConceded': 1 }).lean();
+      if (bestSpell) {
+        careerObj.bowling.bestBowling = {
+          wickets: bestSpell.bowling?.wickets || 0,
+          runs: bestSpell.bowling?.runsConceded || 0
+        };
+      }
+    }
+
     const insights = AiInsightsService.generatePlayerInsights(careerObj);
 
     // Calculate and persist ICC Ranking Reign Stats (Days at #1 and Top 3)
@@ -626,6 +640,32 @@ export const getLeaderboard = async (req: Request, res: Response): Promise<void>
         { sort: { 'bowling.wickets': -1 }, limit: 200, populate: 'playerId' }
       );
 
+      // Query all wicket-taking bowling spells for Best Bowling figures in division=all
+      const allSpellsAll = await PlayerMatchStats.find({
+        ...(userId ? { playerId: { $in: userPlayerIds } } : {}),
+        'bowling.wickets': { $gt: 0 }
+      })
+        .sort({ 'bowling.wickets': -1, 'bowling.runsConceded': 1, 'bowling.overs': 1 })
+        .populate('playerId', 'name fullName country nationalTeamId iplTeamId')
+        .populate('matchId', 'date teamA teamB')
+        .lean();
+
+      const playerBestBowlingMapAll = new Map<string, { wickets: number; runs: number }>();
+      for (const spell of allSpellsAll) {
+        const pIdStr = (spell.playerId as any)?._id?.toString() || spell.playerId?.toString();
+        if (!pIdStr) continue;
+        const w = spell.bowling?.wickets || 0;
+        const r = spell.bowling?.runsConceded || 0;
+        const existing = playerBestBowlingMapAll.get(pIdStr);
+        if (!existing) {
+          playerBestBowlingMapAll.set(pIdStr, { wickets: w, runs: r });
+        } else {
+          if (w > existing.wickets || (w === existing.wickets && r < existing.runs)) {
+            playerBestBowlingMapAll.set(pIdStr, { wickets: w, runs: r });
+          }
+        }
+      }
+
       const topBatsmen = topBatsmenDocs.map((item: any) => {
         const pDoc = item.playerId;
         const teamInfo = resolvePlayerTeam(pDoc, 'all', null, teamMap, teamByCodeMap, playerToTeamMap);
@@ -642,11 +682,21 @@ export const getLeaderboard = async (req: Request, res: Response): Promise<void>
         const pDoc = item.playerId;
         const teamInfo = resolvePlayerTeam(pDoc, 'all', null, teamMap, teamByCodeMap, playerToTeamMap);
         const playerObj = pDoc ? { _id: pDoc._id, name: pDoc.name, country: pDoc.country, nationalTeamId: pDoc.nationalTeamId, iplTeamId: pDoc.iplTeamId } : { _id: item.playerId || item._id, name: item.playerName || 'Player' };
+        const rawObj = item.toObject ? item.toObject() : item;
+        const existingBest = rawObj.bowling?.bestBowling;
+        const resolvedBest = (existingBest && (existingBest.wickets > 0 || existingBest.runs > 0))
+          ? existingBest
+          : (playerBestBowlingMapAll.get(item.playerId?._id?.toString() || item.playerId?.toString()) || { wickets: 0, runs: 0 });
+
         return {
-          ...item.toObject ? item.toObject() : item,
+          ...rawObj,
           playerId: playerObj,
           playerProfileId: playerObj._id,
-          team: teamInfo
+          team: teamInfo,
+          bowling: {
+            ...rawObj.bowling,
+            bestBowling: resolvedBest
+          }
         };
       });
 
@@ -697,6 +747,39 @@ export const getLeaderboard = async (req: Request, res: Response): Promise<void>
 
       const fastestInnings = await fetchFastestInnings(userId ? { playerId: { $in: userPlayerIds } } : {});
 
+      // Top 10 Best Bowling figures in a match across past matches in division=all
+      const topBestBowling = allSpellsAll.slice(0, 10).map((s: any) => {
+        const pDoc = s.playerId;
+        const teamInfo = resolvePlayerTeam(pDoc, 'all', s.teamId, teamMap, teamByCodeMap, playerToTeamMap);
+        const oppInfo = resolveMatchOpponent(s.matchId, s.teamId);
+        const wkts = s.bowling?.wickets || 0;
+        const runs = s.bowling?.runsConceded || 0;
+        const overs = s.bowling?.overs || 0;
+        const maidens = s.bowling?.maidens || 0;
+        const econ = overs > 0 ? (runs / overs).toFixed(2) : '0.00';
+        const pName = pDoc?.fullName || pDoc?.name || s.playerName;
+
+        return {
+          _id: s._id,
+          id: s._id.toString(),
+          playerId: pDoc ? { _id: pDoc._id, name: pDoc.name, fullName: pDoc.fullName } : { _id: s.playerId, name: s.playerName },
+          playerProfileId: pDoc?._id || s.playerId,
+          playerName: pName,
+          team: teamInfo,
+          opponent: oppInfo,
+          date: (s.matchId as any)?.date || s.createdAt,
+          isMatchSpell: true,
+          bowling: {
+            wickets: wkts,
+            runsConceded: runs,
+            overs,
+            maidens,
+            economy: econ,
+            bestBowling: { wickets: wkts, runs }
+          }
+        };
+      });
+
       const responsePayload = {
         success: true,
         data: {
@@ -706,7 +789,8 @@ export const getLeaderboard = async (req: Request, res: Response): Promise<void>
           topFielders,
           topMvps,
           topFastestFifties: fastestInnings.topFastestFifties,
-          topFastestHundreds: fastestInnings.topFastestHundreds
+          topFastestHundreds: fastestInnings.topFastestHundreds,
+          topBestBowling
         }
       };
       cacheManager.set(cacheKey, responsePayload, 5 * 60 * 1000);
@@ -944,9 +1028,36 @@ export const getLeaderboard = async (req: Request, res: Response): Promise<void>
       };
     });
 
+    // Query all wicket-taking bowling spells for Best Bowling figures
+    const allBowlingSpells = await PlayerMatchStats.find({
+      ...matchStatsFilter,
+      'bowling.wickets': { $gt: 0 }
+    })
+      .sort({ 'bowling.wickets': -1, 'bowling.runsConceded': 1, 'bowling.overs': 1 })
+      .populate('playerId', 'name fullName country nationalTeamId iplTeamId')
+      .populate('matchId', 'date teamA teamB')
+      .lean();
+
+    const playerBestBowlingMap = new Map<string, { wickets: number; runs: number }>();
+    for (const spell of allBowlingSpells) {
+      const pIdStr = (spell.playerId as any)?._id?.toString() || spell.playerId?.toString();
+      if (!pIdStr) continue;
+      const w = spell.bowling?.wickets || 0;
+      const r = spell.bowling?.runsConceded || 0;
+      const existing = playerBestBowlingMap.get(pIdStr);
+      if (!existing) {
+        playerBestBowlingMap.set(pIdStr, { wickets: w, runs: r });
+      } else {
+        if (w > existing.wickets || (w === existing.wickets && r < existing.runs)) {
+          playerBestBowlingMap.set(pIdStr, { wickets: w, runs: r });
+        }
+      }
+    }
+
     const topBowlers = bowlingAgg.map(bw => {
       const pDoc = playerMap.get(bw._id?.toString());
       const teamInfo = resolvePlayerTeam(pDoc, division, bw.lastTeamId, teamMap, teamByCodeMap, playerToTeamMap);
+      const best = playerBestBowlingMap.get(bw._id?.toString()) || { wickets: 0, runs: 0 };
 
       return {
         _id: bw._id,
@@ -963,7 +1074,8 @@ export const getLeaderboard = async (req: Request, res: Response): Promise<void>
           runsConceded: bw.runsConceded,
           wickets: bw.wickets,
           fiveWickets: bw.fiveWickets || 0,
-          hattricks: bw.hattricks || 0
+          hattricks: bw.hattricks || 0,
+          bestBowling: best
         }
       };
     });
@@ -1008,6 +1120,39 @@ export const getLeaderboard = async (req: Request, res: Response): Promise<void>
 
     const fastestInnings = await fetchFastestInnings(matchStatsFilter);
 
+    // Top 10 Best Bowling figures in a match across past matches
+    const topBestBowling = allBowlingSpells.slice(0, 10).map((s: any) => {
+      const pDoc = s.playerId;
+      const teamInfo = resolvePlayerTeam(pDoc, division, s.teamId, teamMap, teamByCodeMap, playerToTeamMap);
+      const oppInfo = resolveMatchOpponent(s.matchId, s.teamId);
+      const wkts = s.bowling?.wickets || 0;
+      const runs = s.bowling?.runsConceded || 0;
+      const overs = s.bowling?.overs || 0;
+      const maidens = s.bowling?.maidens || 0;
+      const econ = overs > 0 ? (runs / overs).toFixed(2) : '0.00';
+      const pName = pDoc?.fullName || pDoc?.name || s.playerName;
+
+      return {
+        _id: s._id,
+        id: s._id.toString(),
+        playerId: pDoc ? { _id: pDoc._id, name: pDoc.name, fullName: pDoc.fullName } : { _id: s.playerId, name: s.playerName },
+        playerProfileId: pDoc?._id || s.playerId,
+        playerName: pName,
+        team: teamInfo,
+        opponent: oppInfo,
+        date: (s.matchId as any)?.date || s.createdAt,
+        isMatchSpell: true,
+        bowling: {
+          wickets: wkts,
+          runsConceded: runs,
+          overs,
+          maidens,
+          economy: econ,
+          bestBowling: { wickets: wkts, runs }
+        }
+      };
+    });
+
     const responsePayload = {
       success: true,
       data: {
@@ -1017,7 +1162,8 @@ export const getLeaderboard = async (req: Request, res: Response): Promise<void>
         topFielders,
         topMvps,
         topFastestFifties: fastestInnings.topFastestFifties,
-        topFastestHundreds: fastestInnings.topFastestHundreds
+        topFastestHundreds: fastestInnings.topFastestHundreds,
+        topBestBowling
       }
     };
     cacheManager.set(cacheKey, responsePayload, 5 * 60 * 1000);
