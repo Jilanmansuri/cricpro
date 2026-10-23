@@ -36,6 +36,8 @@ interface BowlingItem {
   wickets?: number | string;
   wides?: number | string;
   noBalls?: number | string;
+  fiveWickets?: number | string;
+  hattricks?: number | string;
 }
 
 interface ExtrasItem {
@@ -653,12 +655,21 @@ export class MatchService {
             fielding: { catches: 0, stumpings: 0, runOuts: 0 }
           };
 
+          const wkts = Number(bowl.wickets) || 0;
+          let fiveW = Number(bowl.fiveWickets) || 0;
+          if (fiveW <= 0 && wkts >= 5) {
+            fiveW = 1;
+          }
+          const hattricks = Number(bowl.hattricks) || 0;
+
           existing.bowling = {
             didNotBowl: false,
             overs: Number(bowl.overs) || 0,
             maidens: Number(bowl.maidens) || 0,
             runsConceded: Number(bowl.runsConceded ?? bowl.runs) || 0,
-            wickets: Number(bowl.wickets) || 0
+            wickets: wkts,
+            fiveWickets: fiveW,
+            hattricks
           };
 
           playerStatsMap.set(key, existing);

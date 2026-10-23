@@ -35,6 +35,8 @@ const CareerStatsSchema = new Schema<ICareerStats>(
       maidens: { type: Number, default: 0 },
       runsConceded: { type: Number, default: 0 },
       wickets: { type: Number, default: 0 },
+      fiveWickets: { type: Number, default: 0 },
+      hattricks: { type: Number, default: 0 },
       bestBowling: {
         wickets: { type: Number, default: 0 },
         runs: { type: Number, default: 0 },

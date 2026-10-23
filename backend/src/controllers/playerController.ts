@@ -749,6 +749,22 @@ export const getLeaderboard = async (req: Request, res: Response): Promise<void>
           playerName: { $first: '$playerName' },
           lastTeamId: { $last: '$teamId' },
           matches: { $sum: 1 },
+          innings: {
+            $sum: {
+              $cond: [
+                {
+                  $or: [
+                    { $gt: ['$batting.balls', 0] },
+                    { $gt: ['$batting.runs', 0] },
+                    { $eq: ['$batting.didNotBat', false] },
+                    { $in: [{ $toLower: { $ifNull: ['$batting.outStatus', ''] } }, ['bowled', 'caught', 'lbw', 'run out', 'run_out', 'stumped', 'not_out', 'not out', 'hit wicket']] }
+                  ]
+                },
+                1,
+                0
+              ]
+            }
+          },
           runs: { $sum: '$batting.runs' },
           balls: { $sum: '$batting.balls' },
           fours: { $sum: '$batting.fours' },
@@ -819,10 +835,42 @@ export const getLeaderboard = async (req: Request, res: Response): Promise<void>
           _id: '$playerId',
           playerName: { $first: '$playerName' },
           lastTeamId: { $last: '$teamId' },
+          matches: { $sum: 1 },
+          innings: {
+            $sum: {
+              $cond: [
+                {
+                  $or: [
+                    { $gt: ['$bowling.overs', 0] },
+                    { $gt: ['$bowling.wickets', 0] },
+                    { $gt: ['$bowling.runsConceded', 0] },
+                    { $eq: ['$bowling.didNotBowl', false] }
+                  ]
+                },
+                1,
+                0
+              ]
+            }
+          },
           overs: { $sum: '$bowling.overs' },
           maidens: { $sum: '$bowling.maidens' },
           runsConceded: { $sum: '$bowling.runsConceded' },
-          wickets: { $sum: '$bowling.wickets' }
+          wickets: { $sum: '$bowling.wickets' },
+          fiveWickets: {
+            $sum: {
+              $cond: [
+                {
+                  $or: [
+                    { $gte: ['$bowling.wickets', 5] },
+                    { $gt: [{ $ifNull: ['$bowling.fiveWickets', 0] }, 0] }
+                  ]
+                },
+                { $ifNull: ['$bowling.fiveWickets', 1] },
+                0
+              ]
+            }
+          },
+          hattricks: { $sum: { $ifNull: ['$bowling.hattricks', 0] } }
         }
       },
       { $match: { wickets: { $gt: 0 } } },
@@ -879,6 +927,7 @@ export const getLeaderboard = async (req: Request, res: Response): Promise<void>
         mvps: mvpMap.get(b._id?.toString()) || 0,
         batting: {
           matches: b.matches,
+          innings: b.innings ?? b.matches,
           runs: b.runs,
           balls: b.balls,
           fours: b.fours,
@@ -903,11 +952,16 @@ export const getLeaderboard = async (req: Request, res: Response): Promise<void>
         playerName: pDoc?.name || bw.playerName,
         team: teamInfo,
         mvps: mvpMap.get(bw._id?.toString()) || 0,
+        matches: bw.matches,
         bowling: {
+          matches: bw.matches,
+          innings: bw.innings ?? 0,
           overs: bw.overs,
           maidens: bw.maidens,
           runsConceded: bw.runsConceded,
-          wickets: bw.wickets
+          wickets: bw.wickets,
+          fiveWickets: bw.fiveWickets || 0,
+          hattricks: bw.hattricks || 0
         }
       };
     });

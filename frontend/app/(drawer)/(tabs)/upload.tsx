@@ -123,7 +123,7 @@ export default function ManualMatchEntry() {
     id: Date.now().toString() + i, name: '', outStatus: 'out', runs: '0', balls: '0', fours: '0', sixes: '0'
   }));
   const initialBowling = () => Array.from({ length: 11 }).map((_, i) => ({
-    id: Date.now().toString() + i + 100, name: '', overs: '0', maidens: '0', runs: '0', wickets: '0'
+    id: Date.now().toString() + i + 100, name: '', overs: '0', maidens: '0', runs: '0', wickets: '0', hattricks: '0', fiveWickets: '0'
   }));
 
   const [batting, setBatting] = useState<any[]>(initialBatting());
@@ -141,8 +141,8 @@ export default function ManualMatchEntry() {
     ].filter(b => b.name && b.name.trim() !== '');
 
     const allBowlers = [
-      ...bowling.map(b => ({ ...b, team: matchInfo.opponentTeam || 'Team 2' })),
-      ...teamABowling.map(b => ({ ...b, team: matchInfo.teamName || 'Team 1' }))
+      ...bowling.map(b => ({ ...b, isTeamA: false, team: matchInfo.opponentTeam || 'Team 2' })),
+      ...teamABowling.map(b => ({ ...b, isTeamA: true, team: matchInfo.teamName || 'Team 1' }))
     ].filter(b => b.name && b.name.trim() !== '');
 
     const liveCenturies = allBatters.filter(b => (Number(b.runs) || 0) >= 100);
@@ -367,6 +367,8 @@ export default function ManualMatchEntry() {
             maidens: String(row.maidens ?? 0),
             runs: String(row.runsConceded ?? row.runs ?? 0),
             wickets: String(row.wickets ?? 0),
+            hattricks: String(row.hattricks ?? '0'),
+            fiveWickets: String(row.fiveWickets ?? (Number(row.wickets) >= 5 ? '1' : '0')),
           }));
           setBowling(formattedBowl);
         }
@@ -398,6 +400,8 @@ export default function ManualMatchEntry() {
             maidens: String(row.maidens ?? 0),
             runs: String(row.runsConceded ?? row.runs ?? 0),
             wickets: String(row.wickets ?? 0),
+            hattricks: String(row.hattricks ?? '0'),
+            fiveWickets: String(row.fiveWickets ?? (Number(row.wickets) >= 5 ? '1' : '0')),
           }));
           setTeamABowling(formattedTBowl);
         }
@@ -541,7 +545,7 @@ export default function ManualMatchEntry() {
   };
 
   const addBowler = () => {
-    setBowling([...bowling, { id: Date.now().toString(), name: '', overs: '0', maidens: '0', runs: '0', wickets: '0' }]);
+    setBowling([...bowling, { id: Date.now().toString(), name: '', overs: '0', maidens: '0', runs: '0', wickets: '0', hattricks: '0', fiveWickets: '0' }]);
   };
 
   const updateBowler = (id: string, field: string, value: string) => {
@@ -553,11 +557,19 @@ export default function ManualMatchEntry() {
   };
 
   const addTeamABowler = () => {
-    setTeamABowling(prev => [...prev, { id: 'ta_' + Date.now().toString(), name: '', overs: '0', maidens: '0', runs: '0', wickets: '0' }]);
+    setTeamABowling(prev => [...prev, { id: 'ta_' + Date.now().toString(), name: '', overs: '0', maidens: '0', runs: '0', wickets: '0', hattricks: '0', fiveWickets: '0' }]);
   };
 
   const updateTeamABowler = (id: string, field: string, value: string) => {
     setTeamABowling(prev => prev.map(b => b.id === id ? { ...b, [field]: value } : b));
+  };
+
+  const updateBowlerMilestone = (id: string, field: 'hattricks' | 'fiveWickets', value: string, isTeamA?: boolean) => {
+    if (isTeamA) {
+      updateTeamABowler(id, field, value);
+    } else {
+      updateBowler(id, field, value);
+    }
   };
 
   const removeTeamABowler = (id: string) => {
@@ -643,7 +655,11 @@ export default function ManualMatchEntry() {
           };
         });
       })(),
-      myTeamBowling: bowling.filter(b => b.name.trim() !== ''),
+      myTeamBowling: bowling.filter(b => b.name.trim() !== '').map(b => ({
+        ...b,
+        fiveWickets: Number(b.fiveWickets) || (Number(b.wickets) >= 5 ? 1 : 0),
+        hattricks: Number(b.hattricks) || 0,
+      })),
       teamABatting: (() => {
         return batting.filter(b => b.name.trim() !== '').map(b => {
           const r = Number(b.runs) || 0;
@@ -667,7 +683,11 @@ export default function ManualMatchEntry() {
           };
         });
       })(),
-      teamBBowling: bowling.filter(b => b.name.trim() !== ''),
+      teamBBowling: bowling.filter(b => b.name.trim() !== '').map(b => ({
+        ...b,
+        fiveWickets: Number(b.fiveWickets) || (Number(b.wickets) >= 5 ? 1 : 0),
+        hattricks: Number(b.hattricks) || 0,
+      })),
       teamBBatting: (() => {
         return teamBBatting.filter(b => b.name.trim() !== '').map(b => {
           const r = Number(b.runs) || 0;
@@ -691,7 +711,11 @@ export default function ManualMatchEntry() {
           };
         });
       })(),
-      teamABowling: teamABowling.filter(b => b.name.trim() !== ''),
+      teamABowling: teamABowling.filter(b => b.name.trim() !== '').map(b => ({
+        ...b,
+        fiveWickets: Number(b.fiveWickets) || (Number(b.wickets) >= 5 ? 1 : 0),
+        hattricks: Number(b.hattricks) || 0,
+      })),
       extrasA: { total: extrasA },
       extrasB: { total: extrasB },
       forceNew: true
@@ -1804,30 +1828,106 @@ export default function ManualMatchEntry() {
                 )}
               </View>
 
-              {/* Bowling Milestones: 3W+ Hauls */}
+              {/* Bowling Milestones: 3W+ Hauls with Hat-trick & 5W Inputs */}
               <View style={{ marginTop: 10 }}>
                 <Text style={{ color: colors.textMuted, fontSize: 11, fontWeight: '800', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                  Bowling Highlights (3+ Wickets)
+                  Bowling Highlights (3+ Wickets, Hat-tricks & 5W Hauls)
                 </Text>
 
                 {computedMilestones.topBowlers.length > 0 ? (
                   <View style={{ marginBottom: 6 }}>
-                    {computedMilestones.topBowlers.map((bw: any, i: number) => (
-                      <View key={'bw_' + i} style={[styles.milestoneBadgeRow, { backgroundColor: '#34c75918', borderColor: '#34c75950' }]}>
-                        <Text style={{ fontSize: 16 }}>🎯</Text>
-                        <View style={{ flex: 1 }}>
-                          <Text style={{ color: '#34c759', fontWeight: '800', fontSize: 13 }}>
-                            {bw.name} - {bw.wickets} Wickets
-                          </Text>
-                          <Text style={{ color: colors.textMuted, fontSize: 11 }}>
-                            {bw.team ? `${bw.team} • ` : ''}{bw.runsConceded ?? bw.runs ?? 0} runs ({bw.overs} ov)
-                          </Text>
+                    {computedMilestones.topBowlers.map((bw: any, i: number) => {
+                      const isFiveW = Number(bw.wickets) >= 5;
+                      const hasHatTrick = (Number(bw.hattricks) || 0) > 0;
+
+                      return (
+                        <View key={'bw_' + (bw.id || i)} style={[styles.milestoneCardBox, { backgroundColor: '#10b98112', borderColor: '#10b98150', marginBottom: 8 }]}>
+                          <View style={styles.milestoneCardTop}>
+                            <Text style={{ fontSize: 20 }}>🎯</Text>
+                            <View style={{ flex: 1 }}>
+                              <Text style={{ color: '#10b981', fontWeight: '900', fontSize: 14 }}>
+                                {bw.name} - {bw.wickets} Wickets
+                              </Text>
+                              <Text style={{ color: colors.textMuted, fontSize: 11, marginTop: 2 }}>
+                                {bw.team ? `${bw.team} • ` : ''}{bw.runsConceded ?? bw.runs ?? 0} runs ({bw.overs} ov)
+                              </Text>
+                            </View>
+                            <View style={[styles.pillBadge, { backgroundColor: isFiveW ? '#f59e0b' : '#10b981' }]}>
+                              <Text style={{ color: '#fff', fontSize: 10, fontWeight: '900' }}>
+                                {isFiveW ? '5W HAUL' : `${bw.wickets}W HAUL`}
+                              </Text>
+                            </View>
+                          </View>
+
+                          {/* Editable Hat-trick and 5W Haul Inputs */}
+                          <View style={[styles.milestoneInputSection, { borderTopColor: '#10b98130', flexDirection: 'row', gap: 10 }]}>
+                            {/* Hat-trick Input / Quick Toggle */}
+                            <View style={{ flex: 1 }}>
+                              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                                <Text style={{ fontSize: 11, fontWeight: '800', color: '#10b981' }}>
+                                  🎩 Hat-trick li?
+                                </Text>
+                                <Text style={{ fontSize: 9.5, color: colors.textMuted }}>
+                                  (3 balls 3 wkts)
+                                </Text>
+                              </View>
+                              <View style={styles.inlineInputGroup}>
+                                <TextInput
+                                  style={[styles.milestoneInput, { backgroundColor: colors.surface, color: colors.text, borderColor: '#10b98160' }]}
+                                  value={String(bw.hattricks ?? '0')}
+                                  onChangeText={val => updateBowlerMilestone(bw.id, 'hattricks', val, bw.isTeamA)}
+                                  placeholder="0"
+                                  placeholderTextColor={colors.textMuted}
+                                  keyboardType="numeric"
+                                />
+                                <TouchableOpacity
+                                  activeOpacity={0.7}
+                                  onPress={() => {
+                                    const nextVal = hasHatTrick ? '0' : '1';
+                                    updateBowlerMilestone(bw.id, 'hattricks', nextVal, bw.isTeamA);
+                                  }}
+                                  style={[
+                                    styles.inlineInputBadge,
+                                    { backgroundColor: hasHatTrick ? '#10b981' : '#10b98125' }
+                                  ]}
+                                >
+                                  <Text style={{ color: hasHatTrick ? '#fff' : '#10b981', fontWeight: '900', fontSize: 11 }}>
+                                    {hasHatTrick ? '✓ 1 HAT-TRICK' : '+ ADD 1'}
+                                  </Text>
+                                </TouchableOpacity>
+                              </View>
+                            </View>
+
+                            {/* 5-Wicket Haul confirmation box (if wickets >= 5) */}
+                            {isFiveW && (
+                              <View style={{ flex: 1 }}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                                  <Text style={{ fontSize: 11, fontWeight: '800', color: '#f59e0b' }}>
+                                    🔥 5W Haul
+                                  </Text>
+                                  <Text style={{ fontSize: 9.5, color: colors.textMuted }}>
+                                    (Auto-detected)
+                                  </Text>
+                                </View>
+                                <View style={styles.inlineInputGroup}>
+                                  <TextInput
+                                    style={[styles.milestoneInput, { backgroundColor: colors.surface, color: colors.text, borderColor: '#f59e0b60' }]}
+                                    value={String(bw.fiveWickets ?? '1')}
+                                    onChangeText={val => updateBowlerMilestone(bw.id, 'fiveWickets', val, bw.isTeamA)}
+                                    placeholder="1"
+                                    placeholderTextColor={colors.textMuted}
+                                    keyboardType="numeric"
+                                  />
+                                  <View style={[styles.inlineInputBadge, { backgroundColor: '#f59e0b25' }]}>
+                                    <Text style={{ color: '#f59e0b', fontWeight: '900', fontSize: 11 }}>5W</Text>
+                                  </View>
+                                </View>
+                              </View>
+                            )}
+                          </View>
                         </View>
-                        <View style={[styles.pillBadge, { backgroundColor: '#34c759' }]}>
-                          <Text style={{ color: '#fff', fontSize: 10, fontWeight: '900' }}>{bw.wickets}W HAUL</Text>
-                        </View>
-                      </View>
-                    ))}
+                      );
+                    })}
                   </View>
                 ) : (
                   <Text style={{ color: colors.textMuted, fontSize: 12, fontStyle: 'italic', marginBottom: 4 }}>

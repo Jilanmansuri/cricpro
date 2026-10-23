@@ -176,6 +176,8 @@ export default function PlayerCareerScreen() {
           econ,
           maidens: bw.maidens || 0,
           runsConceded: bw.runsConceded || 0,
+          fiveWickets: bw.fiveWickets || 0,
+          hattricks: bw.hattricks || 0,
           bestBowling: bw.bestBowling || { wickets: 0, runs: 0 },
         },
         fielding: {
@@ -201,6 +203,8 @@ export default function PlayerCareerScreen() {
     let overs = 0;
     let runsConceded = 0;
     let maidens = 0;
+    let fiveWickets = 0;
+    let hattricks = 0;
     let bestWickets = 0;
     let bestRuns = 999;
 
@@ -243,6 +247,11 @@ export default function PlayerCareerScreen() {
       overs += bowl.overs || 0;
       runsConceded += bowl.runsConceded || 0;
       maidens += bowl.maidens || 0;
+
+      let hist5W = bowl.fiveWickets || 0;
+      if (hist5W <= 0 && (bowl.wickets || 0) >= 5) hist5W = 1;
+      fiveWickets += hist5W;
+      hattricks += bowl.hattricks || 0;
 
       if (bowl.wickets > bestWickets || (bowl.wickets === bestWickets && bowl.runsConceded < bestRuns)) {
         bestWickets = bowl.wickets;
@@ -295,6 +304,8 @@ export default function PlayerCareerScreen() {
         econ,
         maidens,
         runsConceded,
+        fiveWickets,
+        hattricks,
         bestBowling: { wickets: bestWickets, runs: bestRuns === 999 ? 0 : bestRuns },
       },
       fielding: { catches, stumpings, runOuts },
@@ -591,6 +602,8 @@ export default function PlayerCareerScreen() {
       econ: 0,
       maidens: 0,
       runsConceded: 0,
+      fiveWickets: 0,
+      hattricks: 0,
       bestBowling: { wickets: 0, runs: 0 },
     },
     fielding: {
@@ -1089,6 +1102,20 @@ export default function PlayerCareerScreen() {
               {bowling.wickets > 0 ? (bowling.runsConceded / bowling.wickets).toFixed(1) : '—'}
             </Text>
             <Text style={[styles.gridLabel, { color: colors.textMuted }]}>Bowling Avg</Text>
+          </View>
+        </View>
+        <View style={[styles.gridRow, { marginTop: 16 }]}>
+          <View style={styles.gridCol}>
+            <Text style={[styles.gridVal, { color: '#f59e0b' }]}>{bowling.fiveWickets || 0}</Text>
+            <Text style={[styles.gridLabel, { color: colors.textMuted }]}>5W Hauls</Text>
+          </View>
+          <View style={styles.gridCol}>
+            <Text style={[styles.gridVal, { color: '#10b981' }]}>{bowling.hattricks || 0}</Text>
+            <Text style={[styles.gridLabel, { color: colors.textMuted }]}>Hat-tricks</Text>
+          </View>
+          <View style={styles.gridCol}>
+            <Text style={[styles.gridVal, { color: colors.text }]}>{bowling.innings || 0}</Text>
+            <Text style={[styles.gridLabel, { color: colors.textMuted }]}>Innings Bowled</Text>
           </View>
         </View>
       </Card>

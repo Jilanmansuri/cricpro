@@ -40,6 +40,8 @@ export interface ICareerStats extends Document {
     maidens: number;
     runsConceded: number;
     wickets: number;
+    fiveWickets?: number;
+    hattricks?: number;
     bestBowling: {
       wickets: number;
       runs: number;
@@ -197,6 +199,8 @@ export interface IPlayerMatchStats extends Document {
     maidens: number;
     runsConceded: number;
     wickets: number;
+    fiveWickets?: number;
+    hattricks?: number;
   };
   fielding: {
     catches: number;

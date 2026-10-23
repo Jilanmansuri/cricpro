@@ -141,8 +141,8 @@ export default function StatsLeaderboardTab() {
   const [bowlingSort, setBowlingSort] = useState('Wickets');
   const [fieldingSort, setFieldingSort] = useState('Catches');
   
-  const battingFilters = ['Runs', 'Highest Score', 'Average', 'Strike Rate', '100s', '50s', 'Fastest 50', 'Fastest 100', 'Sixes', 'Fours', 'MVPs', '⭐ Ranking'];
-  const bowlingFilters = ['Wickets', 'Economy', 'Average', 'Maidens', 'MVPs', '⭐ Ranking'];
+  const battingFilters = ['Runs', 'Innings', 'Highest Score', 'Average', 'Strike Rate', '100s', '50s', 'Fastest 50', 'Fastest 100', 'Sixes', 'Fours', 'MVPs', '⭐ Ranking'];
+  const bowlingFilters = ['Wickets', 'Innings', 'Economy', 'Average', '5W Haul', 'Hat-tricks', 'Maidens', 'MVPs', '⭐ Ranking'];
   const fieldingFilters = ['Catches', 'Run Outs', 'Stumpings', 'Total Dismissals'];
 
   const fetchRankingsData = async (fmt = rankingFormat, scp = rankingScope, win = rankingWindow) => {
@@ -303,7 +303,8 @@ export default function StatsLeaderboardTab() {
     const stats = item.batting;
     const team = resolveDisplayTeam(player, item.team, selectedDivision);
     const strikeRate = stats.balls > 0 ? ((stats.runs / stats.balls) * 100).toFixed(1) : '0.0';
-    const outs = (stats.matches || 1) - (stats.notOuts || 0);
+    const inningsCount = stats.innings !== undefined ? stats.innings : (stats.matches || 1);
+    const outs = Math.max(0, inningsCount - (stats.notOuts || 0));
     const average = outs > 0 ? (stats.runs / outs).toFixed(1) : stats.runs.toString();
     const displayName = getDisplayPlayerName(player);
 
@@ -356,20 +357,21 @@ export default function StatsLeaderboardTab() {
                 </>
               ) : (
                 <>
-                  <Text style={[styles.subText, { color: colors.textMuted }]} numberOfLines={1}>
-                    Runs: <Text style={{ color: colors.text, fontWeight: '700' }}>{stats.runs}</Text> • HS: <Text style={{ color: colors.primary, fontWeight: '700' }}>{stats.highestScore || 0}</Text> • SR: {strikeRate}
+                  <Text style={[styles.subText, { color: colors.textMuted }]}>
+                    Inn: <Text style={{ color: colors.text, fontWeight: '700' }}>{stats.innings ?? stats.matches ?? 0}</Text> | Runs: <Text style={{ color: colors.text, fontWeight: '700' }}>{stats.runs}</Text> | HS: <Text style={{ color: colors.primary, fontWeight: '700' }}>{stats.highestScore || 0}</Text> | SR: {strikeRate}
                   </Text>
-                  <Text style={[styles.matchDateText, { color: colors.textMuted }]} numberOfLines={1}>
-                    Avg: {average} • 100s: {stats.hundreds || 0} • 50s: {stats.fifties || 0}
-                    {stats.fastestFifty ? ` • F50: ${stats.fastestFifty}b` : ''}
-                    {stats.fastestHundred ? ` • F100: ${stats.fastestHundred}b` : ''}
+                  <Text style={[styles.matchDateText, { color: colors.textMuted }]}>
+                    Avg: {average} | 100s: {stats.hundreds || 0} | 50s: {stats.fifties || 0}
+                    {stats.fastestFifty ? ` | F50: ${stats.fastestFifty}b` : ''}
+                    {stats.fastestHundred ? ` | F100: ${stats.fastestHundred}b` : ''}
                   </Text>
                 </>
               )}
             </View>
             <View style={styles.statsRight}>
               <Text style={[styles.mainStat, (battingSort === 'MVPs' || battingSort === 'Fastest 50' || battingSort === 'Fastest 100') ? { color: '#F59E0B' } : { color: colors.text }]}>
-                {battingSort === 'Average' ? average :
+                {battingSort === 'Innings' ? (stats.innings ?? stats.matches ?? 0) :
+                 battingSort === 'Average' ? average :
                  battingSort === 'Strike Rate' ? strikeRate :
                  battingSort === 'Highest Score' ? (stats.highestScore || 0) :
                  battingSort === 'Sixes' ? stats.sixes :
@@ -382,7 +384,8 @@ export default function StatsLeaderboardTab() {
                  stats.runs}
               </Text>
               <Text style={[styles.statLabel, { color: colors.textMuted }]}>
-                {battingSort === 'Highest Score' ? 'High Score' :
+                {battingSort === 'Innings' ? 'Innings' :
+                 battingSort === 'Highest Score' ? 'High Score' :
                  battingSort === 'Runs' ? 'Runs' :
                  battingSort === 'Fastest 50' ? 'Balls' :
                  battingSort === 'Fastest 100' ? 'Balls' :
@@ -436,26 +439,35 @@ export default function StatsLeaderboardTab() {
                   </View>
                 ) : null}
               </View>
-              <Text style={[styles.subText, { color: colors.textMuted }]} numberOfLines={1}>
-                Econ: <Text style={{ color: colors.text, fontWeight: '700' }}>{economy}</Text> • Avg: {average}
+              <Text style={[styles.subText, { color: colors.textMuted }]}>
+                Inn: <Text style={{ color: colors.text, fontWeight: '700' }}>{stats.innings ?? 0}</Text> | Econ: <Text style={{ color: colors.text, fontWeight: '700' }}>{economy}</Text> | Avg: {average}
               </Text>
-              <Text style={[styles.matchDateText, { color: colors.textMuted }]} numberOfLines={1}>
-                Overs: {stats.overs} • Runs: {stats.runsConceded}
+              <Text style={[styles.matchDateText, { color: colors.textMuted }]}>
+                Overs: {stats.overs} | Runs: {stats.runsConceded}
+                {((stats.fiveWickets || 0) > 0 || (stats.hattricks || 0) > 0) ? (
+                  ` | ${stats.fiveWickets || 0}x5W${(stats.hattricks || 0) > 0 ? `, ${stats.hattricks}x🎩` : ''}`
+                ) : ''}
               </Text>
             </View>
             <View style={styles.statsRight}>
-              <Text style={[styles.mainStat, bowlingSort === 'MVPs' ? { color: '#F59E0B' } : { color: colors.text }]}>
-                {bowlingSort === 'Economy' ? economy :
+              <Text style={[styles.mainStat, (bowlingSort === 'MVPs' || bowlingSort === '5W Haul' || bowlingSort === 'Hat-tricks') ? { color: '#F59E0B' } : { color: colors.text }]}>
+                {bowlingSort === 'Innings' ? (stats.innings ?? 0) :
+                 bowlingSort === 'Economy' ? economy :
                  bowlingSort === 'Average' ? average :
+                 bowlingSort === '5W Haul' ? (stats.fiveWickets || 0) :
+                 bowlingSort === 'Hat-tricks' ? (stats.hattricks || 0) :
                  bowlingSort === 'Maidens' ? (stats.maidens || 0) :
                  bowlingSort === 'MVPs' ? (item.mvps || 0) :
                  stats.wickets}
               </Text>
               <Text style={[styles.statLabel, { color: colors.textMuted }]}>
-                {bowlingSort === 'MVPs' ? 'MVPs' :
+                {bowlingSort === 'Innings' ? 'Innings' :
+                 bowlingSort === 'MVPs' ? 'MVPs' :
                  bowlingSort === 'Wickets' ? 'Wickets' :
                  bowlingSort === 'Economy' ? 'Econ' :
                  bowlingSort === 'Average' ? 'Avg' :
+                 bowlingSort === '5W Haul' ? '5W Hauls' :
+                 bowlingSort === 'Hat-tricks' ? 'Hat-tricks' :
                  bowlingSort === 'Maidens' ? 'Maidens' : bowlingSort}
               </Text>
             </View>
@@ -506,11 +518,11 @@ export default function StatsLeaderboardTab() {
                   </View>
                 ) : null}
               </View>
-              <Text style={[styles.subText, { color: colors.textMuted }]} numberOfLines={1}>
-                Catches: <Text style={{ color: colors.text, fontWeight: '700' }}>{catches}</Text> • Run Outs: {runOuts}
+              <Text style={[styles.subText, { color: colors.textMuted }]}>
+                Catches: <Text style={{ color: colors.text, fontWeight: '700' }}>{catches}</Text> | Run Outs: {runOuts}
               </Text>
-              <Text style={[styles.matchDateText, { color: colors.textMuted }]} numberOfLines={1}>
-                Stumpings: {stumpings} • Matches: {item.matches || 0}
+              <Text style={[styles.matchDateText, { color: colors.textMuted }]}>
+                Stumpings: {stumpings} | Matches: {item.matches || 0}
               </Text>
             </View>
             <View style={styles.statsRight}>
@@ -860,14 +872,17 @@ export default function StatsLeaderboardTab() {
         const srA = statsA.balls > 0 ? (statsA.runs / statsA.balls) * 100 : 0;
         const srB = statsB.balls > 0 ? (statsB.runs / statsB.balls) * 100 : 0;
         
-        const outsA = statsA.matches - (statsA.notOuts || 0);
+        const inngsA = statsA.innings !== undefined ? statsA.innings : (statsA.matches || 1);
+        const outsA = Math.max(0, inngsA - (statsA.notOuts || 0));
         const avgA = outsA > 0 ? statsA.runs / outsA : statsA.runs;
         
-        const outsB = statsB.matches - (statsB.notOuts || 0);
+        const inngsB = statsB.innings !== undefined ? statsB.innings : (statsB.matches || 1);
+        const outsB = Math.max(0, inngsB - (statsB.notOuts || 0));
         const avgB = outsB > 0 ? statsB.runs / outsB : statsB.runs;
 
         switch(battingSort) {
           case 'Runs': return statsB.runs - statsA.runs;
+          case 'Innings': return ((statsB.innings ?? statsB.matches ?? 0) - (statsA.innings ?? statsA.matches ?? 0)) || (statsB.runs - statsA.runs);
           case 'Average': return avgB - avgA;
           case 'Strike Rate': return srB - srA;
           case 'Highest Score': return (statsB.highestScore || 0) - (statsA.highestScore || 0);
@@ -905,8 +920,11 @@ export default function StatsLeaderboardTab() {
 
         switch(bowlingSort) {
           case 'Wickets': return statsB.wickets - statsA.wickets;
+          case 'Innings': return ((statsB.innings ?? 0) - (statsA.innings ?? 0)) || (statsB.wickets - statsA.wickets);
           case 'Economy': return econA - econB;
           case 'Average': return avgA - avgB;
+          case '5W Haul': return (statsB.fiveWickets || 0) - (statsA.fiveWickets || 0) || (statsB.wickets - statsA.wickets);
+          case 'Hat-tricks': return (statsB.hattricks || 0) - (statsA.hattricks || 0) || (statsB.wickets - statsA.wickets);
           case 'Maidens': return (statsB.maidens || 0) - (statsA.maidens || 0);
           case 'MVPs': return (b.mvps || 0) - (a.mvps || 0) || ((statsB.wickets || 0) - (statsA.wickets || 0));
           default: return statsB.wickets - statsA.wickets;

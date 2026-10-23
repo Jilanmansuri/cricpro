@@ -41,6 +41,8 @@ const PlayerMatchStatsSchema = new Schema<IPlayerMatchStats>(
       maidens: { type: Number, default: 0 },
       runsConceded: { type: Number, default: 0 },
       wickets: { type: Number, default: 0 },
+      fiveWickets: { type: Number, default: 0 },
+      hattricks: { type: Number, default: 0 },
     },
     fielding: {
       catches: { type: Number, default: 0 },

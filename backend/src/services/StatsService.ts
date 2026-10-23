@@ -56,6 +56,8 @@ export class StatsService {
     let maidens = 0;
     let runsConceded = 0;
     let wickets = 0;
+    let fiveWickets = 0;
+    let hattricks = 0;
     let bestWickets = 0;
     let bestRunsConceded = 999;
 
@@ -116,6 +118,16 @@ export class StatsService {
         maidens += stats.bowling.maidens;
         runsConceded += stats.bowling.runsConceded;
         wickets += stats.bowling.wickets;
+
+        // Auto-count 5-wicket hauls if wickets >= 5 or if fiveWickets > 0 recorded
+        if (stats.bowling.wickets >= 5 || (stats.bowling.fiveWickets && stats.bowling.fiveWickets > 0)) {
+          fiveWickets += (stats.bowling.fiveWickets || 1);
+        }
+
+        // Track hat-tricks
+        if (stats.bowling.hattricks && stats.bowling.hattricks > 0) {
+          hattricks += stats.bowling.hattricks;
+        }
 
         const w = stats.bowling.wickets;
         const rCon = stats.bowling.runsConceded;
@@ -195,6 +207,8 @@ export class StatsService {
           maidens,
           runsConceded,
           wickets,
+          fiveWickets,
+          hattricks,
           bestBowling: {
             wickets: bestWickets,
             runs: bestRunsConceded === 999 ? 0 : bestRunsConceded,
