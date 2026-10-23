@@ -489,7 +489,7 @@ export const getLeaderboard = async (req: Request, res: Response): Promise<void>
     };
 
     const fetchFastestInnings = async (filter: any) => {
-      const minMilestoneDate = new Date('2026-10-13T00:00:00.000Z');
+      const minMilestoneDate = new Date('2026-10-10T00:00:00.000Z');
 
       const f50Docs = await PlayerMatchStats.find({
         ...filter,
@@ -506,7 +506,8 @@ export const getLeaderboard = async (req: Request, res: Response): Promise<void>
       for (const s of f50Docs) {
         const matchDoc = (s as any).matchId;
         const matchDate = matchDoc?.date ? new Date(matchDoc.date) : ((s as any).createdAt ? new Date((s as any).createdAt) : null);
-        if (!matchDate || matchDate < minMilestoneDate) continue;
+        const hasExplicitF50 = typeof (s as any).batting?.fastestFiftyBalls === 'number' && (s as any).batting.fastestFiftyBalls > 0;
+        if (!hasExplicitF50 && (!matchDate || matchDate < minMilestoneDate)) continue;
 
         const fBalls = (s as any).batting?.fastestFiftyBalls || ((s as any).batting?.runs >= 50 && (s as any).batting?.balls > 0 ? (s as any).batting.balls : null);
         if (!fBalls || fBalls <= 0) continue;
@@ -562,7 +563,8 @@ export const getLeaderboard = async (req: Request, res: Response): Promise<void>
       for (const s of f100Docs) {
         const matchDoc = (s as any).matchId;
         const matchDate = matchDoc?.date ? new Date(matchDoc.date) : ((s as any).createdAt ? new Date((s as any).createdAt) : null);
-        if (!matchDate || matchDate < minMilestoneDate) continue;
+        const hasExplicitF100 = typeof (s as any).batting?.fastestHundredBalls === 'number' && (s as any).batting.fastestHundredBalls > 0;
+        if (!hasExplicitF100 && (!matchDate || matchDate < minMilestoneDate)) continue;
 
         const fBalls = (s as any).batting?.fastestHundredBalls || ((s as any).batting?.runs >= 100 && (s as any).batting?.balls > 0 ? (s as any).batting.balls : null);
         if (!fBalls || fBalls <= 0) continue;
