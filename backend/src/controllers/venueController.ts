@@ -13,15 +13,19 @@ export const getVenues = async (req: Request, res: Response): Promise<void> => {
     const userId = (req as any).user?._id;
     const query: any = {};
     if (userId) {
-      query.createdBy = userId;
+      query.$or = [{ createdBy: userId }, { createdBy: { $exists: false } }, { createdBy: null }];
     }
 
-    // 1. Fetch user's venues from Venue collection
+    // 1. Fetch user's venues + global venues from Venue collection
     const userVenues = await venueRepository.find(query, { sort: { updatedAt: -1 }, limit: 50 });
 
     // 2. Also fetch any populated distinct venue names from user's matches
+    const matchQuery: any = {};
+    if (userId) {
+      matchQuery.createdBy = userId;
+    }
     const recentMatches = await matchRepository.find(
-      query,
+      matchQuery,
       { sort: { date: -1 }, limit: 50, populate: 'venueId' }
     );
 

@@ -12,7 +12,9 @@ export class VenueRepository extends BaseRepository<IVenue> {
     const filter: any = {
       name: { $regex: new RegExp(`^${name}$`, 'i') }
     };
-    if (userId) filter.createdBy = userId;
+    if (userId) {
+      filter.$or = [{ createdBy: userId }, { createdBy: { $exists: false } }, { createdBy: null }];
+    }
     return await this.model.findOne(filter).session(session || null).exec();
   }
 }

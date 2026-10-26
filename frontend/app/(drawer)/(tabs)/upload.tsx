@@ -2049,7 +2049,7 @@ export default function ManualMatchEntry() {
                   </View>
                   {field.key === 'venueName' && (
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8, marginTop: 4 }}>
-                      {POPULAR_STADIUM_CHIPS.slice(0, 8).map((chip) => {
+                      {POPULAR_STADIUM_CHIPS.map((chip) => {
                         const isSelected = field.value === chip.fullName;
                         return (
                           <TouchableOpacity
