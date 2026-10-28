@@ -6,7 +6,8 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/server.js",
-    "dev": "nodemon --watch src --watch .env -e ts --exec ts-node src/server.ts"
+    "dev": "nodemon --watch src --watch .env -e ts --exec ts-node src/server.ts",
+    "update:stats": "npx tsx src/scripts/triggerUpdate.ts"
   },
   "dependencies": {
     "@google/genai": "^2.21.0",

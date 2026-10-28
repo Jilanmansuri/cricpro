@@ -32,7 +32,8 @@ export const connectDB = async (retryCount = 0): Promise<void> => {
   isConnecting = true;
 
   try {
-    await mongoose.connect(MONGO_URI, {
+    const uri = process.env.MONGO_URI || MONGO_URI;
+    await mongoose.connect(uri, {
       maxPoolSize: 20,              // Keep up to 20 connections in pool
       minPoolSize: 5,               // Maintain at least 5 warm connections to prevent drops
       serverSelectionTimeoutMS: 15000, // 15s timeout for server discovery
