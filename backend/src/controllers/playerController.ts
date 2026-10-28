@@ -885,7 +885,7 @@ export const getLeaderboard = async (req: Request, res: Response): Promise<void>
                 { $gte: ['$batting.runs', 100] },
                 1,
                 0
-              ]
+              ]   
             }
           },
           fastestFifty: {
