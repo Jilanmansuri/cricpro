@@ -242,8 +242,8 @@ export const getPlayerHistory = async (req: Request, res: Response): Promise<voi
       const batSixes = Number(stats.batting?.sixes) || 0;
       const outStatus = stats.batting?.outStatus || (stats.batting?.didNotBat ? 'dnb' : 'not_out');
 
-      const batSR = batBalls > 0 
-        ? parseFloat(((batRuns / batBalls) * 100).toFixed(2)) 
+      const batSR = batBalls > 0
+        ? parseFloat(((batRuns / batBalls) * 100).toFixed(2))
         : 0;
 
       const oversNum = Number(stats.bowling?.overs) || 0;
@@ -251,14 +251,14 @@ export const getPlayerHistory = async (req: Request, res: Response): Promise<voi
       const wickets = Number(stats.bowling?.wickets) || 0;
       const maidens = Number(stats.bowling?.maidens) || 0;
 
-      const bowlEcon = oversNum > 0 
-        ? parseFloat((runsConceded / oversNum).toFixed(2)) 
+      const bowlEcon = oversNum > 0
+        ? parseFloat((runsConceded / oversNum).toFixed(2))
         : 0;
 
       const oversLimit = Number(match.overs) || 20;
       const format = oversLimit <= 10 ? 'T10' : oversLimit <= 20 ? 'T20' : oversLimit <= 50 ? 'ODI' : 'Custom';
 
-      const isMvp = match.mvp 
+      const isMvp = match.mvp
         ? (match.mvp._id?.toString() === playerId.toString() || match.mvp.name?.toLowerCase() === stats.playerName?.toLowerCase())
         : false;
 
@@ -632,7 +632,7 @@ export const getLeaderboard = async (req: Request, res: Response): Promise<void>
         baseFilter,
         { sort: { 'batting.runs': -1 }, limit: 200, populate: 'playerId' }
       );
-      
+
       const bowlFilter: any = { 'bowling.wickets': { $gt: 0 } };
       if (userId) bowlFilter.playerId = { $in: userPlayerIds };
       const topBowlersDocs = await careerStatsRepository.find(
