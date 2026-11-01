@@ -142,6 +142,7 @@ export default function StatsLeaderboardTab() {
   const [battingSort, setBattingSort] = useState('Runs');
   const [bowlingSort, setBowlingSort] = useState('Wickets');
   const [fieldingSort, setFieldingSort] = useState('Catches');
+  const [refreshing, setRefreshing] = useState(false);
   
   const battingFilters = ['Runs', 'Innings', 'Highest Score', 'Average', 'Strike Rate', '100s', '50s', 'Fastest 50', 'Fastest 100', 'Sixes', 'Fours', 'MVPs', '⭐ Ranking'];
   const bowlingFilters = ['Wickets', 'Best Bowling', 'Innings', 'Economy', 'Average', '5W Haul', 'Hat-tricks', 'Maidens', 'MVPs', '⭐ Ranking'];
