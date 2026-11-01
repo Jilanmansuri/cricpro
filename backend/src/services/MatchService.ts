@@ -524,10 +524,34 @@ export class MatchService {
         }
       }
 
-      // If not an explicit update by matchId, ALWAYS create a new Match record.
-      // This ensures subsequent matches played/uploaded on the same day between the same teams
-      // are saved as separate matches and NEVER overwrite or erase previous match data.
+      // If not an explicit update by matchId, check for duplicates before creating
       if (!match) {
+        // Prevent duplicate match creation (same teams, same date, identical scores for this user)
+        const matchDate = date ? new Date(date) : new Date();
+        const startOfDay = new Date(matchDate);
+        startOfDay.setHours(0, 0, 0, 0);
+        const endOfDay = new Date(matchDate);
+        endOfDay.setHours(23, 59, 59, 999);
+
+        const dupQuery: any = {
+          date: { $gte: startOfDay, $lte: endOfDay },
+          $or: [
+            { teamA: teamA._id, teamB: teamB._id },
+            { teamA: teamB._id, teamB: teamA._id }
+          ],
+          'teamAScore.runs': finalTeamAScore.runs,
+          'teamBScore.runs': finalTeamBScore.runs,
+        };
+        if (userId) {
+          dupQuery.createdBy = new Types.ObjectId(userId);
+        }
+
+        const existingDuplicate = await this.matchRepository.findOne(dupQuery, ['teamA', 'teamB', 'venueId']);
+        if (existingDuplicate) {
+          console.log(`[MatchService] Duplicate match detected: Match ${existingDuplicate._id} already exists between ${teamA.name} and ${teamB.name} with score ${finalTeamAScore.runs} vs ${finalTeamBScore.runs}. Re-using existing match.`);
+          return existingDuplicate;
+        }
+
         console.log(`[MatchService] Creating brand new match record between ${teamA.name} and ${teamB.name}...`);
         match = await this.matchRepository.create({
           tournamentId: tournamentId ? new Types.ObjectId(tournamentId) : undefined,

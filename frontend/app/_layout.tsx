@@ -8,6 +8,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { prewarmBackend } from '../services/api';
 import * as Updates from 'expo-updates';
 import * as SplashScreen from 'expo-splash-screen';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -30,7 +31,9 @@ const NavigationLayout = () => {
     if (!__DEV__) {
       Updates.checkForUpdateAsync()
         .then(async (res) => {
+          await AsyncStorage.setItem('@cricstats_last_update_check', new Date().toISOString()).catch(() => {});
           if (res.isAvailable) {
+            await AsyncStorage.setItem('@cricstats_last_update_installed', new Date().toISOString()).catch(() => {});
             await Updates.fetchUpdateAsync();
             await Updates.reloadAsync();
           }

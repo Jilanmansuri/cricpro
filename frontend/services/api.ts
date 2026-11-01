@@ -177,7 +177,7 @@ export const removeStoredUser = async (): Promise<void> => {
 
 const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 60000,
+  timeout: 120000, // 2 minutes to prevent premature timeouts during heavy stats recalculations
   headers: {
     'Content-Type': 'application/json',
   },

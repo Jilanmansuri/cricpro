@@ -77,6 +77,7 @@ export default function ManualMatchEntry() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
+  const isSavingRef = useRef(false);
   const [isOcrLoading, setIsOcrLoading] = useState(false);
   const [ocrStatusText, setOcrStatusText] = useState<string>('');
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
@@ -597,6 +598,7 @@ export default function ManualMatchEntry() {
       return;
     }
 
+    isSavingRef.current = true;
     setIsSaving(true);
     const calcTeamAWickets = batting.filter(b => {
       const s = (b.outStatus || '').toLowerCase();
@@ -722,15 +724,16 @@ export default function ManualMatchEntry() {
     };
 
     try {
-      // Try /matches/save (with fallback to /manual-match/save)
+      // Try /matches/save (with fallback to /manual-match/save ONLY if 404 Not Found)
       let response;
       try {
         response = await api.post('/matches/save', payload);
       } catch (firstErr: any) {
-        if (firstErr.response && firstErr.response.status >= 400 && firstErr.response.status < 500 && firstErr.response.status !== 404) {
+        if (firstErr.response && firstErr.response.status === 404) {
+          response = await api.post('/manual-match/save', payload);
+        } else {
           throw firstErr;
         }
-        response = await api.post('/manual-match/save', payload);
       }
 
       if (response.data.success) {
@@ -782,6 +785,7 @@ export default function ManualMatchEntry() {
       setShowErrorModal(true);
     } finally {
       setIsSaving(false);
+      isSavingRef.current = false;
     }
   };
 
