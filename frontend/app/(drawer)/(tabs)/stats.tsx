@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity, ScrollView, Image, Animated } from 'react-native';
+import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity, ScrollView, Image, Animated, RefreshControl } from 'react-native';
 import { useTheme } from '../../../components/Theme';
 import Card from '../../../components/Card';
 import Avatar from '../../../components/Avatar';
@@ -164,6 +164,34 @@ export default function StatsLeaderboardTab() {
       }
     } catch (err) {
       console.error('Error fetching rankings:', err);
+    }
+  };
+
+  const handleManualRefresh = async () => {
+    setRefreshing(true);
+    clientCache.clear();
+    try {
+      const [lbRes, recRes, rankRes] = await Promise.allSettled([
+        api.get(`/players/leaderboard?division=${selectedDivision}`),
+        api.get(`/players/records?division=${selectedDivision}`),
+        api.get(`/players/rankings?format=${rankingFormat}&scope=${rankingScope}&window=${rankingWindow}&limit=10`)
+      ]);
+      if (lbRes.status === 'fulfilled' && lbRes.value?.data?.success) {
+        setLeaderboard(lbRes.value.data.data);
+        clientCache.set(`leaderboard_${selectedDivision}`, lbRes.value.data.data);
+      }
+      if (recRes.status === 'fulfilled' && recRes.value?.data?.success) {
+        setRecords(recRes.value.data.data);
+        clientCache.set(`records_${selectedDivision}`, recRes.value.data.data);
+      }
+      if (rankRes.status === 'fulfilled' && rankRes.value?.data?.success) {
+        setRankings(rankRes.value.data.data);
+        clientCache.set(`rankings_${rankingFormat}_${rankingScope}_${rankingWindow}_10`, rankRes.value.data.data);
+      }
+    } catch (err) {
+      console.error('Error refreshing stats:', err);
+    } finally {
+      setRefreshing(false);
     }
   };
 
@@ -870,7 +898,7 @@ export default function StatsLeaderboardTab() {
                   letterSpacing: 0.3,
                 }}
               >
-                {rankingWindow === 'recent' ? 'FORM (10M)' : 'CAREER'}
+                {rankingWindow === 'recent' ? 'FORM (20M)' : 'CAREER'}
               </Text>
             </View>
 
@@ -1034,9 +1062,25 @@ export default function StatsLeaderboardTab() {
           <View style={[styles.divisionCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <View style={styles.divisionHeaderRow}>
               <Text style={[styles.divisionTitle, { color: colors.text }]}>🏆 Cricket Division</Text>
-              <Text style={[styles.divisionBadge, { color: colors.primary, backgroundColor: colors.primary + '18' }]}>
-                {selectedDivision === 'all' ? 'All Competitions' : selectedDivision === 'international' ? 'ICC International' : 'IPL Franchise'}
-              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <TouchableOpacity
+                  style={[
+                    styles.refreshStatsBtn,
+                    { backgroundColor: colors.surfaceLighter, borderColor: colors.border }
+                  ]}
+                  onPress={handleManualRefresh}
+                  disabled={refreshing}
+                >
+                  {refreshing ? (
+                    <ActivityIndicator size="small" color={colors.primary} />
+                  ) : (
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: colors.primary }}>🔄 Refresh</Text>
+                  )}
+                </TouchableOpacity>
+                <Text style={[styles.divisionBadge, { color: colors.primary, backgroundColor: colors.primary + '18' }]}>
+                  {selectedDivision === 'all' ? 'All' : selectedDivision === 'international' ? 'International' : 'IPL'}
+                </Text>
+              </View>
             </View>
             <View style={styles.divisionBtnRow}>
               {[
@@ -1178,7 +1222,7 @@ export default function StatsLeaderboardTab() {
                   <>
                     <View style={{ width: 1, height: 18, backgroundColor: colors.border, alignSelf: 'center', marginHorizontal: 6 }} />
                     
-                    {/* Dual-Mode Selector: Recent 10 (Current Form) vs All-Time Career */}
+                    {/* Dual-Mode Selector: Recent 20 (Current Form) vs All-Time Career */}
                     <TouchableOpacity
                       style={[
                         styles.filterPill,
@@ -1197,7 +1241,7 @@ export default function StatsLeaderboardTab() {
                           rankingWindow === 'recent' && { color: '#fff', fontWeight: '800' }
                         ]}
                       >
-                        🔥 Recent 10 (Form)
+                        🔥 Recent 20 (Form)
                       </Text>
                     </TouchableOpacity>
 
@@ -1289,6 +1333,14 @@ export default function StatsLeaderboardTab() {
         return (
           <Animated.FlatList
             ref={flatListRef}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={handleManualRefresh}
+                colors={[colors.primary]}
+                progressViewOffset={headerHeight}
+              />
+            }
             data={
               isLoading
                 ? []
@@ -1367,6 +1419,15 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 12,
     borderWidth: 1,
+  },
+  refreshStatsBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 7,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   divisionHeaderRow: {
     flexDirection: 'row',

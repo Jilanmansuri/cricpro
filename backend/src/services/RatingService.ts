@@ -533,7 +533,7 @@ export class RatingService {
         return timeB - timeA;
       });
 
-      // If windowLimit is specified (e.g. 10 for Recent 10 form), evaluate the latest N matches
+      // If windowLimit is specified (e.g. 20 for Recent 20 form), evaluate the latest N matches
       const evaluatedStats = (windowLimit && windowLimit > 0) ? pStats.slice(0, windowLimit) : pStats;
 
       // Batting Rating
@@ -623,7 +623,7 @@ export class RatingService {
     const userId = options.userId;
     const limit = options.limit || 5;
     const window = options.window || 'recent';
-    const windowLimit = window === 'recent' ? 10 : undefined;
+    const windowLimit = window === 'recent' ? 20 : undefined; // Recent Form uses latest 20 matches
 
     const benchmarks = RATING_BENCHMARKS[format];
     if (!benchmarks) {

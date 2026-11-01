@@ -126,6 +126,13 @@ export default function DrawerLayout() {
           </TouchableOpacity>
 
           <TouchableOpacity
+            style={[styles.menuItem, pathname.includes('matches') && { backgroundColor: colors.surfaceLighter }]}
+            onPress={() => handleNavigate('/(drawer)/matches')}
+          >
+            <Text style={[styles.menuText, { color: pathname.includes('matches') ? colors.primary : colors.text }]}>🏏 All Matches</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
             style={[styles.menuItem, pathname.includes('tournaments') && { backgroundColor: colors.surfaceLighter }]}
             onPress={() => handleNavigate('/(drawer)/tournaments')}
           >

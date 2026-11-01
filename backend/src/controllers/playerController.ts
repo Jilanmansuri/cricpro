@@ -1927,16 +1927,16 @@ export const getCricketRecords = async (req: Request, res: Response): Promise<vo
     })
       .sort({ 'fielding.catches': -1, date: -1 })
       .populate('playerId')
+      .populate('matchId')
+      .populate('playerId')
       .populate('teamId')
-      .populate('opponentTeamId' as any)
       .lean();
 
     if (mostCatchesMatchDoc) {
       const pDoc = mostCatchesMatchDoc.playerId;
       const tDoc = mostCatchesMatchDoc.teamId;
-      const oppDoc = (mostCatchesMatchDoc as any).opponentTeamId;
       const teamInfo = formatTeamInfo(tDoc) || resolvePlayerTeam(pDoc, division, null, teamMap, teamByCodeMap, playerToTeamMap);
-      const oppInfo = formatTeamInfo(oppDoc);
+      const oppInfo = resolveMatchOpponent(mostCatchesMatchDoc.matchId, (tDoc as any)?._id || tDoc);
       const catchesNum = (mostCatchesMatchDoc as any).fielding?.catches || 0;
 
       fieldingRecords.push({

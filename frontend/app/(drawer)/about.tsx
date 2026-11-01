@@ -157,7 +157,7 @@ export default function AboutScreen() {
         setStatusMessage('Development Mode (Metro Hot-Reload Active)');
         Alert.alert(
           'Development Mode',
-          'Aap development mode me hain. Code changes Metro bundler dwara automatically hot-reload hote hain.\n\nEAS Over-The-Air (OTA) updates production builds me kaam karte hain.',
+          'You are running in development mode. Code changes hot-reload automatically via Metro bundler.\n\nEAS Over-The-Air (OTA) updates are enabled on production builds.',
           [{ text: 'OK' }]
         );
       }, 700);
@@ -167,13 +167,13 @@ export default function AboutScreen() {
     try {
       const update = await Updates.checkForUpdateAsync();
       if (update.isAvailable) {
-        setStatusMessage('Naya update download ho raha hai...');
+        setStatusMessage('Downloading latest update...');
         await AsyncStorage.setItem('@cricstats_last_update_installed', nowIso).catch(() => {});
         setLastInstalled(nowIso);
 
         Alert.alert(
-          '🎉 Naya Update Mil Gaya!',
-          'CricStats Pro ka naya version available hai. App abhi update download karke reload ho raha hai.',
+          '🎉 New Update Available!',
+          'A new version of CricStats Pro is available. The update is downloading and the app will reload shortly.',
           [
             {
               text: 'Update Now',
@@ -182,17 +182,17 @@ export default function AboutScreen() {
                   await Updates.fetchUpdateAsync();
                   await Updates.reloadAsync();
                 } catch (err: any) {
-                  Alert.alert('Update Error', err.message || 'Update download nahi ho paya.');
+                  Alert.alert('Update Error', err.message || 'Failed to download update.');
                 }
               },
             },
           ]
         );
       } else {
-        setStatusMessage('App bilkul up-to-date hai!');
+        setStatusMessage('App is fully up to date!');
         Alert.alert(
-          '✅ Sabse Naya Version',
-          'Aapka CricStats Pro app bilkul up-to-date hai! Koi naya auto-update pending nahi hai.',
+          '✅ Up to Date',
+          'Your CricStats Pro app is running the latest version! No updates pending.',
           [{ text: 'OK' }]
         );
       }
@@ -200,7 +200,7 @@ export default function AboutScreen() {
       setStatusMessage('Update check failed');
       Alert.alert(
         'Update Check',
-        'Abhi server se update status check nahi ho paya. Internet connection check karein.',
+        'Could not verify update status from server. Please check your internet connection.',
         [{ text: 'OK' }]
       );
     } finally {
@@ -297,7 +297,7 @@ export default function AboutScreen() {
             {/* Last Checked */}
             <View style={styles.infoRow}>
               <View style={{ flex: 1 }}>
-                <Text style={[styles.infoLabel, { color: colors.textMuted }]}>Aakhri Update Check (Last Checked):</Text>
+                <Text style={[styles.infoLabel, { color: colors.textMuted }]}>Last Checked for Updates:</Text>
                 <Text style={[styles.infoValue, { color: colors.text }]}>{displayLastChecked}</Text>
               </View>
               <CheckCircleIcon color="#22C55E" size={18} />
@@ -360,7 +360,7 @@ export default function AboutScreen() {
               <RefreshIcon color="#FFFFFF" size={17} />
             )}
             <Text style={styles.checkUpdateBtnText}>
-              {isCheckingUpdate ? 'Updates Check Ho Rahe Hain...' : 'Abhi Update Check Karein (Check Updates)'}
+              {isCheckingUpdate ? 'Checking for updates...' : 'Check for Updates Now'}
             </Text>
           </TouchableOpacity>
         </Card>
@@ -369,16 +369,16 @@ export default function AboutScreen() {
         <Card style={styles.helpCard}>
           <View style={styles.helpHeaderRow}>
             <Text style={{ fontSize: 18 }}>⚡</Text>
-            <Text style={[styles.helpTitle, { color: colors.text }]}>Auto-Updates Kaise Kaam Karti Hain?</Text>
+            <Text style={[styles.helpTitle, { color: colors.text }]}>How Do Seamless Updates Work?</Text>
           </View>
           <Text style={[styles.helpText, { color: colors.textMuted }]}>
-            • <Text style={{ fontWeight: '700', color: colors.text }}>Bina Play Store Download:</Text> App me naye features, bug fixes aur ranking updates aate hi app background me apne aap update ho jata hai.
+            • <Text style={{ fontWeight: '700', color: colors.text }}>Instant Cloud Updates:</Text> New features, bug fixes, and rating engine improvements update automatically over-the-air without manual store re-downloads.
           </Text>
           <Text style={[styles.helpText, { color: colors.textMuted, marginTop: 6 }]}>
-            • <Text style={{ fontWeight: '700', color: colors.text }}>Har Launch Par Check:</Text> Jab bhi aap app open karte hain, CricStats Pro cloud se naya update automatically fetch kar leta hai.
+            • <Text style={{ fontWeight: '700', color: colors.text }}>Automatic Sync on Launch:</Text> Every time you launch CricStats Pro, the app seamlessly checks and syncs the latest version from the cloud.
           </Text>
           <Text style={[styles.helpText, { color: colors.textMuted, marginTop: 6 }]}>
-            • <Text style={{ fontWeight: '700', color: colors.text }}>Data Safe & Secure:</Text> Auto-update hone ke baad bhi aapke matches, players, aur stats bilkul safe rehte hain.
+            • <Text style={{ fontWeight: '700', color: colors.text }}>Data Safe & Secure:</Text> All your matches, player careers, tournament standings, and personal records remain 100% safe and intact.
           </Text>
         </Card>
 

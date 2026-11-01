@@ -61,7 +61,7 @@ export default function RankingsDrawerScreen() {
   const [scope, setScope] = useState<'career' | 'tournament'>('career');
 
   // Time-based filtering state
-  const [timeFilter, setTimeFilter] = useState<'all' | 'year' | '30days' | 'custom'>('all');
+  const [timeFilter, setTimeFilter] = useState<'all' | 'recent' | 'year' | '30days' | 'custom'>('all');
   const [selectedAsOfDate, setSelectedAsOfDate] = useState<string | null>(null);
   const [isDatePickerVisible, setIsDatePickerVisible] = useState(false);
   const [customDateInput, setCustomDateInput] = useState('');
@@ -91,15 +91,21 @@ export default function RankingsDrawerScreen() {
     setIsLoading(true);
     try {
       let queryParams = `/players/rankings?format=${fmt}&scope=${scp}&limit=10`;
-      if (tFilter === 'year') {
+      if (tFilter === 'all') {
+        queryParams += `&window=all`;
+      } else if (tFilter === 'recent') {
+        queryParams += `&window=recent`;
+      } else if (tFilter === 'year') {
         const currentYear = new Date().getFullYear();
-        queryParams += `&startDate=${currentYear}-01-01`;
+        queryParams += `&window=all&startDate=${currentYear}-01-01`;
       } else if (tFilter === '30days') {
         const d = new Date();
         d.setDate(d.getDate() - 30);
-        queryParams += `&startDate=${d.toISOString().split('T')[0]}`;
+        queryParams += `&window=all&startDate=${d.toISOString().split('T')[0]}`;
       } else if (tFilter === 'custom' && asOf) {
-        queryParams += `&asOfDate=${asOf}`;
+        queryParams += `&window=all&asOfDate=${asOf}`;
+      } else {
+        queryParams += `&window=all`;
       }
 
       const res = await api.get(queryParams);
@@ -444,7 +450,30 @@ export default function RankingsDrawerScreen() {
                 timeFilter === 'all' && { fontWeight: '800' },
               ]}
             >
-              🌐 All-Time
+              🌐 All-Time Career
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.timePill,
+              { borderColor: colors.border, backgroundColor: colors.background },
+              timeFilter === 'recent' && { backgroundColor: '#10B98120', borderColor: '#10B981' },
+            ]}
+            onPress={() => {
+              setTimeFilter('recent');
+              setSelectedAsOfDate(null);
+              fetchRankings(format, scope, 'recent', null);
+            }}
+          >
+            <Text
+              style={[
+                styles.timePillText,
+                { color: timeFilter === 'recent' ? '#10B981' : colors.textMuted },
+                timeFilter === 'recent' && { fontWeight: '800' },
+              ]}
+            >
+              ⚡ Recent Form (20M)
             </Text>
           </TouchableOpacity>
 
@@ -525,6 +554,8 @@ export default function RankingsDrawerScreen() {
                 ? `📅 Showing historical rankings as of ${selectedAsOfDate}`
                 : timeFilter === 'year'
                 ? `📅 Showing ${new Date().getFullYear()} season rankings`
+                : timeFilter === 'recent'
+                ? '⚡ Showing Current Form (Last 20 Matches)'
                 : '⚡ Showing last 30 days rankings'}
               {rankings.totalMatchesCount !== undefined ? ` (${rankings.totalMatchesCount} matches)` : ''}
             </Text>

@@ -115,7 +115,7 @@ export default function DashboardScreen() {
 
       <View style={styles.sectionHeader}>
         <Text style={[styles.sectionTitle, { color: colors.text }]}>Recent Matches</Text>
-        <TouchableOpacity onPress={() => router.push('/tournaments')}>
+        <TouchableOpacity onPress={() => router.push('/(drawer)/matches')}>
           <Text style={{ color: colors.primary, fontSize: 13, fontWeight: '700' }}>View All</Text>
         </TouchableOpacity>
       </View>
