@@ -73,6 +73,7 @@ export default function StatsLeaderboardTab() {
   const { colors, isDarkMode } = useTheme();
   const [activeTab, setActiveTab] = useState<'batting' | 'bowling' | 'fielding'>('batting');
   const [selectedDivision, setSelectedDivision] = useState<'all' | 'international' | 'ipl'>('all');
+  const [selectedFormat, setSelectedFormat] = useState<'all' | 'T20' | 'ODI'>('all');
 
   // Auto-hiding header scroll animation
   const scrollY = useRef(new Animated.Value(0)).current;
@@ -115,9 +116,6 @@ export default function StatsLeaderboardTab() {
   };
 
   // Initialize state with cached data if available for instant 0ms rendering
-  const [selectedDivision, setSelectedDivision] = useState<'all' | 'international' | 'ipl'>('all');
-  const [selectedFormat, setSelectedFormat] = useState<'all' | 'T20' | 'ODI'>('all');
-
   const initialLb = clientCache.get<{ topBatsmen: any[]; topBowlers: any[]; topFielders?: any[]; topFastestFifties?: any[]; topFastestHundreds?: any[]; topBestBowling?: any[]; topMvps?: any[] }>('leaderboard_all_all', true) || clientCache.get<any>('leaderboard_all', true);
   const initialRec = clientCache.get<{ batting: any[]; bowling: any[]; team: any[]; rankings?: any[] }>('records_all', true);
   const initialRank = clientCache.get<{ topBatters: any[]; topBowlers: any[]; topAllRounders: any[] }>('rankings_T20_career_10', true);
