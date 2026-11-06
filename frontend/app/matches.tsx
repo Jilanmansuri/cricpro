@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -11,18 +11,11 @@ import {
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useTheme } from '../../components/Theme';
-import { useDrawerStore } from '../../store/drawerStore';
-import Card from '../../components/Card';
-import TeamLogo from '../../components/TeamLogo';
-import api from '../../services/api';
+import { useTheme } from '../components/Theme';
+import Card from '../components/Card';
+import TeamLogo from '../components/TeamLogo';
+import api from '../services/api';
 import Svg, { Path } from 'react-native-svg';
-
-const HamburgerIcon = ({ color }: { color: string }) => (
-  <Svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-    <Path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z" fill={color} />
-  </Svg>
-);
 
 const BackIcon = ({ color }: { color: string }) => (
   <Svg width="22" height="22" viewBox="0 0 24 24" fill="none">
@@ -39,11 +32,10 @@ const SearchIcon = ({ color }: { color: string }) => (
   </Svg>
 );
 
-export default function MatchesDrawerScreen() {
+export default function MatchesScreen() {
   const { colors, isDarkMode } = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const openDrawer = useDrawerStore((state) => state.openDrawer);
 
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -99,6 +91,14 @@ export default function MatchesDrawerScreen() {
     if (!loadingMore && hasMore && !isLoading) {
       setLoadingMore(true);
       fetchMatches(page + 1);
+    }
+  };
+
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(drawer)/(tabs)');
     }
   };
 
@@ -217,10 +217,11 @@ export default function MatchesDrawerScreen() {
       {/* Top Header */}
       <View style={[styles.header, { borderBottomColor: colors.border }]}>
         <View style={styles.headerLeft}>
-          <TouchableOpacity style={styles.iconBtn} onPress={openDrawer}>
-            <HamburgerIcon color={colors.text} />
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.iconBtn, { marginLeft: 4 }]} onPress={() => router.back()}>
+          <TouchableOpacity
+            style={styles.iconBtn}
+            onPress={handleBack}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
             <BackIcon color={colors.text} />
           </TouchableOpacity>
           <View style={{ marginLeft: 8 }}>

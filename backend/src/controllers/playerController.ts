@@ -457,8 +457,9 @@ function resolvePlayerTeam(
 export const getLeaderboard = async (req: Request, res: Response): Promise<void> => {
   try {
     const division = ((req.query.division as string) || 'all').toLowerCase();
+    const format = ((req.query.format as string) || 'all').toLowerCase();
     const userId = (req as any).user?._id;
-    const cacheKey = `leaderboard_${division}_${userId || 'anon'}`;
+    const cacheKey = `leaderboard_${division}_${format}_${userId || 'anon'}`;
     const cached = cacheManager.get(cacheKey);
     if (cached) {
       res.json(cached);
@@ -625,7 +626,7 @@ export const getLeaderboard = async (req: Request, res: Response): Promise<void>
       };
     };
 
-    if (division === 'all') {
+    if (division === 'all' && format === 'all') {
       const baseFilter: any = { 'batting.runs': { $gt: 0 } };
       if (userId) baseFilter.playerId = { $in: userPlayerIds };
       const topBatsmenDocs = await careerStatsRepository.find(
@@ -784,6 +785,7 @@ export const getLeaderboard = async (req: Request, res: Response): Promise<void>
         success: true,
         data: {
           division: 'all',
+          format: 'all',
           topBatsmen,
           topBowlers,
           topFielders,
@@ -798,32 +800,55 @@ export const getLeaderboard = async (req: Request, res: Response): Promise<void>
       return;
     }
 
-    // Filter by division (International or IPL)
-    let teamFilter: any = {};
-    if (division === 'international') {
-      teamFilter = {
-        $or: [
-          { teamId: 'INT_IND' },
-          { name: { $regex: /^india$/i } }
-        ]
-      };
-    } else if (division === 'ipl') {
-      teamFilter = {
-        $or: [
-          { league: { $regex: /^IPL$/i } },
-          { teamType: 'franchise' },
-          { teamId: { $regex: /^IPL_/i } }
-        ]
-      };
-    }
-    if (userId) {
-      teamFilter.createdBy = userId;
+    // 1. Resolve format matches if format !== 'all'
+    let formatMatchIds: any[] | null = null;
+    if (format !== 'all') {
+      const { Match } = await import('../models/Match');
+      const { RatingService } = await import('../services/RatingService');
+      const matchFilter: any = userId ? { createdBy: userId } : {};
+      const allMatches = await Match.find(matchFilter).select('_id overs format date').lean();
+      const targetFmt = format.toUpperCase();
+      const matched = allMatches.filter(m => {
+        return RatingService.detectMatchFormat({ format: m.format, overs: m.overs }) === targetFmt;
+      });
+      formatMatchIds = matched.map(m => m._id);
     }
 
-    const matchingTeams = await Team.find(teamFilter).select('_id');
-    const matchingTeamIds = matchingTeams.map(t => t._id);
+    // 2. Filter by division (International or IPL)
+    let matchingTeamIds: any[] | null = null;
+    if (division !== 'all') {
+      let teamFilter: any = {};
+      if (division === 'international') {
+        teamFilter = {
+          $or: [
+            { teamId: 'INT_IND' },
+            { name: { $regex: /^india$/i } }
+          ]
+        };
+      } else if (division === 'ipl') {
+        teamFilter = {
+          $or: [
+            { league: { $regex: /^IPL$/i } },
+            { teamType: 'franchise' },
+            { teamId: { $regex: /^IPL_/i } }
+          ]
+        };
+      }
+      if (userId) {
+        teamFilter.createdBy = userId;
+      }
 
-    const matchStatsFilter: any = { teamId: { $in: matchingTeamIds } };
+      const matchingTeams = await Team.find(teamFilter).select('_id');
+      matchingTeamIds = matchingTeams.map(t => t._id);
+    }
+
+    const matchStatsFilter: any = {};
+    if (formatMatchIds !== null) {
+      matchStatsFilter.matchId = { $in: formatMatchIds };
+    }
+    if (matchingTeamIds !== null) {
+      matchStatsFilter.teamId = { $in: matchingTeamIds };
+    }
     if (userId) matchStatsFilter.playerId = { $in: userPlayerIds };
 
     // Aggregate Batting Stats for this division
@@ -1099,24 +1124,58 @@ export const getLeaderboard = async (req: Request, res: Response): Promise<void>
       };
     });
 
-    const topMvpFilter: any = { mvps: { $gt: 0 } };
-    if (userPlayerIds.length > 0) topMvpFilter.playerId = { $in: userPlayerIds };
-    const topMvpCareerDocs = await CareerStats.find(topMvpFilter)
-      .sort({ mvps: -1, 'batting.runs': -1 })
-      .limit(100)
-      .populate('playerId');
+    let topMvps: any[] = [];
+    if (formatMatchIds !== null) {
+      const { Match } = await import('../models/Match');
+      const mvpMatches = await Match.find({
+        _id: { $in: formatMatchIds },
+        mvp: { $exists: true, $ne: null }
+      }).populate('mvp').lean();
 
-    const topMvps = topMvpCareerDocs.map((item: any) => {
-      const pDoc = item.playerId;
-      const teamInfo = resolvePlayerTeam(pDoc, division, null, teamMap, teamByCodeMap, playerToTeamMap);
-      const playerObj = pDoc ? { _id: pDoc._id, name: pDoc.name, country: pDoc.country, nationalTeamId: pDoc.nationalTeamId, iplTeamId: pDoc.iplTeamId } : { _id: item.playerId || item._id, name: item.playerName || 'Player' };
-      return {
-        ...item.toObject ? item.toObject() : item,
-        playerId: playerObj,
-        playerProfileId: playerObj._id,
-        team: teamInfo
-      };
-    });
+      const mvpCountMap = new Map<string, { count: number; player: any }>();
+      for (const m of mvpMatches) {
+        const p = m.mvp as any;
+        if (!p?._id) continue;
+        const pIdStr = p._id.toString();
+        const existing = mvpCountMap.get(pIdStr) || { count: 0, player: p };
+        existing.count++;
+        mvpCountMap.set(pIdStr, existing);
+      }
+
+      topMvps = Array.from(mvpCountMap.values())
+        .sort((a, b) => b.count - a.count)
+        .map(entry => {
+          const pDoc = entry.player;
+          const teamInfo = resolvePlayerTeam(pDoc, division, null, teamMap, teamByCodeMap, playerToTeamMap);
+          return {
+            _id: pDoc._id,
+            playerId: { _id: pDoc._id, name: pDoc.name, country: pDoc.country, nationalTeamId: pDoc.nationalTeamId, iplTeamId: pDoc.iplTeamId },
+            playerProfileId: pDoc._id,
+            playerName: pDoc.name,
+            team: teamInfo,
+            mvps: entry.count
+          };
+        });
+    } else {
+      const topMvpFilter: any = { mvps: { $gt: 0 } };
+      if (userPlayerIds.length > 0) topMvpFilter.playerId = { $in: userPlayerIds };
+      const topMvpCareerDocs = await CareerStats.find(topMvpFilter)
+        .sort({ mvps: -1, 'batting.runs': -1 })
+        .limit(100)
+        .populate('playerId');
+
+      topMvps = topMvpCareerDocs.map((item: any) => {
+        const pDoc = item.playerId;
+        const teamInfo = resolvePlayerTeam(pDoc, division, null, teamMap, teamByCodeMap, playerToTeamMap);
+        const playerObj = pDoc ? { _id: pDoc._id, name: pDoc.name, country: pDoc.country, nationalTeamId: pDoc.nationalTeamId, iplTeamId: pDoc.iplTeamId } : { _id: item.playerId || item._id, name: item.playerName || 'Player' };
+        return {
+          ...item.toObject ? item.toObject() : item,
+          playerId: playerObj,
+          playerProfileId: playerObj._id,
+          team: teamInfo
+        };
+      });
+    }
 
     const fastestInnings = await fetchFastestInnings(matchStatsFilter);
 
@@ -1157,6 +1216,7 @@ export const getLeaderboard = async (req: Request, res: Response): Promise<void>
       success: true,
       data: {
         division,
+        format,
         topBatsmen,
         topBowlers,
         topFielders,

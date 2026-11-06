@@ -77,16 +77,16 @@ export default function StatsLeaderboardTab() {
   // Auto-hiding header scroll animation
   const scrollY = useRef(new Animated.Value(0)).current;
   const flatListRef = useRef<any>(null);
-  const [headerHeight, setHeaderHeight] = useState(195);
+  const [headerHeight, setHeaderHeight] = useState(255);
 
   const clampedScroll = useRef(
-    Animated.diffClamp(scrollY, 0, 205)
+    Animated.diffClamp(scrollY, 0, 265)
   ).current;
 
   const headerTranslateY = useRef(
     clampedScroll.interpolate({
-      inputRange: [0, 205],
-      outputRange: [0, -205],
+      inputRange: [0, 265],
+      outputRange: [0, -265],
       extrapolate: 'clamp',
     })
   ).current;
@@ -101,9 +101,24 @@ export default function StatsLeaderboardTab() {
     setSelectedDivision(div);
     scrollY.setValue(0);
     flatListRef.current?.scrollToOffset({ offset: 0, animated: false });
+    fetchAllStats(div, selectedFormat, rankingFormat, rankingScope, rankingWindow);
   };
+
+  const handleFormatChange = (fmt: 'all' | 'T20' | 'ODI') => {
+    setSelectedFormat(fmt);
+    if (fmt === 'T20' || fmt === 'ODI') {
+      setRankingFormat(fmt);
+    }
+    scrollY.setValue(0);
+    flatListRef.current?.scrollToOffset({ offset: 0, animated: false });
+    fetchAllStats(selectedDivision, fmt, fmt === 'all' ? rankingFormat : fmt, rankingScope, rankingWindow);
+  };
+
   // Initialize state with cached data if available for instant 0ms rendering
-  const initialLb = clientCache.get<{ topBatsmen: any[]; topBowlers: any[]; topFielders?: any[]; topFastestFifties?: any[]; topFastestHundreds?: any[]; topBestBowling?: any[]; topMvps?: any[] }>('leaderboard_all', true);
+  const [selectedDivision, setSelectedDivision] = useState<'all' | 'international' | 'ipl'>('all');
+  const [selectedFormat, setSelectedFormat] = useState<'all' | 'T20' | 'ODI'>('all');
+
+  const initialLb = clientCache.get<{ topBatsmen: any[]; topBowlers: any[]; topFielders?: any[]; topFastestFifties?: any[]; topFastestHundreds?: any[]; topBestBowling?: any[]; topMvps?: any[] }>('leaderboard_all_all', true) || clientCache.get<any>('leaderboard_all', true);
   const initialRec = clientCache.get<{ batting: any[]; bowling: any[]; team: any[]; rankings?: any[] }>('records_all', true);
   const initialRank = clientCache.get<{ topBatters: any[]; topBowlers: any[]; topAllRounders: any[] }>('rankings_T20_career_10', true);
 
@@ -173,13 +188,13 @@ export default function StatsLeaderboardTab() {
     clientCache.clear();
     try {
       const [lbRes, recRes, rankRes] = await Promise.allSettled([
-        api.get(`/players/leaderboard?division=${selectedDivision}`),
+        api.get(`/players/leaderboard?division=${selectedDivision}&format=${selectedFormat}`),
         api.get(`/players/records?division=${selectedDivision}`),
         api.get(`/players/rankings?format=${rankingFormat}&scope=${rankingScope}&window=${rankingWindow}&limit=10`)
       ]);
       if (lbRes.status === 'fulfilled' && lbRes.value?.data?.success) {
         setLeaderboard(lbRes.value.data.data);
-        clientCache.set(`leaderboard_${selectedDivision}`, lbRes.value.data.data);
+        clientCache.set(`leaderboard_${selectedDivision}_${selectedFormat}`, lbRes.value.data.data);
       }
       if (recRes.status === 'fulfilled' && recRes.value?.data?.success) {
         setRecords(recRes.value.data.data);
@@ -196,8 +211,14 @@ export default function StatsLeaderboardTab() {
     }
   };
 
-  const fetchAllStats = async (division = selectedDivision, fmt = rankingFormat, scp = rankingScope, win = rankingWindow) => {
-    const lKey = `leaderboard_${division}`;
+  const fetchAllStats = async (
+    division = selectedDivision,
+    format = selectedFormat,
+    fmt = rankingFormat,
+    scp = rankingScope,
+    win = rankingWindow
+  ) => {
+    const lKey = `leaderboard_${division}_${format}`;
     const rKey = `records_${division}`;
     const rkKey = `rankings_${fmt}_${scp}_${win}_10`;
 
@@ -242,7 +263,7 @@ export default function StatsLeaderboardTab() {
     // 3. Trigger network update in background & persist fresh data to AsyncStorage
     try {
       const [lbRes, recRes, rankRes] = await Promise.allSettled([
-        api.get(`/players/leaderboard?division=${division}`),
+        api.get(`/players/leaderboard?division=${division}&format=${format}`),
         api.get(`/players/records?division=${division}`),
         api.get(`/players/rankings?format=${fmt}&scope=${scp}&window=${win}&limit=10`)
       ]);
@@ -267,8 +288,8 @@ export default function StatsLeaderboardTab() {
 
   useFocusEffect(
     useCallback(() => {
-      fetchAllStats(selectedDivision, rankingFormat, rankingScope, rankingWindow);
-    }, [selectedDivision, rankingFormat, rankingScope, rankingWindow])
+      fetchAllStats(selectedDivision, selectedFormat, rankingFormat, rankingScope, rankingWindow);
+    }, [selectedDivision, selectedFormat, rankingFormat, rankingScope, rankingWindow])
   );
 
   const resolveDisplayTeam = (player: any, rawTeam: any, division: string) => {
@@ -1110,6 +1131,46 @@ export default function StatsLeaderboardTab() {
                   </Text>
                 </TouchableOpacity>
               ))}
+            </View>
+
+            {/* Format Selector: All, T20, ODI */}
+            <View style={{ marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: colors.border }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                <Text style={{ fontSize: 11, fontWeight: '700', color: colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                  Format
+                </Text>
+                <Text style={{ fontSize: 11, fontWeight: '700', color: colors.primary }}>
+                  {selectedFormat === 'all' ? 'All Formats' : selectedFormat === 'T20' ? '⚡ T20 Format' : '🏏 ODI (50 Overs)'}
+                </Text>
+              </View>
+              <View style={styles.divisionBtnRow}>
+                {[
+                  { key: 'all', label: 'All', icon: '🌐' },
+                  { key: 'T20', label: 'T20', icon: '⚡' },
+                  { key: 'ODI', label: 'ODI', icon: '🏏' }
+                ].map(f => (
+                  <TouchableOpacity
+                    key={f.key}
+                    style={[
+                      styles.divisionBtn,
+                      { backgroundColor: colors.background, borderColor: colors.border },
+                      selectedFormat === f.key && { backgroundColor: colors.primary, borderColor: colors.primary }
+                    ]}
+                    onPress={() => handleFormatChange(f.key as any)}
+                  >
+                    <Text style={{ fontSize: 12, marginRight: 4 }}>{f.icon}</Text>
+                    <Text
+                      style={[
+                        styles.divisionBtnText,
+                        { color: selectedFormat === f.key ? '#fff' : colors.text },
+                        selectedFormat === f.key && { fontWeight: '800' }
+                      ]}
+                    >
+                      {f.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
             </View>
           </View>
 

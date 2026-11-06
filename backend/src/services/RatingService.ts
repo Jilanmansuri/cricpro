@@ -495,10 +495,43 @@ export class RatingService {
     limit: number,
     windowLimit?: number
   ) {
-    const benchmarks = RATING_BENCHMARKS[format];
-    if (!benchmarks || matchedMatchIds.length === 0) {
+    const rawBenchmarks = RATING_BENCHMARKS[format];
+    if (!rawBenchmarks || matchedMatchIds.length === 0) {
       return { sortedBatters: [], sortedBowlers: [], sortedAllRounders: [] };
     }
+
+    // Adaptive benchmark scaling: When total matches in this format are few (e.g. only 1 ODI match played so far),
+    // scale eligibility thresholds dynamically so players who participated are properly ranked.
+    const availableMatchCount = matchedMatchIds.length;
+    const effectiveBatting = {
+      ...rawBenchmarks.batting,
+      minMatchesCareer: Math.max(1, Math.min(rawBenchmarks.batting.minMatchesCareer, availableMatchCount)),
+      minInningsCareer: Math.max(1, Math.min(rawBenchmarks.batting.minInningsCareer, availableMatchCount)),
+      minBallsFacedCareer: availableMatchCount < rawBenchmarks.batting.minMatchesCareer
+        ? Math.min(rawBenchmarks.batting.minBallsFacedCareer, 1)
+        : rawBenchmarks.batting.minBallsFacedCareer,
+      confidenceMatchesCareer: Math.max(1, Math.min(rawBenchmarks.batting.confidenceMatchesCareer, availableMatchCount)),
+    };
+
+    const effectiveBowling = {
+      ...rawBenchmarks.bowling,
+      minLegalBallsCareer: availableMatchCount < rawBenchmarks.bowling.minInningsCareer
+        ? Math.min(rawBenchmarks.bowling.minLegalBallsCareer, 6)
+        : rawBenchmarks.bowling.minLegalBallsCareer,
+      minInningsCareer: Math.max(1, Math.min(rawBenchmarks.bowling.minInningsCareer, availableMatchCount)),
+      confidenceLegalBallsCareer: Math.max(6, Math.min(rawBenchmarks.bowling.confidenceLegalBallsCareer, availableMatchCount * 6)),
+    };
+
+    const effectiveAllRounder = {
+      ...rawBenchmarks.allRounder,
+      minBattingBallsFacedCareer: availableMatchCount < rawBenchmarks.allRounder.minMatchesCareer
+        ? Math.min(rawBenchmarks.allRounder.minBattingBallsFacedCareer, 1)
+        : rawBenchmarks.allRounder.minBattingBallsFacedCareer,
+      minBowlingLegalBallsCareer: availableMatchCount < rawBenchmarks.allRounder.minMatchesCareer
+        ? Math.min(rawBenchmarks.allRounder.minBowlingLegalBallsCareer, 6)
+        : rawBenchmarks.allRounder.minBowlingLegalBallsCareer,
+      minMatchesCareer: Math.max(1, Math.min(rawBenchmarks.allRounder.minMatchesCareer, availableMatchCount)),
+    };
 
     const statsList = await PlayerMatchStats.find({
       matchId: { $in: matchedMatchIds },
@@ -537,7 +570,7 @@ export class RatingService {
       const evaluatedStats = (windowLimit && windowLimit > 0) ? pStats.slice(0, windowLimit) : pStats;
 
       // Batting Rating
-      const batCalc = RatingService.calculateBatterRating(evaluatedStats, benchmarks.batting, scope);
+      const batCalc = RatingService.calculateBatterRating(evaluatedStats, effectiveBatting, scope);
       batterResults.push({
         playerId: pId,
         playerName,
@@ -549,7 +582,7 @@ export class RatingService {
       });
 
       // Bowling Rating
-      const bowlCalc = RatingService.calculateBowlerRating(evaluatedStats, benchmarks.bowling, scope);
+      const bowlCalc = RatingService.calculateBowlerRating(evaluatedStats, effectiveBowling, scope);
       bowlerResults.push({
         playerId: pId,
         playerName,
@@ -568,7 +601,7 @@ export class RatingService {
         : RatingService.calculateAllRounderRating(
             batCalc,
             bowlCalc,
-            benchmarks.allRounder,
+            effectiveAllRounder,
             evaluatedStats.length,
             scope
           );
@@ -593,19 +626,36 @@ export class RatingService {
 
     const sortedBatters = batterResults
       .filter(b => b.isEligible && b.rating !== null && b.rating > 0)
-      .sort((a, b) => (b.rating || 0) - (a.rating || 0))
+      .sort((a, b) => {
+        if ((b.rating || 0) !== (a.rating || 0)) {
+          return (b.rating || 0) - (a.rating || 0);
+        }
+        return (b.stats.runs || 0) - (a.stats.runs || 0);
+      })
       .slice(0, limit)
       .map((b, idx) => ({ ...b, rank: idx + 1 }));
 
     const sortedBowlers = bowlerResults
       .filter(b => b.isEligible && b.rating !== null && b.rating > 0)
-      .sort((a, b) => (b.rating || 0) - (a.rating || 0))
+      .sort((a, b) => {
+        if ((b.rating || 0) !== (a.rating || 0)) {
+          return (b.rating || 0) - (a.rating || 0);
+        }
+        return (b.stats.wickets || 0) - (a.stats.wickets || 0);
+      })
       .slice(0, limit)
       .map((b, idx) => ({ ...b, rank: idx + 1 }));
 
     const sortedAllRounders = allRounderResults
       .filter(ar => ar.isEligible && ar.rating !== null && ar.rating > 0 && !/bumrah|siraj/i.test(ar.playerName))
-      .sort((a, b) => (b.rating || 0) - (a.rating || 0))
+      .sort((a, b) => {
+        if ((b.rating || 0) !== (a.rating || 0)) {
+          return (b.rating || 0) - (a.rating || 0);
+        }
+        const bTotal = (b.stats.runs || 0) + (b.stats.wickets || 0) * 20;
+        const aTotal = (a.stats.runs || 0) + (a.stats.wickets || 0) * 20;
+        return bTotal - aTotal;
+      })
       .slice(0, limit)
       .map((ar, idx) => ({ ...ar, rank: idx + 1 }));
 

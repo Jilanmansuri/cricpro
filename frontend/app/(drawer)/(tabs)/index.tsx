@@ -115,7 +115,7 @@ export default function DashboardScreen() {
 
       <View style={styles.sectionHeader}>
         <Text style={[styles.sectionTitle, { color: colors.text }]}>Recent Matches</Text>
-        <TouchableOpacity onPress={() => router.push('/(drawer)/matches' as any)}>
+        <TouchableOpacity onPress={() => router.push('/matches' as any)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Text style={{ color: colors.primary, fontSize: 13, fontWeight: '700' }}>View All</Text>
         </TouchableOpacity>
       </View>

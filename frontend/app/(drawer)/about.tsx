@@ -282,7 +282,7 @@ export default function AboutScreen() {
             {/* Last Auto Update */}
             <View style={styles.infoRow}>
               <View style={{ flex: 1 }}>
-                <Text style={[styles.infoLabel, { color: colors.textMuted }]}>Aakhri Auto-Update (Last Updated):</Text>
+                <Text style={[styles.infoLabel, { color: colors.textMuted }]}>Last Installed Update:</Text>
                 <Text style={[styles.infoValue, { color: colors.text }]}>{displayUpdateTime}</Text>
               </View>
               {relativeUpdateTime ? (
