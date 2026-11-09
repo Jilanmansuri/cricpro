@@ -9,7 +9,9 @@ import {
   TouchableWithoutFeedback,
   useWindowDimensions,
   Pressable,
+  ScrollView,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Slot, useRouter, usePathname } from 'expo-router';
 import { useTheme } from '../../components/Theme';
 import { useDrawerStore } from '../../store/drawerStore';
@@ -25,6 +27,7 @@ export default function DrawerLayout() {
   const { user, logout } = useAuthStore();
   const router = useRouter();
   const pathname = usePathname();
+  const insets = useSafeAreaInsets();
 
   const { width: SCREEN_WIDTH } = useWindowDimensions();
   const DRAWER_WIDTH = SCREEN_WIDTH * 0.75 > 300 ? 300 : SCREEN_WIDTH * 0.75;
@@ -96,12 +99,13 @@ export default function DrawerLayout() {
             backgroundColor: colors.surface,
             borderColor: colors.border,
             transform: [{ translateX: slideAnim }],
+            paddingTop: Math.max(insets.top + 8, 44),
           },
         ]}
       >
         {/* Profile header */}
         <View style={[styles.profileHeader, { borderBottomColor: colors.border }]}>
-          <Avatar name={user?.username || 'Player'} size={50} style={styles.avatar} />
+          <Avatar name={user?.username || 'Player'} size={48} style={styles.avatar} />
           <Text style={[styles.profileName, { color: colors.text }]}>{user?.username}</Text>
           <Text style={[styles.profileEmail, { color: colors.textMuted }]}>{user?.email}</Text>
           <View style={[styles.roleTag, { backgroundColor: colors.accent }]}>
@@ -110,7 +114,13 @@ export default function DrawerLayout() {
         </View>
 
         {/* Menu items */}
-        <View style={styles.menuList}>
+        <ScrollView
+          style={styles.menuScrollView}
+          contentContainerStyle={styles.menuList}
+          showsVerticalScrollIndicator={false}
+          bounces={true}
+          keyboardShouldPersistTaps="handled"
+        >
           <TouchableOpacity
             style={[styles.menuItem, (pathname === '/' || pathname === '/(drawer)/(tabs)') && { backgroundColor: colors.surfaceLighter }]}
             onPress={() => handleNavigate('/')}
@@ -180,10 +190,18 @@ export default function DrawerLayout() {
           >
             <Text style={[styles.menuText, { color: pathname.includes('about') ? colors.primary : colors.text }]}>About App</Text>
           </TouchableOpacity>
-        </View>
+        </ScrollView>
 
         {/* Footer */}
-        <View style={[styles.footer, { borderTopColor: colors.border }]}>
+        <View
+          style={[
+            styles.footer,
+            {
+              borderTopColor: colors.border,
+              paddingBottom: Math.max(insets.bottom + 8, 20),
+            },
+          ]}
+        >
           <TouchableOpacity
             style={[styles.themeToggleBtn, { backgroundColor: colors.surfaceLighter, borderColor: colors.border }]}
             onPress={toggleTheme}
@@ -229,29 +247,29 @@ const styles = StyleSheet.create({
     bottom: 0,
     zIndex: 100,
     borderRightWidth: 1,
-    paddingTop: 60,
+    overflow: 'hidden',
   },
   profileHeader: {
     paddingHorizontal: 20,
-    paddingBottom: 20,
+    paddingBottom: 14,
     borderBottomWidth: 1,
     alignItems: 'center',
   },
   avatar: {
-    marginBottom: 12,
+    marginBottom: 8,
   },
   profileName: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '800',
     marginBottom: 2,
   },
   profileEmail: {
-    fontSize: 13,
-    marginBottom: 10,
+    fontSize: 12,
+    marginBottom: 8,
   },
   roleTag: {
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: 3,
     borderRadius: 6,
   },
   roleText: {
@@ -259,25 +277,29 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.5,
   },
-  menuList: {
-    padding: 12,
-    gap: 4,
+  menuScrollView: {
     flex: 1,
   },
+  menuList: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    paddingBottom: 28,
+    gap: 2,
+  },
   menuItem: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
     borderRadius: 8,
   },
   menuText: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
   },
   footer: {
     borderTopWidth: 1,
-    padding: 16,
-    paddingBottom: 36,
-    gap: 8,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    gap: 6,
   },
   themeToggleBtn: {
     flexDirection: 'row',
