@@ -121,9 +121,9 @@ export interface RankingOptions {
 
 export class RatingService {
   /**
-   * Clamps a value strictly between min and max (default 0 to 100)
+   * Clamps a value strictly between min and max (default 0 to 1000)
    */
-  public static clamp(val: number, min: number = 0, max: number = 100): number {
+  public static clamp(val: number, min: number = 0, max: number = 1000): number {
     if (isNaN(val) || val === null || val === undefined) return min;
     return Math.max(min, Math.min(max, val));
   }
@@ -134,7 +134,7 @@ export class RatingService {
   public static normalizeLinear(value: number, minBench: number, maxBench: number): number {
     if (maxBench <= minBench) return 50;
     const score = ((value - minBench) / (maxBench - minBench)) * 100;
-    return this.clamp(Math.round(score * 10) / 10);
+    return this.clamp(Math.round(score * 10) / 10, 0, 100);
   }
 
   /**
@@ -143,7 +143,7 @@ export class RatingService {
   public static normalizeInverted(value: number, bestMin: number, worstMax: number): number {
     if (worstMax <= bestMin) return 50;
     const score = ((worstMax - value) / (worstMax - bestMin)) * 100;
-    return this.clamp(Math.round(score * 10) / 10);
+    return this.clamp(Math.round(score * 10) / 10, 0, 100);
   }
 
   /**
@@ -204,23 +204,23 @@ export class RatingService {
     let cvScore = 50;
     if (mean > 0) {
       const cv = stdDev / mean;
-      cvScore = this.clamp(Math.round((1 - Math.min(1.0, cv / 1.5)) * 100));
+      cvScore = this.clamp(Math.round((1 - Math.min(1.0, cv / 1.5)) * 100), 0, 100);
     } else {
       cvScore = 0;
     }
 
     // Benchmark achievement rate: proportion of innings meeting format good score
     const goodScoresCount = scores.filter(s => s >= targetGoodScore).length;
-    const benchmarkScore = this.clamp(Math.round((goodScoresCount / n) * 100));
+    const benchmarkScore = this.clamp(Math.round((goodScoresCount / n) * 100), 0, 100);
 
     // Blended consistency score (50% variation stability + 50% benchmark achievement)
     const blended = (0.50 * cvScore) + (0.50 * benchmarkScore);
-    return this.clamp(Math.round(blended));
+    return this.clamp(Math.round(blended), 0, 100);
   }
 
   /**
-   * Calculate Batter Rating (0 to 100)
-   * Formula: 0.40 * runScore + 0.30 * averageScore + 0.20 * strikeRateScore + 0.10 * consistencyScore
+   * Calculate Batter Rating (0 to 1000)
+   * Formula: ((0.40 * runScore + 0.30 * averageScore + 0.20 * strikeRateScore + 0.10 * consistencyScore)) * 10
    */
   public static calculateBatterRating(
     matchStats: Array<{
@@ -288,19 +288,19 @@ export class RatingService {
     // Component 4: Consistency (robust & format-specific)
     const consistencyScore = this.calculateConsistencyScore(matchRunsList, benchmarks.goodScoreThreshold);
 
-    // Weighted Formula
-    const rawRating = (0.40 * runScore) + (0.30 * averageScore) + (0.20 * strikeRateScore) + (0.10 * consistencyScore);
-    const roundedRaw = this.clamp(Math.round(rawRating * 10) / 10);
+    // Weighted Formula (0 to 1000 scale)
+    const rawRating = ((0.40 * runScore) + (0.30 * averageScore) + (0.20 * strikeRateScore) + (0.10 * consistencyScore)) * 10;
+    const roundedRaw = this.clamp(Math.round(rawRating * 10) / 10, 0, 1000);
 
     // Strict Opportunities & Sample-Size Guard
     const isEligible = matchesCount >= minMatches && inningsCount >= minInnings && totalBalls >= minBalls;
 
-    // Reliability Adjustment (Bayesian Damping towards 50.0 baseline)
+    // Reliability Adjustment (Bayesian Damping towards 500.0 baseline)
     let finalRating: number | null = null;
     if (isEligible) {
       const reliabilityFactor = Math.min(1.0, matchesCount / confidenceMatches);
-      const adjusted = (roundedRaw * reliabilityFactor) + (50.0 * (1 - reliabilityFactor));
-      finalRating = this.clamp(Math.round(adjusted * 10) / 10);
+      const adjusted = (roundedRaw * reliabilityFactor) + (500.0 * (1 - reliabilityFactor));
+      finalRating = this.clamp(Math.round(adjusted * 10) / 10, 0, 1000);
     }
 
     return {
@@ -328,8 +328,8 @@ export class RatingService {
   }
 
   /**
-   * Calculate Bowler Rating (0 to 100)
-   * Formula: 0.45 * wicketScore + 0.30 * economyScore + 0.15 * bowlingAverageScore + 0.10 * consistencyScore
+   * Calculate Bowler Rating (0 to 1000)
+   * Formula: ((0.45 * wicketScore + 0.30 * economyScore + 0.15 * bowlingAverageScore + 0.10 * consistencyScore)) * 10
    * Stores and computes workload strictly in integer legal balls.
    */
   public static calculateBowlerRating(
@@ -402,19 +402,19 @@ export class RatingService {
     // Component 4: Consistency (robust handling for few innings)
     const consistencyScore = this.calculateConsistencyScore(matchWicketsList, 1);
 
-    // Weighted Formula
-    const rawRating = (0.45 * wicketScore) + (0.30 * economyScore) + (0.15 * bowlingAverageScore) + (0.10 * consistencyScore);
-    const roundedRaw = this.clamp(Math.round(rawRating * 10) / 10);
+    // Weighted Formula (0 to 1000 scale)
+    const rawRating = ((0.45 * wicketScore) + (0.30 * economyScore) + (0.15 * bowlingAverageScore) + (0.10 * consistencyScore)) * 10;
+    const roundedRaw = this.clamp(Math.round(rawRating * 10) / 10, 0, 1000);
 
     // Strict Opportunities & Sample-Size Guard
     const isEligible = totalLegalBalls >= minLegalBalls && matchesWithBowling >= minInnings;
 
-    // Reliability Adjustment (Bayesian Damping towards 50.0 baseline)
+    // Reliability Adjustment (Bayesian Damping towards 500.0 baseline)
     let finalRating: number | null = null;
     if (isEligible) {
       const reliabilityFactor = Math.min(1.0, totalLegalBalls / confidenceLegalBalls);
-      const adjusted = (roundedRaw * reliabilityFactor) + (50.0 * (1 - reliabilityFactor));
-      finalRating = this.clamp(Math.round(adjusted * 10) / 10);
+      const adjusted = (roundedRaw * reliabilityFactor) + (500.0 * (1 - reliabilityFactor));
+      finalRating = this.clamp(Math.round(adjusted * 10) / 10, 0, 1000);
     }
 
     return {
@@ -443,7 +443,7 @@ export class RatingService {
   }
 
   /**
-   * Calculate All-Rounder Rating (0 to 100)
+   * Calculate All-Rounder Rating (0 to 1000)
    * Formula: Math.sqrt(batterRating * bowlerRating)
    * Requires SUFFICIENT BATTING AND BOWLING OPPORTUNITIES, not merely appearances.
    */
@@ -477,10 +477,10 @@ export class RatingService {
       return { rating: 0, isEligible: true };
     }
 
-    // Geometric mean of balanced performances
+    // Geometric mean of balanced performances (0 to 1000 scale)
     const arRating = Math.sqrt(bRating * bwRating);
     return {
-      rating: this.clamp(Math.round(arRating * 10) / 10),
+      rating: this.clamp(Math.round(arRating * 10) / 10, 0, 1000),
       isEligible: true,
     };
   }

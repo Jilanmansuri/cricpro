@@ -3,7 +3,7 @@
  * 
  * IMPORTANT NOTE:
  * These benchmarks are game-specific, tunable calibration parameters designed to produce
- * balanced, normalized 0-100 rating distributions for simulated and recorded cricket matches.
+ * balanced, normalized 0-1000 rating distributions for simulated and recorded cricket matches.
  * They are inspired by professional cricket analytics and balanced performance scales,
  * and are NOT official proprietary ICC rating formula values.
  */
