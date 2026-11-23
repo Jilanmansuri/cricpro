@@ -398,6 +398,33 @@ export const getTeamHeadToHead = async (req: Request, res: Response): Promise<vo
   }
 };
 
+export const triggerAutoUpdate = async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const { AutoUpdateService } = await import('../services/AutoUpdateService');
+    const result = await AutoUpdateService.getInstance().performFullStatsUpdate();
+    res.json({
+      success: true,
+      message: 'Automatic stats update completed successfully',
+      data: result,
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const getAutoUpdateStatus = async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const { AutoUpdateService } = await import('../services/AutoUpdateService');
+    const status = AutoUpdateService.getInstance().getStatus();
+    res.json({
+      success: true,
+      data: status,
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 export default {
   createTeam,
   getTeams,
@@ -405,5 +432,7 @@ export default {
   getTeamByTeamId,
   resolveTeam,
   bulkImportTeams,
-  getTeamHeadToHead
+  getTeamHeadToHead,
+  triggerAutoUpdate,
+  getAutoUpdateStatus
 };

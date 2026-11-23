@@ -94,4 +94,13 @@ app.listen(Number(PORT), '0.0.0.0', () => {
   console.log(`🚀 CricPro API running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
   console.log(`📱 Mobile / LAN Endpoint: http://192.168.1.78:${PORT}/api`);
   console.log(`💻 Localhost Endpoint:    http://localhost:${PORT}/api`);
+
+  // Start Automated Stats & Records Background Sync Scheduler
+  import('./services/AutoUpdateService')
+    .then(({ AutoUpdateService }) => {
+      AutoUpdateService.getInstance().startBackgroundScheduler(60);
+    })
+    .catch((err) => {
+      console.error('Failed to start AutoUpdateService scheduler:', err);
+    });
 });

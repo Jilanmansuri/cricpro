@@ -6,7 +6,9 @@ import {
   getTeamByTeamId,
   resolveTeam,
   bulkImportTeams,
-  getTeamHeadToHead
+  getTeamHeadToHead,
+  triggerAutoUpdate,
+  getAutoUpdateStatus
 } from '../controllers/teamController';
 import { protect } from '../middlewares/authMiddleware';
 import { createTeamValidator } from '../validators/schemas';
@@ -18,11 +20,14 @@ router.post('/bulk-import', protect, bulkImportTeams);
 router.post('/resolve', protect, resolveTeam);
 router.get('/master/:teamId', protect, getTeamByTeamId);
 
-router.get('/head-to-head', protect, getTeamHeadToHead);
-router.get('/head-to-head/:id', protect, getTeamHeadToHead);
+router.get('/head-to-head', getTeamHeadToHead);
+router.get('/head-to-head/:id', getTeamHeadToHead);
+
+router.post('/sync-stats', triggerAutoUpdate);
+router.get('/sync-status', getAutoUpdateStatus);
 
 router.post('/', protect, createTeamValidator, validateFields, createTeam);
-router.get('/', protect, getTeams);
-router.get('/:id', protect, getTeamById);
+router.get('/', getTeams);
+router.get('/:id', getTeamById);
 
 export default router;
