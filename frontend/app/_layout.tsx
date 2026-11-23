@@ -97,6 +97,7 @@ const NavigationLayout = () => {
         <Stack.Screen name="tournament-details" options={{ headerShown: true, title: 'Tournament Details', headerStyle: { backgroundColor: colors.surface }, headerTintColor: colors.text }} />
         <Stack.Screen name="match-details" options={{ headerShown: true, title: 'Match Details', headerStyle: { backgroundColor: colors.surface }, headerTintColor: colors.text }} />
         <Stack.Screen name="matches" options={{ headerShown: false }} />
+        <Stack.Screen name="team-h2h" options={{ headerShown: false }} />
       </Stack>
       
       {showLoadingOverlay && (

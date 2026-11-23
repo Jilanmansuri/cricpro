@@ -159,6 +159,14 @@ export default function TeamProfileScreen() {
                 </Text>
               </View>
             </Card>
+
+            <TouchableOpacity
+              onPress={() => router.push({ pathname: '/team-h2h' as any, params: { teamId: team._id } })}
+              style={[styles.h2hBtn, { backgroundColor: colors.primary }]}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.h2hBtnText}>📊 View Head-to-Head Records</Text>
+            </TouchableOpacity>
           </View>
         )}
       </ScrollView>
@@ -266,5 +274,17 @@ const styles = StyleSheet.create({
   },
   statsVal: {
     fontWeight: '700',
+  },
+  h2hBtn: {
+    marginTop: 16,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  h2hBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontSize: 14,
   },
 });

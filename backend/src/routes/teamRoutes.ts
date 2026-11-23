@@ -5,7 +5,8 @@ import {
   getTeamById,
   getTeamByTeamId,
   resolveTeam,
-  bulkImportTeams
+  bulkImportTeams,
+  getTeamHeadToHead
 } from '../controllers/teamController';
 import { protect } from '../middlewares/authMiddleware';
 import { createTeamValidator } from '../validators/schemas';
@@ -16,6 +17,9 @@ const router = Router();
 router.post('/bulk-import', protect, bulkImportTeams);
 router.post('/resolve', protect, resolveTeam);
 router.get('/master/:teamId', protect, getTeamByTeamId);
+
+router.get('/head-to-head', protect, getTeamHeadToHead);
+router.get('/head-to-head/:id', protect, getTeamHeadToHead);
 
 router.post('/', protect, createTeamValidator, validateFields, createTeam);
 router.get('/', protect, getTeams);

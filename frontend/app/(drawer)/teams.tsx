@@ -23,6 +23,12 @@ const BackIcon = ({ color }: { color: string }) => (
   </Svg>
 );
 
+const ChevronRightIcon = ({ color }: { color: string }) => (
+  <Svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+    <Path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z" fill={color} />
+  </Svg>
+);
+
 export default function TeamsDrawerScreen() {
   const { colors, isDarkMode } = useTheme();
   const router = useRouter();
@@ -101,6 +107,40 @@ export default function TeamsDrawerScreen() {
         </TouchableOpacity>
       </View>
 
+      {/* Team India Head-to-Head Points Table Banner */}
+      <TouchableOpacity
+        style={[
+          styles.h2hCard,
+          {
+            backgroundColor: isDarkMode ? '#111e38' : '#EFF6FF',
+            borderColor: isDarkMode ? '#1E3A8A' : '#BFDBFE',
+          },
+        ]}
+        onPress={() => router.push('/team-h2h' as any)}
+        activeOpacity={0.82}
+      >
+        <View style={styles.h2hLeft}>
+          <View style={[styles.h2hIconBox, { backgroundColor: isDarkMode ? '#1E293B' : '#DBEAFE' }]}>
+            <Text style={{ fontSize: 22 }}>🇮🇳</Text>
+          </View>
+          <View style={styles.h2hInfo}>
+            <View style={styles.h2hTitleRow}>
+              <Text style={[styles.h2hTitle, { color: colors.text }]}>India Head-to-Head Table</Text>
+              <View style={[styles.h2hBadge, { backgroundColor: colors.primary }]}>
+                <Text style={styles.h2hBadgeText}>POINTS TABLE</Text>
+              </View>
+            </View>
+            <Text style={[styles.h2hSub, { color: colors.textMuted }]}>
+              Played, Won, Lost & Win % vs all nations
+            </Text>
+          </View>
+        </View>
+        <View style={[styles.h2hActionPill, { backgroundColor: colors.primary }]}>
+          <Text style={styles.h2hActionText}>View</Text>
+          <ChevronRightIcon color="#FFFFFF" />
+        </View>
+      </TouchableOpacity>
+
       {/* Search & Create Row */}
       <View style={styles.topRow}>
         <View style={[styles.searchContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
@@ -142,7 +182,18 @@ export default function TeamsDrawerScreen() {
                     containerStyle={styles.avatar}
                   />
                   <View style={styles.info}>
-                    <Text style={[styles.name, { color: colors.text }]}>{item.name}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                      <Text style={[styles.name, { color: colors.text }]}>{item.name}</Text>
+                      {(item.name?.toLowerCase().includes('india') || item.shortName?.toLowerCase() === 'ind') && (
+                        <TouchableOpacity
+                          onPress={() => router.push({ pathname: '/team-h2h' as any, params: { teamId: item._id } })}
+                          style={[styles.miniH2hBadge, { backgroundColor: colors.primary + '20', borderColor: colors.primary }]}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={[styles.miniH2hText, { color: colors.primary }]}>H2H 📊</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
                     <Text style={[styles.stats, { color: colors.textMuted }]}>
                       Matches: {item.stats?.matches || 0} | NRR: {item.stats?.nrr || '0.00'}
                     </Text>
@@ -216,6 +267,88 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 17,
+    fontWeight: '800',
+  },
+  h2hCard: {
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 4,
+    padding: 12,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+  },
+  h2hLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 8,
+  },
+  h2hIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  h2hInfo: {
+    flex: 1,
+  },
+  h2hTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flexWrap: 'wrap',
+  },
+  h2hTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  h2hBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  h2hBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  h2hSub: {
+    fontSize: 11,
+    marginTop: 3,
+    fontWeight: '500',
+  },
+  h2hActionPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 20,
+    gap: 2,
+  },
+  h2hActionText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  miniH2hBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  miniH2hText: {
+    fontSize: 10,
     fontWeight: '800',
   },
   topRow: {
