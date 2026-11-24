@@ -1,5 +1,12 @@
 import { Router } from 'express';
-import { getMatches, getMatchById, checkDuplicateMatch, uploadScorecard, exportScorecard } from '../controllers/matchController';
+import {
+  getMatches,
+  getMatchById,
+  checkDuplicateMatch,
+  uploadScorecard,
+  exportScorecard,
+  bulkExportMatches
+} from '../controllers/matchController';
 import { saveManualMatch } from '../controllers/manualMatchController';
 import { protect } from '../middlewares/authMiddleware';
 import { upload } from '../middlewares/uploadMiddleware';
@@ -9,8 +16,9 @@ import { validateFields } from '../middlewares/validationMiddleware';
 const router = Router();
 
 router.get('/', protect, getMatches);
+router.post('/bulk-export', protect, bulkExportMatches);
 router.post('/check-duplicate', protect, checkDuplicateMatch);
-router.post('/upload', protect, upload.array('scorecard', 5), uploadScorecard);
+router.post('/upload', upload.array('scorecard', 5), uploadScorecard);
 router.post('/save', protect, saveMatchValidator, validateFields, saveManualMatch);
 router.get('/:id/export', protect, exportScorecard);
 router.get('/:id', protect, getMatchById);

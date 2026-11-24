@@ -80,38 +80,74 @@ export default function MatchDetailsScreen() {
     }
   };
 
-  const handleExport = async (format: 'csv' | 'html') => {
+  const handleExport = async (format: 'csv' | 'html' | 'pdf') => {
     if (!matchData) return;
     setIsExporting(true);
     try {
-      const res = await api.get(`/matches/${matchId}/export?format=${format}`);
-      const fileExt = format === 'html' ? 'html' : 'csv';
+      const res = await api.get(`/matches/${matchId}/export?format=${format}&base64=true`);
+      const fileExt = format === 'html' ? 'html' : format === 'pdf' ? 'pdf' : 'csv';
       const tAName = matchData.teamA?.name || matchData.teamA?.displayName || 'TeamA';
       const tBName = matchData.teamB?.name || matchData.teamB?.displayName || 'TeamB';
       const filename = `scorecard_${tAName}_vs_${tBName}.${fileExt}`.replace(/\s+/g, '_');
 
-      if (Platform.OS === 'web') {
-        const blob = new Blob([res.data], { type: format === 'html' ? 'text/html' : 'text/csv' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        a.click();
-        URL.revokeObjectURL(url);
-        Alert.alert('Exported', `Scorecard downloaded as ${filename}`);
-      } else {
-        const fileUri = `${FileSystem.documentDirectory}${filename}`;
-        await FileSystem.writeAsStringAsync(fileUri, res.data, {
-          encoding: FileSystem.EncodingType.UTF8,
-        });
-
-        if (await Sharing.isAvailableAsync()) {
-          await Sharing.shareAsync(fileUri, {
-            mimeType: format === 'html' ? 'text/html' : 'text/csv',
-            dialogTitle: `Export ${format.toUpperCase()} Scorecard`,
-          });
+      if (format === 'pdf') {
+        const base64Data = res.data?.base64 || (typeof res.data === 'string' ? res.data : '');
+        if (Platform.OS === 'web') {
+          const byteCharacters = atob(base64Data);
+          const byteNumbers = new Array(byteCharacters.length);
+          for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
+          }
+          const byteArray = new Uint8Array(byteNumbers);
+          const blob = new Blob([byteArray], { type: 'application/pdf' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = filename;
+          a.click();
+          URL.revokeObjectURL(url);
+          Alert.alert('Exported', `Scorecard downloaded as ${filename}`);
         } else {
-          Alert.alert('Export Complete', `Scorecard saved to file.`);
+          const fileUri = `${FileSystem.documentDirectory}${filename}`;
+          await FileSystem.writeAsStringAsync(fileUri, base64Data, {
+            encoding: FileSystem.EncodingType.Base64,
+          });
+
+          if (await Sharing.isAvailableAsync()) {
+            await Sharing.shareAsync(fileUri, {
+              mimeType: 'application/pdf',
+              dialogTitle: `Export PDF Scorecard`,
+              UTI: 'com.adobe.pdf',
+            });
+          } else {
+            Alert.alert('Export Complete', `Scorecard PDF saved to file.`);
+          }
+        }
+      } else {
+        const textPayload = typeof res.data === 'string' ? res.data : (res.data?.data || '');
+        if (Platform.OS === 'web') {
+          const blob = new Blob([textPayload], { type: format === 'html' ? 'text/html' : 'text/csv' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = filename;
+          a.click();
+          URL.revokeObjectURL(url);
+          Alert.alert('Exported', `Scorecard downloaded as ${filename}`);
+        } else {
+          const fileUri = `${FileSystem.documentDirectory}${filename}`;
+          await FileSystem.writeAsStringAsync(fileUri, textPayload, {
+            encoding: FileSystem.EncodingType.UTF8,
+          });
+
+          if (await Sharing.isAvailableAsync()) {
+            await Sharing.shareAsync(fileUri, {
+              mimeType: format === 'html' ? 'text/html' : 'text/csv',
+              dialogTitle: `Export ${format.toUpperCase()} Scorecard`,
+            });
+          } else {
+            Alert.alert('Export Complete', `Scorecard saved to file.`);
+          }
         }
       }
     } catch (err: any) {
@@ -377,16 +413,25 @@ export default function MatchDetailsScreen() {
             <Card style={[styles.exportCard, { borderColor: colors.border }]}>
               <Text style={[styles.exportTitle, { color: colors.text }]}>Export & Share Scorecard</Text>
               <Text style={{ color: colors.textMuted, fontSize: 13, marginBottom: 14, lineHeight: 18 }}>
-                Download this official match scorecard as a spreadsheet (CSV) or printable web document (HTML).
+                Download this official match scorecard as a PDF document, spreadsheet (CSV), or web report (HTML).
               </Text>
               <View style={styles.exportButtonsRow}>
+                <TouchableOpacity
+                  style={[styles.exportBtn, { backgroundColor: colors.primary, borderColor: colors.primary }]}
+                  onPress={() => handleExport('pdf')}
+                  disabled={isExporting}
+                >
+                  <Text style={{ color: '#FFFFFF', fontWeight: '800' }}>
+                    {isExporting ? 'Exporting...' : '📄 Export PDF'}
+                  </Text>
+                </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.exportBtn, { backgroundColor: colors.surfaceLighter, borderColor: colors.border }]}
                   onPress={() => handleExport('csv')}
                   disabled={isExporting}
                 >
                   <Text style={{ color: colors.primary, fontWeight: '700' }}>
-                    {isExporting ? 'Exporting...' : '📊 Export CSV'}
+                    {isExporting ? 'Exporting...' : '📊 CSV'}
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
@@ -395,7 +440,7 @@ export default function MatchDetailsScreen() {
                   disabled={isExporting}
                 >
                   <Text style={{ color: colors.secondary || '#38bdf8', fontWeight: '700' }}>
-                    {isExporting ? 'Exporting...' : '🌐 Export HTML'}
+                    {isExporting ? 'Exporting...' : '🌐 HTML'}
                   </Text>
                 </TouchableOpacity>
               </View>

@@ -478,6 +478,28 @@ export const exportScorecard = async (req: Request, res: Response): Promise<void
 
     const { ExportHelper } = await import('../utils/ExportHelper');
 
+    if (format === 'pdf') {
+      const { PdfExportHelper } = await import('../utils/PdfExportHelper');
+      const pdfBuffer = await PdfExportHelper.generateBulkMatchesPdf([{ match, playerStats }]);
+      const filename = `scorecard_${id}.pdf`;
+
+      if (req.query.base64 === 'true' || req.body.base64 === true) {
+        res.json({
+          success: true,
+          format: 'pdf',
+          filename,
+          base64: pdfBuffer.toString('base64'),
+        });
+        return;
+      }
+
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.setHeader('Content-Length', pdfBuffer.length);
+      res.send(pdfBuffer);
+      return;
+    }
+
     if (format === 'html') {
       const html = ExportHelper.exportMatchToHtml(match, playerStats);
       res.setHeader('Content-Type', 'text/html');
@@ -494,4 +516,81 @@ export const exportScorecard = async (req: Request, res: Response): Promise<void
   }
 };
 
-export default { getMatches, getMatchById, checkDuplicateMatch, uploadScorecard, exportScorecard };
+export const bulkExportMatches = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { matchIds, format = 'pdf' } = req.body;
+
+    if (!Array.isArray(matchIds) || matchIds.length === 0) {
+      res.status(400).json({ success: false, message: 'Please provide an array of matchIds to export' });
+      return;
+    }
+
+    const matchesData: Array<{ match: any; playerStats: any[] }> = [];
+
+    for (const mId of matchIds) {
+      try {
+        const match = await matchRepository.findById(mId, ['teamA', 'teamB', 'venueId', 'mvp']);
+        if (!match) continue;
+
+        const playerStats = await playerMatchStatsRepository.find(
+          { matchId: match._id },
+          { populate: 'playerId' }
+        );
+
+        matchesData.push({ match, playerStats });
+      } catch (err: any) {
+        console.warn(`[bulkExport] Skipped match ${mId}:`, err.message);
+      }
+    }
+
+    if (matchesData.length === 0) {
+      res.status(404).json({ success: false, message: 'No valid matches found for the provided IDs' });
+      return;
+    }
+
+    const timestamp = new Date().toISOString().slice(0, 10);
+
+    if (format === 'pdf') {
+      const { PdfExportHelper } = await import('../utils/PdfExportHelper');
+      const pdfBuffer = await PdfExportHelper.generateBulkMatchesPdf(matchesData);
+      const filename = `cricpro_matches_report_${timestamp}.pdf`;
+
+      if (req.query.base64 === 'true' || req.body.base64 === true) {
+        res.json({
+          success: true,
+          format: 'pdf',
+          filename,
+          base64: pdfBuffer.toString('base64'),
+          matchCount: matchesData.length,
+        });
+        return;
+      }
+
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.setHeader('Content-Length', pdfBuffer.length);
+      res.send(pdfBuffer);
+      return;
+    }
+
+    const { ExportHelper } = await import('../utils/ExportHelper');
+
+    if (format === 'html') {
+      const html = ExportHelper.exportBulkMatchesToHtml(matchesData);
+      res.setHeader('Content-Type', 'text/html');
+      res.setHeader('Content-Disposition', `attachment; filename="cricpro_matches_report_${timestamp}.html"`);
+      res.send(html);
+      return;
+    }
+
+    const csv = ExportHelper.exportBulkMatchesToCsv(matchesData);
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="cricpro_matches_report_${timestamp}.csv"`);
+    res.send(csv);
+  } catch (error: any) {
+    console.error('Bulk export error:', error);
+    res.status(500).json({ success: false, message: error.message || 'Failed to export matches' });
+  }
+};
+
+export default { getMatches, getMatchById, checkDuplicateMatch, uploadScorecard, exportScorecard, bulkExportMatches };

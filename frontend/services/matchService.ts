@@ -81,7 +81,24 @@ export const getMatchById = async (id: string): Promise<any> => {
   return res.data;
 };
 
-export const exportScorecard = async (id: string, format: 'csv' | 'html' = 'csv'): Promise<string> => {
-  const res = await api.get(`/matches/${id}/export?format=${format}`);
+export const exportScorecard = async (
+  id: string,
+  format: 'csv' | 'html' | 'pdf' = 'csv',
+  base64 = true
+): Promise<any> => {
+  const res = await api.get(`/matches/${id}/export?format=${format}&base64=${base64}`);
+  return res.data;
+};
+
+export const bulkExportMatches = async (
+  matchIds: string[],
+  format: 'pdf' | 'html' | 'csv' = 'pdf',
+  base64 = true
+): Promise<any> => {
+  const res = await api.post('/matches/bulk-export', {
+    matchIds,
+    format,
+    base64,
+  });
   return res.data;
 };
